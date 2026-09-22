@@ -276,9 +276,53 @@
   let themeMode = 'dark';  // 저장되는 값: 'dark' | 'light' | 'auto'
   try { themeMode = localStorage.getItem('dash_did_theme') || 'dark'; } catch (e) {}
 
-  // 낮/밤 판정 — 오전 7시~오후 7시(19시) 전이면 낮으로 간주 (필요시 이 두 숫자만 바꾸면 기준 조정 가능)
+  // 낮/밤 판정 — 강릉 좌표 기준 그날의 실제 일출·일몰 시각으로 판정 (API 실패 시 07시~19시로 대체)
+  const CAMPUS_LAT = 37.7519, CAMPUS_LNG = 128.8761;
+  let sunTimes = null;      // { sunrise: Date, sunset: Date }
+  let sunTimesDate = '';    // 이 값을 구한 날짜(로컬 yyyy-MM-dd) — 날짜가 바뀌면 다시 받아옴
+
+  function todayKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function refreshSunTimes() {
+    const key = todayKey();
+    if (sunTimesDate === key && sunTimes) return Promise.resolve(sunTimes);
+
+    // 캐시(로컬 저장소)에 오늘 값이 있으면 재사용 — 매번 API를 부르지 않음
+    try {
+      const cached = JSON.parse(localStorage.getItem('dash_did_suntimes') || 'null');
+      if (cached && cached.dateKey === key) {
+        sunTimes = { sunrise: new Date(cached.sunrise), sunset: new Date(cached.sunset) };
+        sunTimesDate = key;
+        return Promise.resolve(sunTimes);
+      }
+    } catch (e) {}
+
+    return fetch('https://api.sunrise-sunset.org/json?lat=' + CAMPUS_LAT + '&lng=' + CAMPUS_LNG + '&formatted=0')
+      .then(res => res.json())
+      .then(data => {
+        if (!data || data.status !== 'OK') throw new Error('sun api fail');
+        sunTimes = { sunrise: new Date(data.results.sunrise), sunset: new Date(data.results.sunset) };
+        sunTimesDate = key;
+        try {
+          localStorage.setItem('dash_did_suntimes', JSON.stringify({
+            dateKey: key, sunrise: sunTimes.sunrise.toISOString(), sunset: sunTimes.sunset.toISOString()
+          }));
+        } catch (e) {}
+        return sunTimes;
+      })
+      .catch(() => { sunTimes = null; return null; });
+  }
+
   function computeAutoTheme() {
-    const h = new Date().getHours();
+    const now = new Date();
+    if (sunTimes) {
+      return (now >= sunTimes.sunrise && now < sunTimes.sunset) ? 'light' : 'dark';
+    }
+    // API를 아직 못 받아왔을 때의 대체 기준
+    const h = now.getHours();
     return (h >= 7 && h < 19) ? 'light' : 'dark';
   }
 
@@ -314,8 +358,14 @@
   }
 
   refreshTheme();
+  refreshSunTimes().then(refreshTheme);  // 일출·일몰 시각 도착하면 즉시 한 번 더 정확히 반영
+
   // 자동 모드일 때, 전광판처럼 오래 켜둬도 시간대가 바뀌면 알아서 넘어가도록 10분마다 재확인
-  setInterval(function() { if (themeMode === 'auto') refreshTheme(); }, 10 * 60 * 1000);
+  setInterval(function() {
+    if (themeMode === 'auto') {
+      refreshSunTimes().then(refreshTheme);  // 날짜가 바뀌었으면 새 일출·일몰 값도 같이 갱신
+    }
+  }, 10 * 60 * 1000);
 
   function escapeHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
