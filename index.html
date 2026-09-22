@@ -95,14 +95,17 @@
       String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
   }
 
+  function fetchDashboardData() {
+    return fetch(GAS_URL + '?page=api&action=dashboard&t=' + encodeURIComponent(TOKEN)).then(res => res.json());
+  }
+
   function load() {
     if (!TOKEN || GAS_URL.indexOf('GAS_배포_주소') !== -1) {
       document.getElementById('didStage').innerHTML = '<div class="did-msg">설정이 완료되지 않았습니다.<br>주소(?t=)와 GAS_URL을 확인해주세요.</div>';
       return;
     }
-    fetch(GAS_URL + '?page=api&action=dashboard&t=' + encodeURIComponent(TOKEN))
-      .then(res => res.json())
-      .then(render)
+    fetchDashboardData()
+      .then(applyData)
       .catch(err => {
         document.getElementById('didStage').innerHTML = '<div class="did-msg">조회 실패: ' + escapeHtml(err.message) + '</div>';
       });
@@ -112,8 +115,10 @@
   let didSlideIndex = 0;
   let didTotalSlides = 1;
   let didSlideTimer = null;
+  let prefetchedRes = null;   // 다음 바퀴용으로 미리 받아둔 데이터
+  let prefetching = false;
 
-  function render(res) {
+  function applyData(res) {
     if (!res || !res.success) {
       document.getElementById('didStage').innerHTML = '<div class="did-msg">' + escapeHtml((res && res.message) || '조회 실패') + '</div>';
       return;
@@ -131,7 +136,7 @@
       .sort((a, b) => parseBuildingCode(a.roomId).localeCompare(parseBuildingCode(b.roomId), undefined, {numeric:true}) || a.roomName.localeCompare(b.roomName));
 
     didTotalSlides = Math.max(1, Math.ceil(didSlideRooms.length / 2));
-    if (didSlideIndex >= didTotalSlides) didSlideIndex = 0;
+    didSlideIndex = 0;
 
     if (!didSlideTimer) {
       didSlideTimer = setInterval(advanceSlide, 6000);
@@ -139,12 +144,35 @@
     renderSlide();
   }
 
-  // 다음 슬라이드로 — 한 바퀴를 다 돌아 처음으로 돌아가는 순간에만 데이터를 새로 불러옴
+  function render(res) {
+    applyData(res);
+  }
+
+  // 다음 슬라이드로 넘어감
   function advanceSlide() {
-    didSlideIndex++;
-    if (didSlideIndex >= didTotalSlides) {
-      load();  // load()의 결과가 render()를 다시 호출해 didSlideIndex를 0으로 정리하고 이어서 그림
+    const nextIndex = didSlideIndex + 1;
+
+    // 마지막 한 장을 보여주는 동안, 미리 다음 데이터를 조용히 받아두기 시작 (화면엔 아직 반영 안 함)
+    if (nextIndex === didTotalSlides - 1 && !prefetching && !prefetchedRes) {
+      prefetching = true;
+      fetchDashboardData().then(function(res) {
+        prefetchedRes = res;
+        prefetching = false;
+      }).catch(function() { prefetching = false; });
+    }
+
+    if (nextIndex >= didTotalSlides) {
+      // 바퀴가 도는 순간 — 이미 받아둔 데이터가 있으면 기다림 없이 즉시 반영
+      if (prefetchedRes) {
+        const res = prefetchedRes;
+        prefetchedRes = null;
+        applyData(res);
+      } else {
+        // 드물게 아직 도착 전이면, 그때서야 받아오기 (이 경우에만 짧은 지연 발생 가능)
+        fetchDashboardData().then(applyData);
+      }
     } else {
+      didSlideIndex = nextIndex;
       renderSlide();
     }
   }
