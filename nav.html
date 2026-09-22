@@ -94,7 +94,7 @@
         const dist = Math.round(haversineMeters(me[0], me[1], lat, lng));
         document.getElementById('navInfo').innerHTML = '직선거리 약 <span class="dist">' + dist + 'm</span> · 실제 도로 경로와는 다를 수 있어요';
       }, function() {
-        document.getElementById('navInfo').textContent = '위치 접근이 거부되어 건물 위치만 표시합니다.';
+        document.getElementById('navInfo').textContent = '위치 접근이 거부되어 건물 위치만 표시합니다. 아이폰이면 설정 → 개인정보 보호 및 보안 → 위치 서비스 → Safari를 "앱을 사용하는 동안"으로 확인해보세요.';
       }, { enableHighAccuracy: true, timeout: 8000 });
     } else {
       document.getElementById('navInfo').textContent = '이 브라우저는 위치 확인을 지원하지 않습니다.';
