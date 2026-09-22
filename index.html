@@ -15,9 +15,16 @@
     --did-text-dim: rgba(255,255,255,0.75);
     --did-text-faint: rgba(255,255,255,0.6);
     --did-card-bg: linear-gradient(155deg, #0d9488 0%, #059669 55%, #047857 100%);
+    --did-card-border: none;
     --did-card-shadow: 0 20px 50px rgba(5,150,105,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
     --did-card-gloss: rgba(255,255,255,0.18);
+    --did-card-text: #ffffff;
+    --did-card-text-soft: #d1fae5;
+    --did-card-unit-text: #fef9c3;
     --did-room-shadow: 0 2px 12px rgba(0,0,0,0.25);
+    --did-tag-bg: rgba(255,255,255,0.22);
+    --did-tag-text: #ffffff;
+    --did-tag-border: rgba(255,255,255,0.35);
     --did-ghost-bg: linear-gradient(155deg, rgba(16,185,129,0.28), rgba(5,150,105,0.14));
     --did-ghost-border: rgba(110,231,183,0.4);
     --did-ghost-dim-bg: linear-gradient(155deg, rgba(16,185,129,0.14), rgba(5,150,105,0.06));
@@ -31,14 +38,21 @@
     --did-text: #0f172a;
     --did-text-dim: rgba(15,23,42,0.7);
     --did-text-faint: rgba(15,23,42,0.55);
-    --did-card-bg: linear-gradient(155deg, #34d399 0%, #10b981 55%, #059669 100%);
-    --did-card-shadow: 0 16px 40px rgba(16,185,129,0.25), inset 0 1px 0 rgba(255,255,255,0.4);
-    --did-card-gloss: rgba(255,255,255,0.3);
-    --did-room-shadow: 0 1px 6px rgba(0,0,0,0.12);
-    --did-ghost-bg: linear-gradient(155deg, rgba(16,185,129,0.2), rgba(5,150,105,0.08));
-    --did-ghost-border: rgba(5,150,105,0.32);
-    --did-ghost-dim-bg: linear-gradient(155deg, rgba(16,185,129,0.1), rgba(5,150,105,0.04));
-    --did-ghost-dim-border: rgba(5,150,105,0.18);
+    --did-card-bg: linear-gradient(160deg, #ffffff 0%, #f0fdf4 100%);
+    --did-card-border: 2px solid #a7f3d0;
+    --did-card-shadow: 0 16px 40px rgba(16,185,129,0.18), inset 0 1px 0 rgba(255,255,255,0.6);
+    --did-card-gloss: rgba(16,185,129,0.06);
+    --did-card-text: #064e3b;
+    --did-card-text-soft: #047857;
+    --did-card-unit-text: #b45309;
+    --did-room-shadow: none;
+    --did-tag-bg: rgba(5,150,105,0.1);
+    --did-tag-text: #047857;
+    --did-tag-border: rgba(5,150,105,0.3);
+    --did-ghost-bg: linear-gradient(155deg, rgba(16,185,129,0.16), rgba(5,150,105,0.06));
+    --did-ghost-border: rgba(5,150,105,0.28);
+    --did-ghost-dim-bg: linear-gradient(155deg, rgba(16,185,129,0.08), rgba(5,150,105,0.03));
+    --did-ghost-dim-border: rgba(5,150,105,0.16);
     --did-dot-inactive: rgba(15,23,42,0.18);
     --did-dot-active: #059669;
     --did-outline-text-shadow: none;
@@ -49,9 +63,16 @@
     --did-text-dim: rgba(255,255,255,0.9);
     --did-text-faint: rgba(255,255,255,0.8);
     --did-card-bg: rgba(4,20,16,0.6);
+    --did-card-border: none;
     --did-card-shadow: 0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
     --did-card-gloss: rgba(255,255,255,0.12);
+    --did-card-text: #ffffff;
+    --did-card-text-soft: #d1fae5;
+    --did-card-unit-text: #fef9c3;
     --did-room-shadow: 0 2px 10px rgba(0,0,0,0.6);
+    --did-tag-bg: rgba(255,255,255,0.18);
+    --did-tag-text: #ffffff;
+    --did-tag-border: rgba(255,255,255,0.32);
     --did-ghost-bg: rgba(4,20,16,0.32);
     --did-ghost-border: rgba(110,231,183,0.4);
     --did-ghost-dim-bg: rgba(4,20,16,0.16);
@@ -120,14 +141,14 @@
     position: relative;
     flex-shrink: 0;
     background: var(--did-card-bg);
-    border: none;
+    border: var(--did-card-border);
     border-radius: 28px;
     padding: 5vh 3vw;
     text-align: center;
     box-sizing: border-box;
     box-shadow: var(--did-card-shadow);
     overflow: hidden;
-    color: #fff;
+    color: var(--did-card-text);
   }
   .did-card::before {
     content: '';
@@ -137,29 +158,29 @@
     background: radial-gradient(ellipse, var(--did-card-gloss), transparent 70%);
     pointer-events: none;
   }
-  .did-building { font-size: 2vw; font-weight: 700; opacity: 0.9; position: relative; }
-  .did-room { font-size: 4.5vw; font-weight: 900; margin: 1vh 0 2vh; color: #fff; text-shadow: var(--did-room-shadow); position: relative; }
+  .did-building { font-size: 2vw; font-weight: 700; opacity: 0.85; position: relative; }
+  .did-room { font-size: 4.5vw; font-weight: 900; margin: 1vh 0 2vh; color: var(--did-card-text); text-shadow: var(--did-room-shadow); position: relative; }
   .did-pc { margin-bottom: 1.5vh; position: relative; }
   .did-pc-num {
     font-size: 7vw;
     font-weight: 900;
-    background: linear-gradient(135deg, #fef08a, #fbbf24);
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    filter: drop-shadow(0 2px 8px rgba(251,191,36,0.4));
+    filter: drop-shadow(0 2px 8px rgba(245,158,11,0.35));
   }
-  .did-pc-unit { font-size: 1.8vw; font-weight: 700; margin-left: 0.5vw; color: #fef9c3; }
-  .did-until { font-size: 2vw; font-weight: 700; color: #d1fae5; position: relative; }
-  .did-spec { font-size: 1.2vw; color: #d1fae5; opacity: 0.85; margin-top: 1vh; position: relative; }
+  .did-pc-unit { font-size: 1.8vw; font-weight: 700; margin-left: 0.5vw; color: var(--did-card-unit-text); }
+  .did-until { font-size: 2vw; font-weight: 700; color: var(--did-card-text-soft); position: relative; }
+  .did-spec { font-size: 1.2vw; color: var(--did-card-text-soft); opacity: 0.85; margin-top: 1vh; position: relative; }
   .did-sw { margin-top: 1.5vh; display: flex; justify-content: center; gap: 0.8vw; flex-wrap: wrap; position: relative; }
   .did-sw .sw-tag {
     font-size: 1.4vw;
     font-weight: 700;
     padding: 0.6vh 1.2vw;
-    background: rgba(255,255,255,0.22);
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.35);
+    background: var(--did-tag-bg);
+    color: var(--did-tag-text);
+    border: 1px solid var(--did-tag-border);
     border-radius: 20px;
   }
 
