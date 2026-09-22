@@ -26,7 +26,26 @@
   .did-common-sw b { opacity: 1; font-weight: 700; }
 
   .did-stage { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .did-flex { display: flex; justify-content: center; align-items: stretch; gap: 3vw; width: 100%; opacity: 0; transform: scale(0.96); }
+  .did-deck { position: relative; width: 100%; display: flex; justify-content: center; }
+  .did-ghost {
+    position: absolute;
+    top: 0; left: 50%;
+    height: 100%;
+    border-radius: 28px;
+    background: rgba(74,222,128,0.06);
+    border: 2px solid rgba(74,222,128,0.18);
+    z-index: 0;
+  }
+  .did-flex {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 3vw;
+    opacity: 0;
+    transform: scale(0.96);
+  }
   .did-stage.enter .did-flex { animation: didIn 0.6s ease forwards; }
   @keyframes didIn { to { opacity: 1; transform: scale(1); } }
 
@@ -212,10 +231,26 @@
 
     stage.classList.remove('enter');
     void stage.offsetWidth;
-    stage.innerHTML = '<div class="did-flex">' + html + '</div>';
+    stage.innerHTML = '<div class="did-deck">' + renderGhostStack(slice.length) + '<div class="did-flex">' + html + '</div></div>';
     stage.classList.add('enter');
 
     renderProgress(start, slice.length);
+  }
+
+  // 뒤에 대기 중인 슬라이드가 몇 개인지에 따라, 카드 뒤로 살짝씩 보이는 "더미" 레이어를 만듦 (최대 2겹)
+  function renderGhostStack(cardCount) {
+    const remaining = Math.max(0, didTotalSlides - 1 - didSlideIndex);
+    const layers = Math.min(2, remaining);
+    // 카드가 1장일 땐 좁게, 2장일 땐 넓게 — 실제 카드 너비(42vw)에 맞춰 더미 폭도 맞춤
+    const baseWidth = cardCount === 1 ? 42 : (42 * 2 + 3);
+    let html = '';
+    for (let i = layers; i >= 1; i--) {
+      const offset = i * 1.4;
+      const opacity = 1 - i * 0.25;
+      html += '<div class="did-ghost" style="width:' + baseWidth + 'vw;margin-left:-' + (baseWidth / 2) + 'vw;' +
+        'top:' + offset + 'vh;transform:translateX(' + offset + 'vw);opacity:' + opacity + ';"></div>';
+    }
+    return html;
   }
 
   function renderProgress(start, shownCount) {
