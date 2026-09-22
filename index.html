@@ -110,6 +110,7 @@
 
   let didSlideRooms = [];
   let didSlideIndex = 0;
+  let didTotalSlides = 1;
   let didSlideTimer = null;
 
   function render(res) {
@@ -129,16 +130,23 @@
     didSlideRooms = res.rooms.filter(r => r.status === 'available')
       .sort((a, b) => parseBuildingCode(a.roomId).localeCompare(parseBuildingCode(b.roomId), undefined, {numeric:true}) || a.roomName.localeCompare(b.roomName));
 
-    const totalSlides = Math.max(1, Math.ceil(didSlideRooms.length / 2));
-    if (didSlideIndex >= totalSlides) didSlideIndex = 0;
+    didTotalSlides = Math.max(1, Math.ceil(didSlideRooms.length / 2));
+    if (didSlideIndex >= didTotalSlides) didSlideIndex = 0;
 
     if (!didSlideTimer) {
-      didSlideTimer = setInterval(function() {
-        didSlideIndex++;
-        renderSlide();
-      }, 6000);
+      didSlideTimer = setInterval(advanceSlide, 6000);
     }
     renderSlide();
+  }
+
+  // 다음 슬라이드로 — 한 바퀴를 다 돌아 처음으로 돌아가는 순간에만 데이터를 새로 불러옴
+  function advanceSlide() {
+    didSlideIndex++;
+    if (didSlideIndex >= didTotalSlides) {
+      load();  // load()의 결과가 render()를 다시 호출해 didSlideIndex를 0으로 정리하고 이어서 그림
+    } else {
+      renderSlide();
+    }
   }
 
   function renderSlide() {
@@ -148,8 +156,7 @@
       return;
     }
 
-    const totalSlides = Math.ceil(didSlideRooms.length / 2);
-    if (didSlideIndex >= totalSlides) didSlideIndex = 0;
+    if (didSlideIndex >= didTotalSlides) didSlideIndex = 0;
     const start = didSlideIndex * 2;
     const slice = didSlideRooms.slice(start, start + 2);
 
@@ -177,7 +184,7 @@
   load();
   updateClock();
   setInterval(updateClock, 1000);
-  setInterval(load, 30 * 1000);
+  // 30초 고정 새로고침 대신, 슬라이드가 한 바퀴 다 돈 시점(advanceSlide 안)에만 새로고침함
 </script>
 </body>
 </html>
