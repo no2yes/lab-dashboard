@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>컴퓨터실습실 게시용 현황판</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Malgun Gothic','맑은 고딕',-apple-system,sans-serif;
+    background: linear-gradient(160deg, #0a1e3d 0%, #003D7C 100%);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 3vh 4vw;
+    overflow: hidden;
+  }
+  .did-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3vh; }
+  .did-title { font-size: 3.2vw; font-weight: 900; }
+  .did-clockbox { text-align: right; }
+  #didClock { font-size: 4vw; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .did-datebox { display: block; font-size: 1.6vw; opacity: 0.7; }
+  .did-common-sw { text-align: center; font-size: 1.3vw; opacity: 0.75; margin-bottom: 2vh; }
+  .did-common-sw b { opacity: 1; font-weight: 700; }
+
+  .did-stage { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .did-flex { display: flex; justify-content: center; align-items: stretch; gap: 3vw; width: 100%; opacity: 0; transform: scale(0.96); }
+  .did-stage.enter .did-flex { animation: didIn 0.6s ease forwards; }
+  @keyframes didIn { to { opacity: 1; transform: scale(1); } }
+
+  .did-card {
+    width: 42vw;
+    flex-shrink: 0;
+    background: rgba(34,197,94,0.14);
+    border: 2px solid rgba(74,222,128,0.5);
+    border-radius: 28px;
+    padding: 5vh 3vw;
+    text-align: center;
+    box-sizing: border-box;
+  }
+  .did-building { font-size: 2vw; font-weight: 700; opacity: 0.8; }
+  .did-room { font-size: 4.5vw; font-weight: 900; margin: 1vh 0 2vh; color: #fff; }
+  .did-pc { margin-bottom: 1.5vh; }
+  .did-pc-num { font-size: 7vw; font-weight: 900; color: #6ee7b7; }
+  .did-pc-unit { font-size: 1.8vw; font-weight: 700; margin-left: 0.5vw; opacity: 0.85; }
+  .did-until { font-size: 2vw; font-weight: 700; opacity: 0.9; }
+  .did-spec { font-size: 1.2vw; opacity: 0.65; margin-top: 1vh; }
+  .did-sw { margin-top: 1.5vh; display: flex; justify-content: center; gap: 0.8vw; flex-wrap: wrap; }
+  .did-sw .sw-tag {
+    font-size: 1.4vw;
+    font-weight: 700;
+    padding: 0.6vh 1.2vw;
+    background: rgba(255,255,255,0.22);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 20px;
+  }
+  .did-msg { font-size: 3vw; font-weight: 800; opacity: 0.7; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="did-top">
+    <div class="did-title">🖥️ 컴퓨터실습실 지금 사용 가능</div>
+    <div class="did-clockbox"><span id="didClock">--:--</span><span id="didDate" class="did-datebox"></span></div>
+  </div>
+  <div id="didCommonSw" class="did-common-sw"></div>
+  <div id="didStage" class="did-stage"></div>
+
+<script>
+  // ▼▼▼ 여기에 Apps Script 배포 주소를 넣어주세요 (예: https://script.google.com/macros/s/xxxxx/exec) ▼▼▼
+  const GAS_URL = 'GAS_배포_주소를_여기에_붙여넣으세요';
+  // ▲▲▲
+
+  const TOKEN = new URLSearchParams(location.search).get('t') || '';
+
+  function escapeHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function parseBuilding(name) {
+    const m = name.match(/^(.+?\))\s*(.+)$/);
+    return m ? m[1] : '기타';
+  }
+  function parseRoomOnly(name) {
+    const m = name.match(/^(.+?\))\s*(.+)$/);
+    return m ? m[2] : name;
+  }
+  function parseBuildingCode(roomId) {
+    return String(roomId || '').split('-')[0] || '';
+  }
+
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('didClock').textContent =
+      String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  }
+
+  function load() {
+    if (!TOKEN || GAS_URL.indexOf('GAS_배포_주소') !== -1) {
+      document.getElementById('didStage').innerHTML = '<div class="did-msg">설정이 완료되지 않았습니다.<br>주소(?t=)와 GAS_URL을 확인해주세요.</div>';
+      return;
+    }
+    fetch(GAS_URL + '?page=api&action=dashboard&t=' + encodeURIComponent(TOKEN))
+      .then(res => res.json())
+      .then(render)
+      .catch(err => {
+        document.getElementById('didStage').innerHTML = '<div class="did-msg">조회 실패: ' + escapeHtml(err.message) + '</div>';
+      });
+  }
+
+  let didSlideRooms = [];
+  let didSlideIndex = 0;
+  let didSlideTimer = null;
+
+  function render(res) {
+    if (!res || !res.success) {
+      document.getElementById('didStage').innerHTML = '<div class="did-msg">' + escapeHtml((res && res.message) || '조회 실패') + '</div>';
+      return;
+    }
+    document.getElementById('didDate').textContent = res.today || '';
+
+    const commonEl = document.getElementById('didCommonSw');
+    if (res.commonSwTags && res.commonSwTags.length > 0) {
+      commonEl.innerHTML = '공통 설치: <b>' + res.commonSwTags.map(escapeHtml).join(' · ') + '</b>';
+    } else {
+      commonEl.innerHTML = '';
+    }
+
+    didSlideRooms = res.rooms.filter(r => r.status === 'available')
+      .sort((a, b) => parseBuildingCode(a.roomId).localeCompare(parseBuildingCode(b.roomId), undefined, {numeric:true}) || a.roomName.localeCompare(b.roomName));
+
+    const totalSlides = Math.max(1, Math.ceil(didSlideRooms.length / 2));
+    if (didSlideIndex >= totalSlides) didSlideIndex = 0;
+
+    if (!didSlideTimer) {
+      didSlideTimer = setInterval(function() {
+        didSlideIndex++;
+        renderSlide();
+      }, 6000);
+    }
+    renderSlide();
+  }
+
+  function renderSlide() {
+    const stage = document.getElementById('didStage');
+    if (didSlideRooms.length === 0) {
+      stage.innerHTML = '<div class="did-msg">지금 사용 가능한 실습실이 없습니다</div>';
+      return;
+    }
+
+    const totalSlides = Math.ceil(didSlideRooms.length / 2);
+    if (didSlideIndex >= totalSlides) didSlideIndex = 0;
+    const start = didSlideIndex * 2;
+    const slice = didSlideRooms.slice(start, start + 2);
+
+    const html = slice.map(function(r) {
+      let sw = '';
+      if (r.swTags && r.swTags.length > 0) {
+        sw = '<div class="did-sw">' + r.swTags.slice(0, 3).map(function(s) { return '<span class="sw-tag">' + escapeHtml(s) + '</span>'; }).join('') + '</div>';
+      }
+      const specLine = r.pcSpec ? '<div class="did-spec">' + escapeHtml(r.pcSpec) + '</div>' : '';
+      return '<div class="did-card">' +
+        '<div class="did-building">' + escapeHtml(parseBuilding(r.roomName)) + '</div>' +
+        '<div class="did-room">' + escapeHtml(parseRoomOnly(r.roomName)) + '</div>' +
+        '<div class="did-pc"><span class="did-pc-num">' + r.pcCount + '</span><span class="did-pc-unit">대 가용</span></div>' +
+        '<div class="did-until">' + escapeHtml(r.availableUntil) + '</div>' +
+        specLine + sw +
+      '</div>';
+    }).join('');
+
+    stage.classList.remove('enter');
+    void stage.offsetWidth;
+    stage.innerHTML = '<div class="did-flex">' + html + '</div>';
+    stage.classList.add('enter');
+  }
+
+  load();
+  updateClock();
+  setInterval(updateClock, 1000);
+  setInterval(load, 30 * 1000);
+</script>
+</body>
+</html>
