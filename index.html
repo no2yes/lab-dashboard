@@ -26,56 +26,76 @@
   .did-common-sw b { opacity: 1; font-weight: 700; }
 
   .did-stage { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  /* 항상 고정된 2칸(왼쪽/오른쪽) 위치를 쓰기 때문에, 카드가 1장이든 2장이든 자리가 흔들리지 않음 */
   .did-deck { position: relative; width: 100%; display: flex; justify-content: center; }
   .did-ghost-layer {
     position: absolute;
-    top: 0; left: 0; right: 0;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
     height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 42vw 42vw;
     gap: 3vw;
     z-index: 0;
   }
   .did-ghost-card {
-    width: 42vw;
-    flex-shrink: 0;
     border-radius: 28px;
-    background: rgba(74,222,128,0.05);
-    border: 2px solid rgba(74,222,128,0.16);
+    background: linear-gradient(155deg, rgba(16,185,129,0.28), rgba(5,150,105,0.14));
+    border: 2px solid rgba(110,231,183,0.4);
+  }
+  .did-ghost-card.dim {
+    background: linear-gradient(155deg, rgba(16,185,129,0.14), rgba(5,150,105,0.06));
+    border: 2px solid rgba(110,231,183,0.22);
   }
   .did-flex {
     position: relative;
     z-index: 1;
-    display: flex;
-    justify-content: center;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 42vw 42vw;
     gap: 3vw;
     opacity: 0;
     transform: scale(0.96);
   }
+  .did-flex.single { grid-template-columns: 42vw; }
   .did-stage.enter .did-flex { animation: didIn 0.6s ease forwards; }
   @keyframes didIn { to { opacity: 1; transform: scale(1); } }
 
   .did-card {
-    width: 42vw;
+    position: relative;
     flex-shrink: 0;
-    background: rgba(21,128,61,0.85);
-    border: 2px solid #4ade80;
+    background: linear-gradient(155deg, #0d9488 0%, #059669 55%, #047857 100%);
+    border: none;
     border-radius: 28px;
     padding: 5vh 3vw;
     text-align: center;
     box-sizing: border-box;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    box-shadow: 0 20px 50px rgba(5,150,105,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
+    overflow: hidden;
   }
-  .did-building { font-size: 2vw; font-weight: 700; opacity: 0.8; }
-  .did-room { font-size: 4.5vw; font-weight: 900; margin: 1vh 0 2vh; color: #fff; }
-  .did-pc { margin-bottom: 1.5vh; }
-  .did-pc-num { font-size: 7vw; font-weight: 900; color: #6ee7b7; }
-  .did-pc-unit { font-size: 1.8vw; font-weight: 700; margin-left: 0.5vw; opacity: 0.85; }
-  .did-until { font-size: 2vw; font-weight: 700; opacity: 0.9; }
-  .did-spec { font-size: 1.2vw; opacity: 0.65; margin-top: 1vh; }
-  .did-sw { margin-top: 1.5vh; display: flex; justify-content: center; gap: 0.8vw; flex-wrap: wrap; }
+  .did-card::before {
+    content: '';
+    position: absolute;
+    top: -40%; left: -20%;
+    width: 70%; height: 90%;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.18), transparent 70%);
+    pointer-events: none;
+  }
+  .did-building { font-size: 2vw; font-weight: 700; opacity: 0.85; position: relative; }
+  .did-room { font-size: 4.5vw; font-weight: 900; margin: 1vh 0 2vh; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,0.25); position: relative; }
+  .did-pc { margin-bottom: 1.5vh; position: relative; }
+  .did-pc-num {
+    font-size: 7vw;
+    font-weight: 900;
+    background: linear-gradient(135deg, #fef08a, #fbbf24);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 2px 8px rgba(251,191,36,0.4));
+  }
+  .did-pc-unit { font-size: 1.8vw; font-weight: 700; margin-left: 0.5vw; opacity: 0.9; color: #fef9c3; }
+  .did-until { font-size: 2vw; font-weight: 700; opacity: 0.95; position: relative; color: #d1fae5; }
+  .did-spec { font-size: 1.2vw; opacity: 0.75; margin-top: 1vh; position: relative; color: #d1fae5; }
+  .did-sw { margin-top: 1.5vh; display: flex; justify-content: center; gap: 0.8vw; flex-wrap: wrap; position: relative; }
   .did-sw .sw-tag {
     font-size: 1.4vw;
     font-weight: 700;
@@ -232,7 +252,7 @@
       return '<div class="did-card">' +
         '<div class="did-building">' + escapeHtml(parseBuilding(r.roomName)) + '</div>' +
         '<div class="did-room">' + escapeHtml(parseRoomOnly(r.roomName)) + '</div>' +
-        '<div class="did-pc"><span class="did-pc-num">' + r.pcCount + '</span><span class="did-pc-unit">대 가용</span></div>' +
+        '<div class="did-pc"><span class="did-pc-num">' + r.pcCount + '</span><span class="did-pc-unit">대 사용가능</span></div>' +
         '<div class="did-until">' + escapeHtml(r.availableUntil) + '</div>' +
         specLine + sw +
       '</div>';
@@ -240,7 +260,8 @@
 
     stage.classList.remove('enter');
     void stage.offsetWidth;
-    stage.innerHTML = '<div class="did-deck">' + renderGhostStack() + '<div class="did-flex">' + html + '</div></div>';
+    const singleClass = (slice.length === 1) ? ' single' : '';
+    stage.innerHTML = '<div class="did-deck">' + renderGhostStack() + '<div class="did-flex' + singleClass + '">' + html + '</div></div>';
     stage.classList.add('enter');
 
     renderProgress(start, slice.length);
@@ -252,7 +273,7 @@
     return Math.max(0, Math.min(2, didSlideRooms.length - start));
   }
 
-  // 뒤에 대기 중인 슬라이드들을, "그 순서에 실제로 나올 카드 개수만큼 개별 네모"로 겹쳐 보여줌 (최대 2겹)
+  // 뒤에 대기 중인 슬라이드들을, 항상 같은 2칸 고정 격자 안에서(자리 안 흔들리게) 진하기만 다르게 겹쳐 보여줌
   function renderGhostStack() {
     const remaining = Math.max(0, didTotalSlides - 1 - didSlideIndex);
     const layers = Math.min(2, remaining);
@@ -260,13 +281,12 @@
     // i가 클수록 더 뒤에 나올 순서라 먼저 그려서, 가까운 순서(i=1)가 그 위에(더 앞에) 겹치도록 함
     for (let i = layers; i >= 1; i--) {
       const futureCount = getSlideCardCount(didSlideIndex + i);
-      const offset = i * 1.4;
-      const opacity = 1 - i * 0.25;
-      let cards = '';
-      for (let c = 0; c < futureCount; c++) {
-        cards += '<div class="did-ghost-card"></div>';
-      }
-      html += '<div class="did-ghost-layer" style="top:' + offset + 'vh;transform:translateX(' + offset + 'vw);opacity:' + opacity + ';">' + cards + '</div>';
+      const offset = i * 1.6;
+      const dimClass = (i === 2) ? ' dim' : '';
+      // 항상 왼쪽 칸부터 채움 — 1장이든 2장이든 왼쪽 카드 위치가 절대 안 바뀜(열 정렬)
+      let cards = '<div class="did-ghost-card' + dimClass + '"></div>';
+      cards += (futureCount === 2) ? ('<div class="did-ghost-card' + dimClass + '"></div>') : '<div></div>';
+      html += '<div class="did-ghost-layer" style="top:' + offset + 'vh;transform:translate(-50%, 0) translateX(' + offset + 'vw);">' + cards + '</div>';
     }
     return html;
   }
