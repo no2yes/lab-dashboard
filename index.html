@@ -128,6 +128,28 @@
     transition: left 0.3s cubic-bezier(.4,0,.2,1), background 0.3s;
   }
   body.theme-light .theme-toggle .knob { left: calc(100% - (2.1vw - 6px) - 3px); }
+
+  .theme-controls { display: flex; align-items: center; gap: 0.8vw; }
+  .auto-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4vw;
+    border: 1px solid var(--did-toggle-border);
+    background: var(--did-toggle-bg);
+    color: var(--did-text-dim);
+    border-radius: 999px;
+    padding: 0.5vh 1vw;
+    font-size: 1.1vw;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.3s, border-color 0.3s, color 0.3s;
+  }
+  .auto-toggle.active {
+    background: rgba(74,222,128,0.18);
+    border-color: rgba(74,222,128,0.5);
+    color: #4ade80;
+  }
   .did-title { font-size: 3.2vw; font-weight: 900; }
   .did-clockbox { text-align: right; }
   #didClock { font-size: 4vw; font-weight: 900; font-variant-numeric: tabular-nums; }
@@ -231,9 +253,12 @@
 <body>
   <div class="did-top">
     <div class="did-title">🖥️ 컴퓨터실습실 지금 사용 가능</div>
-    <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="화면 테마 전환">
-      <span class="knob" id="themeKnob">🌙</span>
-    </button>
+    <div class="theme-controls">
+      <button class="auto-toggle" id="autoToggleBtn" onclick="toggleAuto()" title="낮에는 화이트, 밤에는 다크로 자동 전환">🕐 자동</button>
+      <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="화면 테마 전환">
+        <span class="knob" id="themeKnob">🌙</span>
+      </button>
+    </div>
     <div class="did-clockbox"><span id="didClock">--:--</span><span id="didDate" class="did-datebox"></span></div>
   </div>
   <div id="didCommonSw" class="did-common-sw"></div>
@@ -247,21 +272,50 @@
 
   const TOKEN = new URLSearchParams(location.search).get('t') || '';
 
-  // 테마 선택 — 화면의 버튼으로 전환하고, 이 화면(브라우저)에 선택을 기억해둠
-  function applyTheme(theme) {
-    document.body.classList.toggle('theme-light', theme === 'light');
+  // 테마 선택 — 수동(dark/light) 또는 자동(auto: 낮엔 화이트, 밤엔 다크)
+  let themeMode = 'dark';  // 저장되는 값: 'dark' | 'light' | 'auto'
+  try { themeMode = localStorage.getItem('dash_did_theme') || 'dark'; } catch (e) {}
+
+  // 낮/밤 판정 — 오전 7시~오후 7시(19시) 전이면 낮으로 간주 (필요시 이 두 숫자만 바꾸면 기준 조정 가능)
+  function computeAutoTheme() {
+    const h = new Date().getHours();
+    return (h >= 7 && h < 19) ? 'light' : 'dark';
+  }
+
+  function applyVisual(effectiveTheme) {
+    document.body.classList.toggle('theme-light', effectiveTheme === 'light');
     const knob = document.getElementById('themeKnob');
-    if (knob) knob.textContent = (theme === 'light') ? '☀️' : '🌙';
+    if (knob) knob.textContent = (effectiveTheme === 'light') ? '☀️' : '🌙';
   }
+
+  function refreshTheme() {
+    const autoBtn = document.getElementById('autoToggleBtn');
+    if (themeMode === 'auto') {
+      if (autoBtn) autoBtn.classList.add('active');
+      applyVisual(computeAutoTheme());
+    } else {
+      if (autoBtn) autoBtn.classList.remove('active');
+      applyVisual(themeMode);
+    }
+  }
+
   function toggleTheme() {
-    const isLight = document.body.classList.contains('theme-light');
-    const next = isLight ? 'dark' : 'light';
-    applyTheme(next);
-    try { localStorage.setItem('dash_did_theme', next); } catch (e) {}
+    // 수동으로 스위치를 직접 누르면, 자동 모드는 해제되고 그 상태로 고정됨
+    const currentlyLight = document.body.classList.contains('theme-light');
+    themeMode = currentlyLight ? 'dark' : 'light';
+    try { localStorage.setItem('dash_did_theme', themeMode); } catch (e) {}
+    refreshTheme();
   }
-  let savedTheme = 'dark';
-  try { savedTheme = localStorage.getItem('dash_did_theme') || 'dark'; } catch (e) {}
-  applyTheme(savedTheme);
+
+  function toggleAuto() {
+    themeMode = (themeMode === 'auto') ? computeAutoTheme() : 'auto';
+    try { localStorage.setItem('dash_did_theme', themeMode); } catch (e) {}
+    refreshTheme();
+  }
+
+  refreshTheme();
+  // 자동 모드일 때, 전광판처럼 오래 켜둬도 시간대가 바뀌면 알아서 넘어가도록 10분마다 재확인
+  setInterval(function() { if (themeMode === 'auto') refreshTheme(); }, 10 * 60 * 1000);
 
   function escapeHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
