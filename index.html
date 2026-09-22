@@ -9,77 +9,97 @@
   html, body { height: 100%; }
 
   /* ===== 테마 변수 (기본값 = 다크모드) ===== */
+  /* ===== 다크모드: 중립 검정~차콜, 초록은 포인트로만, 숫자는 금색 강조 ===== */
   :root {
-    --did-bg: linear-gradient(160deg, #050506 0%, #17181c 100%);
-    --did-text: #ffffff;
-    --did-text-dim: rgba(255,255,255,0.75);
-    --did-text-faint: rgba(255,255,255,0.6);
-    --did-card-bg: linear-gradient(155deg, #1c2620 0%, #121815 60%, #0a0c0b 100%);
-    --did-card-border: 2px solid rgba(74,222,128,0.4);
-    --did-card-shadow: 0 20px 50px rgba(0,0,0,0.6), 0 0 45px rgba(16,185,129,0.12), inset 0 1px 0 rgba(255,255,255,0.06);
-    --did-card-gloss: rgba(110,231,183,0.1);
+    --did-bg: radial-gradient(ellipse at top, #17171a 0%, #08080a 70%);
+    --did-text: #f5f5f4;
+    --did-text-dim: rgba(245,245,244,0.7);
+    --did-text-faint: rgba(245,245,244,0.5);
+
+    --did-card-bg: linear-gradient(160deg, #232326 0%, #131315 100%);
+    --did-card-border: 1px solid rgba(255,255,255,0.08);
+    --did-card-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(74,222,128,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
+    --did-card-gloss: rgba(74,222,128,0.07);
+    --did-card-blur: none;
     --did-card-text: #ffffff;
-    --did-card-text-soft: #86efac;
-    --did-card-unit-text: #fde68a;
+    --did-card-text-soft: #6ee7b7;
+    --did-card-num-grad: linear-gradient(135deg, #fde68a, #f59e0b);
+    --did-card-unit-text: #fcd34d;
     --did-room-shadow: none;
-    --did-tag-bg: rgba(74,222,128,0.12);
-    --did-tag-text: #bbf7d0;
-    --did-tag-border: rgba(74,222,128,0.3);
-    --did-ghost-bg: linear-gradient(155deg, rgba(16,185,129,0.28), rgba(5,150,105,0.14));
-    --did-ghost-border: rgba(110,231,183,0.4);
-    --did-ghost-dim-bg: linear-gradient(155deg, rgba(16,185,129,0.14), rgba(5,150,105,0.06));
-    --did-ghost-dim-border: rgba(110,231,183,0.22);
-    --did-dot-inactive: rgba(255,255,255,0.25);
-    --did-dot-active: #6ee7b7;
+    --did-tag-bg: rgba(255,255,255,0.06);
+    --did-tag-text: rgba(245,245,244,0.85);
+    --did-tag-border: rgba(255,255,255,0.14);
+
+    --did-ghost-bg: linear-gradient(160deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+    --did-ghost-border: rgba(74,222,128,0.22);
+    --did-ghost-dim-bg: linear-gradient(160deg, rgba(255,255,255,0.025), rgba(255,255,255,0.01));
+    --did-ghost-dim-border: rgba(74,222,128,0.12);
+
+    --did-dot-inactive: rgba(255,255,255,0.18);
+    --did-dot-active: #4ade80;
     --did-outline-text-shadow: none;
   }
+
+  /* ===== 화이트모드: 깨끗한 흰색, 에메랄드 그린으로 포인트 ===== */
   body.theme-light {
-    --did-bg: linear-gradient(160deg, #f8fafc 0%, #e2e8f0 100%);
-    --did-text: #0f172a;
-    --did-text-dim: rgba(15,23,42,0.7);
-    --did-text-faint: rgba(15,23,42,0.55);
-    --did-card-bg: linear-gradient(160deg, #ffffff 0%, #f0fdf4 100%);
-    --did-card-border: 2px solid #a7f3d0;
-    --did-card-shadow: 0 16px 40px rgba(16,185,129,0.18), inset 0 1px 0 rgba(255,255,255,0.6);
-    --did-card-gloss: rgba(16,185,129,0.06);
-    --did-card-text: #064e3b;
-    --did-card-text-soft: #047857;
-    --did-card-unit-text: #b45309;
+    --did-bg: linear-gradient(160deg, #ffffff 0%, #eef2f6 100%);
+    --did-text: #111827;
+    --did-text-dim: rgba(17,24,39,0.65);
+    --did-text-faint: rgba(17,24,39,0.48);
+
+    --did-card-bg: #ffffff;
+    --did-card-border: 1px solid #e5e7eb;
+    --did-card-shadow: 0 12px 32px rgba(15,23,42,0.10), 0 2px 8px rgba(15,23,42,0.06);
+    --did-card-gloss: rgba(16,185,129,0.04);
+    --did-card-blur: none;
+    --did-card-text: #111827;
+    --did-card-text-soft: #059669;
+    --did-card-num-grad: linear-gradient(135deg, #10b981, #059669);
+    --did-card-unit-text: #047857;
     --did-room-shadow: none;
-    --did-tag-bg: rgba(5,150,105,0.1);
+    --did-tag-bg: #ecfdf5;
     --did-tag-text: #047857;
-    --did-tag-border: rgba(5,150,105,0.3);
-    --did-ghost-bg: linear-gradient(155deg, rgba(16,185,129,0.16), rgba(5,150,105,0.06));
-    --did-ghost-border: rgba(5,150,105,0.28);
-    --did-ghost-dim-bg: linear-gradient(155deg, rgba(16,185,129,0.08), rgba(5,150,105,0.03));
-    --did-ghost-dim-border: rgba(5,150,105,0.16);
-    --did-dot-inactive: rgba(15,23,42,0.18);
+    --did-tag-border: #a7f3d0;
+
+    --did-ghost-bg: rgba(15,23,42,0.03);
+    --did-ghost-border: rgba(15,23,42,0.10);
+    --did-ghost-dim-bg: rgba(15,23,42,0.015);
+    --did-ghost-dim-border: rgba(15,23,42,0.06);
+
+    --did-dot-inactive: rgba(15,23,42,0.15);
     --did-dot-active: #059669;
     --did-outline-text-shadow: none;
   }
+
+  /* ===== 투명모드: 어떤 배경 위에도 읽히도록 유리질감 카드 + 강한 글자 그림자 ===== */
   body.theme-transparent {
     --did-bg: transparent;
     --did-text: #ffffff;
-    --did-text-dim: rgba(255,255,255,0.9);
-    --did-text-faint: rgba(255,255,255,0.8);
-    --did-card-bg: rgba(4,20,16,0.6);
-    --did-card-border: none;
-    --did-card-shadow: 0 16px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
-    --did-card-gloss: rgba(255,255,255,0.12);
+    --did-text-dim: rgba(255,255,255,0.92);
+    --did-text-faint: rgba(255,255,255,0.82);
+
+    --did-card-bg: rgba(10,10,14,0.45);
+    --did-card-border: 1px solid rgba(255,255,255,0.18);
+    --did-card-shadow: 0 20px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.12);
+    --did-card-gloss: rgba(255,255,255,0.1);
+    --did-card-blur: blur(14px);
     --did-card-text: #ffffff;
-    --did-card-text-soft: #d1fae5;
-    --did-card-unit-text: #fef9c3;
+    --did-card-text-soft: #86efac;
+    --did-card-num-grad: linear-gradient(135deg, #fde68a, #f59e0b);
+    --did-card-unit-text: #fde68a;
     --did-room-shadow: 0 2px 10px rgba(0,0,0,0.6);
-    --did-tag-bg: rgba(255,255,255,0.18);
+    --did-tag-bg: rgba(255,255,255,0.14);
     --did-tag-text: #ffffff;
-    --did-tag-border: rgba(255,255,255,0.32);
-    --did-ghost-bg: rgba(4,20,16,0.32);
-    --did-ghost-border: rgba(110,231,183,0.4);
-    --did-ghost-dim-bg: rgba(4,20,16,0.16);
-    --did-ghost-dim-border: rgba(110,231,183,0.22);
+    --did-tag-border: rgba(255,255,255,0.3);
+
+    --did-ghost-bg: rgba(10,10,14,0.24);
+    --did-ghost-border: rgba(255,255,255,0.14);
+    --did-ghost-dim-bg: rgba(10,10,14,0.12);
+    --did-ghost-dim-border: rgba(255,255,255,0.08);
+
     --did-dot-inactive: rgba(255,255,255,0.3);
     --did-dot-active: #6ee7b7;
-    --did-outline-text-shadow: 0 2px 10px rgba(0,0,0,0.75);
+    --did-outline-text-shadow: 0 2px 12px rgba(0,0,0,0.8);
   }
 
   body {
@@ -147,6 +167,8 @@
     text-align: center;
     box-sizing: border-box;
     box-shadow: var(--did-card-shadow);
+    backdrop-filter: var(--did-card-blur);
+    -webkit-backdrop-filter: var(--did-card-blur);
     overflow: hidden;
     color: var(--did-card-text);
   }
@@ -164,11 +186,11 @@
   .did-pc-num {
     font-size: 7vw;
     font-weight: 900;
-    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    background: var(--did-card-num-grad);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    filter: drop-shadow(0 2px 8px rgba(245,158,11,0.35));
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));
   }
   .did-pc-unit { font-size: 1.8vw; font-weight: 700; margin-left: 0.5vw; color: var(--did-card-unit-text); }
   .did-until { font-size: 2vw; font-weight: 700; color: var(--did-card-text-soft); position: relative; }
