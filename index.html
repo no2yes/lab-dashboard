@@ -38,6 +38,10 @@
     --did-dot-inactive: rgba(255,255,255,0.18);
     --did-dot-active: #4ade80;
     --did-outline-text-shadow: none;
+
+    --did-toggle-bg: rgba(255,255,255,0.08);
+    --did-toggle-border: rgba(255,255,255,0.18);
+    --did-toggle-knob: #232326;
   }
 
   /* ===== 화이트모드: 깨끗한 흰색, 에메랄드 그린으로 포인트 ===== */
@@ -69,38 +73,13 @@
     --did-dot-inactive: rgba(15,23,42,0.15);
     --did-dot-active: #059669;
     --did-outline-text-shadow: none;
+
+    --did-toggle-bg: #e5e7eb;
+    --did-toggle-border: #d1d5db;
+    --did-toggle-knob: #ffffff;
   }
 
-  /* ===== 투명모드: 어떤 배경 위에도 읽히도록 유리질감 카드 + 강한 글자 그림자 ===== */
-  body.theme-transparent {
-    --did-bg: transparent;
-    --did-text: #ffffff;
-    --did-text-dim: rgba(255,255,255,0.92);
-    --did-text-faint: rgba(255,255,255,0.82);
 
-    --did-card-bg: rgba(10,10,14,0.45);
-    --did-card-border: 1px solid rgba(255,255,255,0.18);
-    --did-card-shadow: 0 20px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.12);
-    --did-card-gloss: rgba(255,255,255,0.1);
-    --did-card-blur: blur(14px);
-    --did-card-text: #ffffff;
-    --did-card-text-soft: #86efac;
-    --did-card-num-grad: linear-gradient(135deg, #fde68a, #f59e0b);
-    --did-card-unit-text: #fde68a;
-    --did-room-shadow: 0 2px 10px rgba(0,0,0,0.6);
-    --did-tag-bg: rgba(255,255,255,0.14);
-    --did-tag-text: #ffffff;
-    --did-tag-border: rgba(255,255,255,0.3);
-
-    --did-ghost-bg: rgba(10,10,14,0.24);
-    --did-ghost-border: rgba(255,255,255,0.14);
-    --did-ghost-dim-bg: rgba(10,10,14,0.12);
-    --did-ghost-dim-border: rgba(255,255,255,0.08);
-
-    --did-dot-inactive: rgba(255,255,255,0.3);
-    --did-dot-active: #6ee7b7;
-    --did-outline-text-shadow: 0 2px 12px rgba(0,0,0,0.8);
-  }
 
   body {
     font-family: 'Malgun Gothic','맑은 고딕',-apple-system,sans-serif;
@@ -114,7 +93,41 @@
     transition: background 0.3s, color 0.3s;
   }
 
-  .did-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3vh; text-shadow: var(--did-outline-text-shadow); }
+  .did-top { display: flex; justify-content: space-between; align-items: center; gap: 2vw; margin-bottom: 3vh; text-shadow: var(--did-outline-text-shadow); }
+
+  .theme-toggle {
+    position: relative;
+    width: 4.2vw;
+    height: 2.1vw;
+    min-width: 52px;
+    min-height: 26px;
+    border-radius: 999px;
+    border: 1px solid var(--did-toggle-border);
+    background: var(--did-toggle-bg);
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .theme-toggle .knob {
+    position: absolute;
+    top: 50%;
+    left: 3px;
+    width: calc(2.1vw - 6px);
+    height: calc(2.1vw - 6px);
+    min-width: 20px;
+    min-height: 20px;
+    border-radius: 50%;
+    background: var(--did-toggle-knob);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1vw;
+    transform: translateY(-50%);
+    transition: left 0.3s cubic-bezier(.4,0,.2,1), background 0.3s;
+  }
+  body.theme-light .theme-toggle .knob { left: calc(100% - (2.1vw - 6px) - 3px); }
   .did-title { font-size: 3.2vw; font-weight: 900; }
   .did-clockbox { text-align: right; }
   #didClock { font-size: 4vw; font-weight: 900; font-variant-numeric: tabular-nums; }
@@ -218,6 +231,9 @@
 <body>
   <div class="did-top">
     <div class="did-title">🖥️ 컴퓨터실습실 지금 사용 가능</div>
+    <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="화면 테마 전환">
+      <span class="knob" id="themeKnob">🌙</span>
+    </button>
     <div class="did-clockbox"><span id="didClock">--:--</span><span id="didDate" class="did-datebox"></span></div>
   </div>
   <div id="didCommonSw" class="did-common-sw"></div>
@@ -231,10 +247,21 @@
 
   const TOKEN = new URLSearchParams(location.search).get('t') || '';
 
-  // 테마 선택 — 주소 끝에 &theme=light 또는 &theme=transparent 를 붙이면 전환됨 (기본값: dark)
-  const THEME = (new URLSearchParams(location.search).get('theme') || 'dark').toLowerCase();
-  if (THEME === 'light') document.body.classList.add('theme-light');
-  else if (THEME === 'transparent') document.body.classList.add('theme-transparent');
+  // 테마 선택 — 화면의 버튼으로 전환하고, 이 화면(브라우저)에 선택을 기억해둠
+  function applyTheme(theme) {
+    document.body.classList.toggle('theme-light', theme === 'light');
+    const knob = document.getElementById('themeKnob');
+    if (knob) knob.textContent = (theme === 'light') ? '☀️' : '🌙';
+  }
+  function toggleTheme() {
+    const isLight = document.body.classList.contains('theme-light');
+    const next = isLight ? 'dark' : 'light';
+    applyTheme(next);
+    try { localStorage.setItem('dash_did_theme', next); } catch (e) {}
+  }
+  let savedTheme = 'dark';
+  try { savedTheme = localStorage.getItem('dash_did_theme') || 'dark'; } catch (e) {}
+  applyTheme(savedTheme);
 
   function escapeHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
