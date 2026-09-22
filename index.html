@@ -27,14 +27,22 @@
 
   .did-stage { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .did-deck { position: relative; width: 100%; display: flex; justify-content: center; }
-  .did-ghost {
+  .did-ghost-layer {
     position: absolute;
-    top: 0; left: 50%;
+    top: 0; left: 0; right: 0;
     height: 100%;
-    border-radius: 28px;
-    background: rgba(74,222,128,0.06);
-    border: 2px solid rgba(74,222,128,0.18);
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 3vw;
     z-index: 0;
+  }
+  .did-ghost-card {
+    width: 42vw;
+    flex-shrink: 0;
+    border-radius: 28px;
+    background: rgba(74,222,128,0.05);
+    border: 2px solid rgba(74,222,128,0.16);
   }
   .did-flex {
     position: relative;
@@ -52,12 +60,13 @@
   .did-card {
     width: 42vw;
     flex-shrink: 0;
-    background: rgba(34,197,94,0.14);
-    border: 2px solid rgba(74,222,128,0.5);
+    background: rgba(21,128,61,0.85);
+    border: 2px solid #4ade80;
     border-radius: 28px;
     padding: 5vh 3vw;
     text-align: center;
     box-sizing: border-box;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
   }
   .did-building { font-size: 2vw; font-weight: 700; opacity: 0.8; }
   .did-room { font-size: 4.5vw; font-weight: 900; margin: 1vh 0 2vh; color: #fff; }
@@ -243,19 +252,21 @@
     return Math.max(0, Math.min(2, didSlideRooms.length - start));
   }
 
-  // 뒤에 대기 중인 슬라이드들을, "그 순서에 실제로 나올 카드 수"에 맞는 폭으로 겹쳐 보여줌 (최대 2겹)
+  // 뒤에 대기 중인 슬라이드들을, "그 순서에 실제로 나올 카드 개수만큼 개별 네모"로 겹쳐 보여줌 (최대 2겹)
   function renderGhostStack() {
     const remaining = Math.max(0, didTotalSlides - 1 - didSlideIndex);
     const layers = Math.min(2, remaining);
     let html = '';
-    // i가 클수록(더 뒤에 나올 순서) 먼저 그려서, 가까운 순서(i=1)가 그 위에 겹치도록 함
+    // i가 클수록 더 뒤에 나올 순서라 먼저 그려서, 가까운 순서(i=1)가 그 위에(더 앞에) 겹치도록 함
     for (let i = layers; i >= 1; i--) {
       const futureCount = getSlideCardCount(didSlideIndex + i);
-      const baseWidth = futureCount === 1 ? 42 : (42 * 2 + 3);
       const offset = i * 1.4;
       const opacity = 1 - i * 0.25;
-      html += '<div class="did-ghost" style="width:' + baseWidth + 'vw;margin-left:-' + (baseWidth / 2) + 'vw;' +
-        'top:' + offset + 'vh;transform:translateX(' + offset + 'vw);opacity:' + opacity + ';"></div>';
+      let cards = '';
+      for (let c = 0; c < futureCount; c++) {
+        cards += '<div class="did-ghost-card"></div>';
+      }
+      html += '<div class="did-ghost-layer" style="top:' + offset + 'vh;transform:translateX(' + offset + 'vw);opacity:' + opacity + ';">' + cards + '</div>';
     }
     return html;
   }
