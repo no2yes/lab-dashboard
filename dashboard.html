@@ -410,19 +410,20 @@
     shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
   });
 
-  const NAV_PAGE_URL = 'https://no2yes.github.io/lab-dashboard/nav.html';
   let navMap = null;
+
+  function haversineMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
 
   function openNavModal(roomId, roomLabel) {
     const coord = BUILDING_COORDS[parseBuildingCode(roomId)];
     if (!coord) return;
-
-    const isMobile = window.matchMedia('(pointer: coarse)').matches;
-    if (isMobile) {
-      const url = NAV_PAGE_URL + '?lat=' + coord[0] + '&lng=' + coord[1] + '&label=' + encodeURIComponent(roomLabel);
-      window.open(url, '_blank');
-      return;
-    }
 
     document.getElementById('navModalName').textContent = roomLabel;
     document.getElementById('navModalInfo').textContent = '';
@@ -436,6 +437,30 @@
       maxZoom: 19
     }).addTo(navMap);
     L.marker(coord).addTo(navMap).bindPopup(roomLabel).openPopup();
+
+    const isMobile = window.matchMedia('(pointer: coarse)').matches;
+    if (isMobile && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        if (!navMap) return;
+        const me = [pos.coords.latitude, pos.coords.longitude];
+
+        L.circleMarker(me, {
+          radius: 8, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.9, weight: 2
+        }).addTo(navMap).bindPopup('현재 위치');
+
+        L.polyline([me, coord], {
+          color: '#4ade80', weight: 4, opacity: 0.9,
+          dashArray: '8, 10', className: 'nav-route-line'
+        }).addTo(navMap);
+
+        navMap.fitBounds([me, coord], { padding: [40, 40] });
+
+        const dist = Math.round(haversineMeters(me[0], me[1], coord[0], coord[1]));
+        document.getElementById('navModalInfo').innerHTML = '직선거리 약 <span class="dist">' + dist + 'm</span> · 실제 도로 경로와는 다를 수 있어요';
+      }, function() {
+        document.getElementById('navModalInfo').textContent = '위치 접근이 거부되어 건물 위치만 표시합니다. 아이폰이면 설정 → 개인정보 보호 및 보안 → 위치 서비스 → Safari를 "앱을 사용하는 동안"으로 확인해보세요.';
+      }, { enableHighAccuracy: true, timeout: 8000 });
+    }
   }
 
   function closeNavModal() {
