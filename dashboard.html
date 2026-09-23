@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>컴퓨터실습실 현황판</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  html { scrollbar-color: rgba(255,255,255,0.25) rgba(255,255,255,0.04); scrollbar-width: thin; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); background-clip: padding-box; }
+  body {
+    font-family: 'Malgun Gothic','맑은 고딕',-apple-system,sans-serif;
+    background: linear-gradient(160deg, #0a1e3d 0%, #003D7C 100%);
+    color: #fff;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+  }
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+  }
+  .title { font-size: 18px; font-weight: 800; display: flex; align-items: baseline; gap: 8px; }
+  .title .sub { font-size: 11px; font-weight: 400; opacity: 0.6; }
+  .clock { text-align: right; }
+  .clock .time { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+  .clock .date { font-size: 11px; opacity: 0.65; margin-top: 2px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+    gap: 10px;
+    flex: 1;
+    align-content: start;
+  }
+
+  .room-card {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 12px 50px 10px 12px;
+    backdrop-filter: blur(4px);
+    position: relative;
+    overflow: hidden;
+  }
+  .room-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+  }
+  .room-card.available { background: rgba(34,197,94,0.14); border-color: rgba(74,222,128,0.35); }
+  .room-card.available::before { background: #4ade80; }
+  .room-card.in_use { background: rgba(248,113,113,0.10); border-color: rgba(248,113,113,0.28); }
+  .room-card.in_use::before { background: #f87171; }
+  .room-card.before_open { background: rgba(251,191,36,0.10); border-color: rgba(251,191,36,0.28); }
+  .room-card.before_open::before { background: #fbbf24; }
+  .room-card.closed { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); opacity: 0.55; }
+  .room-card.closed::before { background: rgba(255,255,255,0.25); }
+
+  .room-name { margin: 4px 0 8px; color: #fff; }
+  .building-line { font-size: 11px; font-weight: 600; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .room-num-line { font-size: 15px; font-weight: 800; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+  }
+  .badge.available { background: rgba(74,222,128,0.22); color: #86efac; }
+  .badge.in_use { background: rgba(248,113,113,0.2); color: #fca5a5; }
+  .badge.before_open { background: rgba(251,191,36,0.2); color: #fde68a; }
+  .badge.closed { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); }
+
+  .room-meta { font-size: 11px; color: rgba(255,255,255,0.75); line-height: 1.6; }
+  .room-meta .pc { font-size: 15px; font-weight: 800; color: #fff; }
+  .room-meta .pc-unit { font-size: 11px; font-weight: 600; opacity: 0.7; }
+
+  .loading, .error { text-align: center; padding: 60px 20px; color: rgba(255,255,255,0.65); font-size: 14px; grid-column: 1 / -1; }
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .filter-chip {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.85);
+    border-radius: 20px;
+    padding: 5px 13px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .filter-chip.active { background: #4ade80; border-color: #4ade80; color: #063c1a; }
+  .dropdown-wrap { position: relative; }
+  .dropdown-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.85);
+    border-radius: 20px;
+    padding: 5px 13px;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  .dropdown-btn.active { background: #4ade80; border-color: #4ade80; color: #063c1a; }
+  .dropdown-btn .arrow { font-size: 9px; opacity: 0.7; }
+  .dropdown-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 150px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #0f2a52;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    z-index: 50;
+  }
+  .dropdown-panel.show { display: block; }
+  .dropdown-item {
+    padding: 7px 10px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .dropdown-item:hover { background: rgba(255,255,255,0.08); }
+  .dropdown-item.selected { background: rgba(74,222,128,0.2); color: #86efac; font-weight: 700; }
+  .filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    cursor: pointer;
+    user-select: none;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 20px;
+    padding: 5px 13px;
+  }
+  .filter-toggle.active { background: rgba(74,222,128,0.2); border-color: #4ade80; }
+
+  .common-sw-bar {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-bottom: 14px;
+    font-size: 11px;
+  }
+  .common-sw-bar .lbl { opacity: 0.6; white-space: nowrap; }
+  .common-sw-bar .sw-tag { background: rgba(255,255,255,0.14); }
+
+
+  .fav-section-title {
+    font-size: 12px;
+    font-weight: 800;
+    margin: 0 0 8px;
+    opacity: 0.9;
+  }
+
+  .fav-btn {
+    position: absolute;
+    top: 8px; right: 8px;
+    background: none;
+    border: none;
+    font-size: 15px;
+    cursor: pointer;
+    opacity: 0.4;
+    line-height: 1;
+    padding: 2px;
+  }
+  .fav-btn.active { opacity: 1; }
+
+  .nav-btn {
+    position: absolute;
+    top: 8px; right: 28px;
+    background: none;
+    border: none;
+    font-size: 15px;
+    line-height: 1;
+    padding: 2px;
+    opacity: 0.55;
+    cursor: pointer;
+  }
+  .nav-btn:hover { opacity: 1; }
+
+  .nav-modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 999;
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .nav-modal-overlay.open { display: flex; }
+  .nav-modal {
+    background: #1a1a1d;
+    border-radius: 16px;
+    width: min(480px, 100%);
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .nav-modal-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    color: #f5f5f4;
+  }
+  .nav-modal-head .name { font-weight: 700; font-size: 15px; }
+  .nav-modal-close {
+    background: none; border: none; color: inherit;
+    font-size: 20px; cursor: pointer; opacity: 0.7; line-height: 1; padding: 4px;
+  }
+  .nav-modal-close:hover { opacity: 1; }
+  #navMapContainer { width: 100%; height: 320px; }
+  .nav-modal-info {
+    padding: 10px 16px 14px;
+    font-size: 13px;
+    color: rgba(245,245,244,0.7);
+  }
+  .nav-modal-info .dist { color: #4ade80; font-weight: 700; }
+  .nav-route-line { animation: navDash 1s linear infinite; }
+  @keyframes navDash { to { stroke-dashoffset: -18; } }
+
+  .sw-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .sw-tag {
+    font-size: 9.5px;
+    background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.85);
+    padding: 1px 6px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+
+  .section-title { font-size: 13px; font-weight: 700; margin: 18px 0 8px; opacity: 0.85; display: flex; align-items: center; gap: 6px; }
+  .close-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+  }
+  .close-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+  }
+  .close-card.exception { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.3); }
+  .close-card .cname { font-size: 11px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .close-card .ctime { font-size: 13px; font-weight: 800; white-space: nowrap; }
+  .close-card.exception .ctime { color: #fde68a; }
+  .close-card .ctime.off { opacity: 0.4; font-weight: 600; font-size: 11px; }
+
+  .footer { text-align: center; margin-top: 10px; font-size: 10px; opacity: 0.4; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="title">🖥️ 컴퓨터실습실 현황판<span class="sub">강원대학교 강릉캠퍼스 · 정규수업·예약이 없어 자유롭게 쓸 수 있는 실습실을 보여줍니다</span></div>
+    <div class="clock">
+      <div class="time" id="clockTime">--:--</div>
+      <div class="date" id="clockDate"></div>
+    </div>
+  </div>
+
+  <div class="filter-bar" id="filterBar">
+    <div class="filter-toggle" id="availToggle" onclick="toggleAvailFilter()">✅ 사용 가능만 보기</div>
+    <div id="buildingChips"></div>
+    <div class="dropdown-wrap">
+      <button type="button" class="dropdown-btn" id="swDropdownBtn" onclick="toggleSwDropdown()">
+        <span id="swDropdownLabel">🖥️ SW: 전체</span><span class="arrow">▾</span>
+      </button>
+      <div class="dropdown-panel" id="swDropdownPanel"></div>
+    </div>
+  </div>
+
+  <div class="common-sw-bar" id="commonSwBar">
+    <span class="lbl">🖥️ 전 실습실 공통 설치</span>
+    <span id="commonSwTags"></span>
+  </div>
+  <div id="gridArea">
+    <div class="loading">불러오는 중...</div>
+  </div>
+
+  <div class="section-title" id="closeSectionTitle" style="display:none;">🕐 오늘 이용 가능 시간</div>
+  <div id="closeGridArea" class="close-grid"></div>
+
+  <div class="footer">30초마다 자동 갱신</div>
+
+  <div class="nav-modal-overlay" id="navModalOverlay" onclick="if(event.target===this) closeNavModal()">
+    <div class="nav-modal">
+      <div class="nav-modal-head">
+        <span class="name" id="navModalName"></span>
+        <button class="nav-modal-close" onclick="closeNavModal()" title="닫기">✕</button>
+      </div>
+      <div id="navMapContainer"></div>
+      <div class="nav-modal-info" id="navModalInfo"></div>
+    </div>
+  </div>
+
+<script>
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
+  const TOKEN = new URLSearchParams(location.search).get('t') || '';
+
+  function escapeHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function updateClock() {
+    const now = new Date();
+    const t = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+    document.getElementById('clockTime').textContent = t;
+  }
+
+  function load() {
+    if (!TOKEN) {
+      document.getElementById('gridArea').innerHTML = '<div class="error">링크가 올바르지 않습니다. 관리자에게 문의해주세요.</div>';
+      return;
+    }
+    fetch(GAS_URL + '?page=api&action=dashboard&t=' + encodeURIComponent(TOKEN))
+      .then(res => res.json())
+      .then(render)
+      .catch(function(err) {
+        document.getElementById('gridArea').innerHTML = '<div class="error">조회 실패: ' + escapeHtml(err.message) + '</div>';
+      });
+  }
+
+  // 실습실 이름에서 건물명 분리 — "사회과학관(C1) 405호" → "사회과학관(C1)"
+  function parseBuilding(name) {
+    const m = name.match(/^(.+?\))\s*(.+)$/);
+    return m ? m[1] : '기타';
+  }
+  // 실습실ID에서 건물코드 분리 — "C1-405" → "C1", "N12-324-1" → "N12"
+  function parseBuildingCode(roomId) {
+    return String(roomId || '').split('-')[0] || '';
+  }
+  // 이름에서 건물명을 뺀 호실 부분만 분리 — "사회과학관(C1) 405호" → "405호"
+  function parseRoomOnly(name) {
+    const m = name.match(/^(.+?\))\s*(.+)$/);
+    return m ? m[2] : name;
+  }
+
+  // 건물코드(parseBuildingCode 결과) → [위도, 경도]
+  const BUILDING_COORDS = {
+    N1: [37.77037, 128.87368], N2: [37.77140, 128.87322], N4: [37.77282, 128.87335],
+    N5: [37.77089, 128.87146], N6: [37.77155, 128.87178], N7: [37.77194, 128.87219],
+    N8: [37.77104, 128.87070], N9: [37.77156, 128.87091], N10: [37.77140, 128.87040],
+    N11: [37.77201, 128.86813], N12: [37.77187, 128.86954], N13: [37.77079, 128.86883],
+    N14: [37.77055, 128.86746], N15: [37.77041, 128.86698], N16: [37.77089, 128.86691],
+    N17: [37.77073, 128.86609], N18: [37.77219, 128.86690], N20: [37.77155, 128.86828],
+    C1: [37.76978, 128.87320], C2: [37.76870, 128.87226], C3: [37.76885, 128.87128],
+    C4: [37.76885, 128.87081], C5: [37.76968, 128.87022], C6: [37.77016, 128.86897],
+    C7: [37.76911, 128.86939], C8: [37.76907, 128.86993], C9: [37.76829, 128.87007],
+    C10: [37.76832, 128.86831], C11: [37.76883, 128.86919], C12: [37.76767, 128.86931],
+    C13: [37.76699, 128.86847], C14: [37.76688, 128.86888], C15: [37.76615, 128.86852],
+    C16: [37.76739, 128.86725], C17: [37.76756, 128.87108],
+    D3: [37.76694, 128.87129], D4: [37.76670, 128.87188], D5: [37.76617, 128.87217],
+    D6: [37.76703, 128.87261], D7: [37.76494, 128.87158], D8: [37.76747, 128.87185],
+    D9: [37.76630, 128.87066],
+    S1: [37.76525, 128.87031], S2: [37.76566, 128.86985], S3: [37.76515, 128.86957],
+    S4: [37.76455, 128.87099]
+  };
+
+  function hasNavCoord(roomId) {
+    return !!BUILDING_COORDS[parseBuildingCode(roomId)];
+  }
+
+  // Leaflet 기본 마커 아이콘이 CDN 경로를 못 찾는 문제 보정
+  delete L.Icon.Default.prototype._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+  });
+
+  const NAV_PAGE_URL = 'https://no2yes.github.io/lab-dashboard/nav.html';
+  let navMap = null;
+
+  function openNavModal(roomId, roomLabel) {
+    const coord = BUILDING_COORDS[parseBuildingCode(roomId)];
+    if (!coord) return;
+
+    const isMobile = window.matchMedia('(pointer: coarse)').matches;
+    if (isMobile) {
+      const url = NAV_PAGE_URL + '?lat=' + coord[0] + '&lng=' + coord[1] + '&label=' + encodeURIComponent(roomLabel);
+      window.open(url, '_blank');
+      return;
+    }
+
+    document.getElementById('navModalName').textContent = roomLabel;
+    document.getElementById('navModalInfo').textContent = '';
+    document.getElementById('navModalOverlay').classList.add('open');
+
+    if (navMap) { navMap.remove(); navMap = null; }
+
+    navMap = L.map('navMapContainer').setView(coord, 17);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap',
+      maxZoom: 19
+    }).addTo(navMap);
+    L.marker(coord).addTo(navMap).bindPopup(roomLabel).openPopup();
+  }
+
+  function closeNavModal() {
+    document.getElementById('navModalOverlay').classList.remove('open');
+    if (navMap) { navMap.remove(); navMap = null; }
+  }
+
+  // 필터 상태
+  let filterAvailOnly = false;
+  let filterBuilding = '';
+  let filterBuildingOptionsBuilt = false;
+
+  function toggleAvailFilter() {
+    filterAvailOnly = !filterAvailOnly;
+    document.getElementById('availToggle').classList.toggle('active', filterAvailOnly);
+    applyFilters();
+  }
+
+  function setBuildingFilter(b) {
+    filterBuilding = (filterBuilding === b) ? '' : b;
+    document.querySelectorAll('.building-chip').forEach(el => {
+      el.classList.toggle('active', el.getAttribute('data-b') === filterBuilding);
+    });
+    applyFilters();
+  }
+
+  let filterSw = '';
+
+  function buildFilterOptions(res) {
+    if (filterBuildingOptionsBuilt) return;
+    filterBuildingOptionsBuilt = true;
+
+    const buildings = [...new Set(res.rooms.map(r => parseBuilding(r.roomName)))]
+      .sort((a, b) => parseBuildingCode(res.rooms.find(r => parseBuilding(r.roomName) === a).roomId)
+        .localeCompare(parseBuildingCode(res.rooms.find(r => parseBuilding(r.roomName) === b).roomId), undefined, { numeric: true }));
+    const chipsEl = document.getElementById('buildingChips');
+    chipsEl.innerHTML = buildings.map(b =>
+      '<button type="button" class="filter-chip building-chip" data-b="' + escapeHtml(b) + '" onclick="setBuildingFilter(\'' + escapeHtml(b).replace(/'/g,"\\'") + '\')">' + escapeHtml(b) + '</button>'
+    ).join('');
+
+    const swSet = new Set();
+    res.rooms.forEach(r => (r.swTags || []).forEach(s => swSet.add(s)));
+    const swList = [...swSet].sort();
+    const panel = document.getElementById('swDropdownPanel');
+    let html = '<div class="dropdown-item selected" data-sw="" onclick="selectSw(\'\')">전체</div>';
+    swList.forEach(s => {
+      html += '<div class="dropdown-item" data-sw="' + escapeHtml(s) + '" onclick="selectSw(\'' + escapeHtml(s).replace(/'/g,"\\'") + '\')">' + escapeHtml(s) + '</div>';
+    });
+    panel.innerHTML = html;
+  }
+
+  function toggleSwDropdown() {
+    document.getElementById('swDropdownPanel').classList.toggle('show');
+  }
+
+  function selectSw(sw) {
+    filterSw = sw;
+    document.getElementById('swDropdownLabel').textContent = '🖥️ SW: ' + (sw || '전체');
+    document.getElementById('swDropdownBtn').classList.toggle('active', !!sw);
+    document.querySelectorAll('#swDropdownPanel .dropdown-item').forEach(el => {
+      el.classList.toggle('selected', el.getAttribute('data-sw') === sw);
+    });
+    document.getElementById('swDropdownPanel').classList.remove('show');
+    applyFilters();
+  }
+
+  // 드롭다운 바깥을 누르면 닫기
+  document.addEventListener('click', function(e) {
+    const wrap = document.querySelector('.dropdown-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+      document.getElementById('swDropdownPanel').classList.remove('show');
+    }
+  });
+
+  function applyFilters() {
+    if (window._lastDashboardRes) render(window._lastDashboardRes);
+  }
+
+  // 즐겨찾기 (localStorage — 로그인 없이 이 브라우저에만 저장)
+  function getFavorites() {
+    try { return JSON.parse(localStorage.getItem('dash_favorites') || '[]'); } catch (e) { return []; }
+  }
+  function toggleFavorite(roomId, btnEl) {
+    let favs = getFavorites();
+    const idx = favs.indexOf(roomId);
+    if (idx === -1) { favs.push(roomId); if (btnEl) btnEl.classList.add('active'); }
+    else { favs.splice(idx, 1); if (btnEl) btnEl.classList.remove('active'); }
+    try { localStorage.setItem('dash_favorites', JSON.stringify(favs)); } catch (e) {}
+    if (window._lastDashboardRes) render(window._lastDashboardRes);
+  }
+
+  function render(res) {
+    const scrollY = window.scrollY;
+    const area = document.getElementById('gridArea');
+    if (!res || !res.success) {
+      area.innerHTML = '<div class="error">' + escapeHtml((res&&res.message)||'조회 실패') + '</div>';
+      return;
+    }
+    window._lastDashboardRes = res;
+    document.getElementById('clockDate').textContent = res.today;
+    buildFilterOptions(res);
+
+    const filteredRooms = res.rooms.filter(r => {
+      if (filterAvailOnly && r.status !== 'available') return false;
+      if (filterBuilding && parseBuilding(r.roomName) !== filterBuilding) return false;
+      if (filterSw && (r.swTags || []).indexOf(filterSw) === -1) return false;
+      return true;
+    });
+
+    const commonBar = document.getElementById('commonSwBar');
+    if (res.commonSwTags && res.commonSwTags.length > 0) {
+      document.getElementById('commonSwTags').innerHTML = res.commonSwTags.map(s => '<span class="sw-tag">' + escapeHtml(s) + '</span>').join(' ');
+      commonBar.style.display = 'flex';
+    } else {
+      commonBar.style.display = 'none';
+    }
+
+    const favs = getFavorites();
+    const STATUS_ORDER = { available: 0, before_open: 1, in_use: 2, closed: 3 };
+
+    function roomCardHtml(r, showFavStar) {
+      const pcLine = (r.status === 'available')
+        ? '<span class="pc">' + r.pcCount + '</span><span class="pc-unit">대 사용가능</span>'
+        : '학생용 ' + r.pcCount + '대';
+      const isFav = favs.indexOf(r.roomId) !== -1;
+      let html = '<div class="room-card ' + r.status + '">';
+      if (showFavStar) {
+        html += '<button class="fav-btn' + (isFav ? ' active' : '') + '" onclick="toggleFavorite(\'' + r.roomId + '\', this)" title="즐겨찾기">' + (isFav ? '★' : '☆') + '</button>';
+      }
+      if (hasNavCoord(r.roomId)) {
+        html += '<button class="nav-btn" data-room-id="' + escapeHtml(r.roomId) + '" data-room-label="' + escapeHtml(parseBuilding(r.roomName) + ' ' + parseRoomOnly(r.roomName)) + '" onclick="openNavModal(this.dataset.roomId, this.dataset.roomLabel)" title="지도에서 위치 보기">📍</button>';
+      }
+      html += '<div class="badge ' + r.status + '">' + escapeHtml(r.statusLabel) + '</div>';
+      html += '<div class="room-name">';
+      html += '<div class="building-line">' + escapeHtml(parseBuilding(r.roomName)) + '</div>';
+      html += '<div class="room-num-line">' + escapeHtml(parseRoomOnly(r.roomName)) + '</div>';
+      html += '</div>';
+      html += '<div class="room-meta">';
+      if (r.availableUntil) html += escapeHtml(r.availableUntil) + '<br>';
+      html += pcLine;
+      if (r.pcSpec) html += '<br><span style="opacity:0.65;">' + escapeHtml(r.pcSpec) + '</span>';
+      html += '</div>';
+      if (r.swTags && r.swTags.length > 0) {
+        html += '<div class="sw-tags">' + r.swTags.slice(0, 4).map(s => '<span class="sw-tag">' + escapeHtml(s) + '</span>').join('') + '</div>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    let out = '';
+    const favRooms = res.rooms.filter(r => favs.indexOf(r.roomId) !== -1)
+      .sort((a, b) => (STATUS_ORDER[a.status] - STATUS_ORDER[b.status]) || a.roomName.localeCompare(b.roomName));
+    if (favRooms.length > 0) {
+      out += '<div class="fav-section-title">⭐ 즐겨찾기</div>';
+      out += '<div class="grid" style="margin-bottom:16px;">' + favRooms.map(r => roomCardHtml(r, true)).join('') + '</div>';
+    }
+
+    const allSorted = filteredRooms.slice().sort((a, b) =>
+      parseBuildingCode(a.roomId).localeCompare(parseBuildingCode(b.roomId), undefined, { numeric: true }) ||
+      (STATUS_ORDER[a.status] - STATUS_ORDER[b.status]) ||
+      a.roomName.localeCompare(b.roomName)
+    );
+    out += '<div class="grid">' + allSorted.map(r => roomCardHtml(r, true)).join('') + '</div>';
+
+    area.innerHTML = out || '<div class="error">조건에 맞는 실습실이 없습니다.</div>';
+
+    renderCloseGrid(res.rooms);
+
+    requestAnimationFrame(function() { window.scrollTo(0, scrollY); });
+  }
+
+  function renderCloseGrid(rooms) {
+    const closeRooms = rooms.filter(r => r.closeTime).slice().sort((a, b) => a.closeTime.localeCompare(b.closeTime));
+    const titleEl = document.getElementById('closeSectionTitle');
+    const gridEl = document.getElementById('closeGridArea');
+    if (closeRooms.length === 0) { titleEl.style.display = 'none'; gridEl.innerHTML = ''; return; }
+    titleEl.style.display = 'flex';
+
+    let html = '';
+    closeRooms.forEach(r => {
+      html += '<div class="close-card' + (r.isException ? ' exception' : '') + '">';
+      html += '<span class="cname">' + escapeHtml(r.roomName) + '</span>';
+      html += '<span class="ctime">' + escapeHtml(r.closeTime) + '</span>';
+      html += '</div>';
+    });
+    // 휴무인 실습실도 목록 끝에 참고용으로 표시
+    rooms.filter(r => !r.closeTime).forEach(r => {
+      html += '<div class="close-card"><span class="cname">' + escapeHtml(r.roomName) + '</span><span class="ctime off">휴무</span></div>';
+    });
+    gridEl.innerHTML = html;
+  }
+  load();
+  updateClock();
+  setInterval(updateClock, 1000);
+  let dashTimer = setInterval(load, 30 * 1000);
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+      clearInterval(dashTimer);
+    } else {
+      load();
+      dashTimer = setInterval(load, 30 * 1000);
+    }
+  });
+</script>
+</body>
+</html>
