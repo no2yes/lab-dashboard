@@ -451,6 +451,7 @@
   function toggleAvailFilter() {
     filterAvailOnly = !filterAvailOnly;
     document.getElementById('availToggle').classList.toggle('active', filterAvailOnly);
+    resetSwFilter();
     applyFilters();
   }
 
@@ -459,10 +460,23 @@
     document.querySelectorAll('.building-chip').forEach(el => {
       el.classList.toggle('active', el.getAttribute('data-b') === filterBuilding);
     });
+    resetSwFilter();
     applyFilters();
   }
 
   let filterSw = '';
+
+  // SW 필터만 "마지막으로 SW를 직접 선택했을 때"만 유지되게 하고,
+  // 건물 필터나 사용가능 토글처럼 다른 필터를 건드리면 자동으로 전체로 되돌림
+  function resetSwFilter() {
+    if (!filterSw) return;
+    filterSw = '';
+    document.getElementById('swDropdownLabel').textContent = '🖥️ SW: 전체';
+    document.getElementById('swDropdownBtn').classList.remove('active');
+    document.querySelectorAll('#swDropdownPanel .dropdown-item').forEach(el => {
+      el.classList.toggle('selected', el.getAttribute('data-sw') === '');
+    });
+  }
 
   function buildFilterOptions(res) {
     if (filterBuildingOptionsBuilt) return;
