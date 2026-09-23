@@ -446,6 +446,14 @@
 
   function applyData(res) {
     if (!res || !res.success) {
+      // 오류 상태에서도 예전 카드 목록이 남아있으면, 다음 슬라이드 전환 때 그 오래된 데이터로
+      // 다시 그려지며 오류 메시지가 금방 덮여 사라짐 — 반드시 함께 비워줘야 함
+      didSlideRooms = [];
+      didTotalSlides = 1;
+      didSlideIndex = 0;
+      prefetchedRes = null;
+      document.getElementById('didCommonSw').innerHTML = '';
+      document.getElementById('didProgress').innerHTML = '';
       document.getElementById('didStage').innerHTML = '<div class="did-msg">' + escapeHtml((res && res.message) || '조회 실패') + '</div>';
       return;
     }
