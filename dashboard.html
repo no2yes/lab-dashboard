@@ -304,7 +304,7 @@
   </div>
 
   <div class="filter-bar" id="filterBar">
-    <div class="filter-toggle" id="availToggle" onclick="toggleAvailFilter()">✅ 사용 가능만 보기</div>
+    <div class="filter-toggle" id="availToggle" onclick="toggleAvailFilter()"><span id="availToggleIcon">☐</span> 사용 가능만 보기</div>
     <div id="buildingChips"></div>
     <div class="dropdown-wrap">
       <button type="button" class="dropdown-btn" id="swDropdownBtn" onclick="toggleSwDropdown()">
@@ -477,6 +477,7 @@
   function toggleAvailFilter() {
     filterAvailOnly = !filterAvailOnly;
     document.getElementById('availToggle').classList.toggle('active', filterAvailOnly);
+    document.getElementById('availToggleIcon').textContent = filterAvailOnly ? '✅' : '☐';
     resetSwFilter();
     applyFilters();
   }
