@@ -488,10 +488,20 @@
       el.classList.toggle('active', el.getAttribute('data-b') === filterBuilding);
     });
     resetSwFilter();
+    resetAvailFilter();
     applyFilters();
   }
 
   let filterSw = '';
+
+  // 건물 필터를 새로 고르면, 그 건물의 "가능/불가능 전체"를 보고 싶은 것이지
+  // 이전에 눌러둔 "사용가능만 보기"와는 무관하므로 자동으로 꺼줌
+  function resetAvailFilter() {
+    if (!filterAvailOnly) return;
+    filterAvailOnly = false;
+    document.getElementById('availToggle').classList.remove('active');
+    document.getElementById('availToggleIcon').textContent = '☐';
+  }
 
   // 건물 필터가 걸려있는 상태에서 SW를 고르면 "그 건물 안에서만" 검색되는 꼴이 되어
   // 의미가 없으므로, SW를 선택하면 건물 필터를 자동으로 전체로 되돌림
