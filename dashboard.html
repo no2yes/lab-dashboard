@@ -493,6 +493,16 @@
 
   let filterSw = '';
 
+  // 건물 필터가 걸려있는 상태에서 SW를 고르면 "그 건물 안에서만" 검색되는 꼴이 되어
+  // 의미가 없으므로, SW를 선택하면 건물 필터를 자동으로 전체로 되돌림
+  function resetBuildingFilter() {
+    if (!filterBuilding) return;
+    filterBuilding = '';
+    document.querySelectorAll('.building-chip').forEach(el => {
+      el.classList.remove('active');
+    });
+  }
+
   // SW 필터만 "마지막으로 SW를 직접 선택했을 때"만 유지되게 하고,
   // 건물 필터나 사용가능 토글처럼 다른 필터를 건드리면 자동으로 전체로 되돌림
   function resetSwFilter() {
@@ -540,6 +550,7 @@
       el.classList.toggle('selected', el.getAttribute('data-sw') === sw);
     });
     document.getElementById('swDropdownPanel').classList.remove('show');
+    resetBuildingFilter();
     applyFilters();
   }
 
