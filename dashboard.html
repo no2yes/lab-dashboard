@@ -478,6 +478,7 @@
     filterAvailOnly = !filterAvailOnly;
     document.getElementById('availToggle').classList.toggle('active', filterAvailOnly);
     document.getElementById('availToggleIcon').textContent = filterAvailOnly ? '✅' : '☐';
+    if (filterAvailOnly) resetBuildingFilter();
     resetSwFilter();
     applyFilters();
   }
