@@ -8,7 +8,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
+  html, body { min-height: 100%; }
   html { scrollbar-color: rgba(255,255,255,0.25) rgba(255,255,255,0.04); scrollbar-width: thin; }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
@@ -17,6 +17,7 @@
   body {
     font-family: 'Malgun Gothic','맑은 고딕',-apple-system,sans-serif;
     background: linear-gradient(160deg, #0a1e3d 0%, #003D7C 100%);
+    background-repeat: no-repeat;
     color: #fff;
     padding: 16px 20px;
     display: flex;
