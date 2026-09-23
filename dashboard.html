@@ -681,13 +681,13 @@
     let html = '';
     closeRooms.forEach(r => {
       html += '<div class="close-card' + (r.isException ? ' exception' : '') + '">';
-      html += '<span class="cname">' + escapeHtml(r.roomName) + '</span>';
+      html += '<span class="cname">' + escapeHtml(r.roomId) + '</span>';
       html += '<span class="ctime">' + escapeHtml(r.closeTime) + '</span>';
       html += '</div>';
     });
     // 휴무인 실습실도 목록 끝에 참고용으로 표시
     rooms.filter(r => !r.closeTime).forEach(r => {
-      html += '<div class="close-card"><span class="cname">' + escapeHtml(r.roomName) + '</span><span class="ctime off">휴무</span></div>';
+      html += '<div class="close-card"><span class="cname">' + escapeHtml(r.roomId) + '</span><span class="ctime off">휴무</span></div>';
     });
     gridEl.innerHTML = html;
   }
