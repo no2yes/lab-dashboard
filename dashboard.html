@@ -99,23 +99,6 @@
     gap: 8px;
     margin-bottom: 12px;
   }
-  .apply-btn {
-    margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(74,222,128,0.16);
-    border: 1px solid rgba(74,222,128,0.45);
-    color: #4ade80;
-    border-radius: 999px;
-    padding: 6px 13px;
-    font-size: 12px;
-    font-weight: 700;
-    text-decoration: none;
-    white-space: nowrap;
-    transition: background 0.2s, transform 0.15s;
-  }
-  .apply-btn:hover { background: rgba(74,222,128,0.28); transform: translateY(-1px); }
   .filter-chip {
     background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.18);
@@ -382,6 +365,8 @@
   .close-card .ctime.off { opacity: 0.4; font-weight: 600; font-size: 11px; }
 
   .footer { text-align: center; margin-top: 10px; font-size: 10px; opacity: 0.4; }
+  .footer-link { color: inherit; text-decoration: none; }
+  .footer-link:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -417,7 +402,6 @@
       </button>
       <div class="dropdown-panel" id="swDropdownPanel"></div>
     </div>
-    <a class="apply-btn" id="applyBtn" href="#" target="_blank" rel="noopener">📝 실습실 사용신청</a>
   </div>
 
   <div class="common-sw-bar" id="commonSwBar">
@@ -431,7 +415,7 @@
   <div class="section-title" id="closeSectionTitle" style="display:none;">🕐 오늘 이용 가능 시간</div>
   <div id="closeGridArea" class="close-grid"></div>
 
-  <div class="footer">30초마다 자동 갱신</div>
+  <div class="footer">30초마다 자동 갱신 · <a class="footer-link" id="applyLink" href="#" target="_blank" rel="noopener">교직원 사용신청</a></div>
 
   <div class="nav-modal-overlay" id="navModalOverlay" onclick="if(event.target===this) closeNavModal()">
     <div class="nav-modal">
@@ -460,8 +444,8 @@
   const TOKEN = new URLSearchParams(location.search).get('t') || '';
 
   // 실습실 사용신청 — GAS 쪽 기본 페이지(?page 없음 = 신청서)로 새 탭 이동
-  const applyBtnEl = document.getElementById('applyBtn');
-  if (applyBtnEl) applyBtnEl.href = GAS_URL;
+  const applyLinkEl = document.getElementById('applyLink');
+  if (applyLinkEl) applyLinkEl.href = GAS_URL;
 
   // 폰 접속 QR — PC로 이 현황판을 보고 있을 때, 같은 화면을 내 스마트폰으로도 바로 열 수 있게 안내
   const QR_AUTO_CLOSE_SEC = 300; // 5분 뒤 자동으로 닫힘
