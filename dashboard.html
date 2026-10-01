@@ -276,25 +276,23 @@
   .nav-route-line { animation: navDash 1s linear infinite; }
   @keyframes navDash { to { stroke-dashoffset: -18; } }
 
-  /* ===== 폰 접속 QR 버튼 — PC(마우스) 화면에서만 노출 ===== */
-  .qr-btn {
-    display: flex;
+  /* ===== 제목 아이콘(PC+QR) — 누르면 폰 접속 QR, PC(마우스) 화면에서만 클릭 가능 ===== */
+  .title-icon-btn {
+    background: none;
+    border: none;
+    padding: 2px;
+    margin: 0;
+    line-height: 1;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    border: 1px solid rgba(255,255,255,0.25);
-    background: rgba(255,255,255,0.08);
     color: #fff;
-    border-radius: 999px;
-    padding: 7px 14px;
-    font-size: 13px;
-    font-weight: 700;
     cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    border-radius: 6px;
+    transition: color 0.2s, background 0.2s, transform 0.15s;
   }
-  .qr-btn:hover { background: rgba(74,222,128,0.22); border-color: rgba(74,222,128,0.5); transform: translateY(-1px); }
+  .title-icon-btn:hover { color: #4ade80; background: rgba(74,222,128,0.14); transform: translateY(-1px); }
   @media (pointer: coarse) {
-    .qr-btn { display: none !important; }
+    .title-icon-btn { pointer-events: none; }
   }
 
   .qr-modal-overlay {
@@ -388,8 +386,22 @@
 </head>
 <body>
   <div class="top">
-    <div class="title">🖥️ 컴퓨터실습실 현황판<span class="sub">강원대학교 강릉캠퍼스 · 정규수업·예약이 없어 자유롭게 쓸 수 있는 실습실을 보여줍니다</span></div>
-    <button class="qr-btn" id="qrBtn" onclick="openQrModal()" title="내 스마트폰으로 이 화면 열기">📱 폰으로 보기</button>
+    <div class="title">
+      <button class="title-icon-btn" id="titleIconBtn" onclick="openQrModal()" title="내 스마트폰으로 이 화면 열기">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="3" width="20" height="13" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+          <line x1="8" y1="19.3" x2="16" y2="19.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <line x1="12" y1="16" x2="12" y2="19.3" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="4.3" y="5.3" width="3.2" height="3.2" stroke="currentColor" stroke-width="1.1"/>
+          <rect x="16.5" y="5.3" width="3.2" height="3.2" stroke="currentColor" stroke-width="1.1"/>
+          <rect x="4.3" y="10.3" width="3.2" height="3.2" stroke="currentColor" stroke-width="1.1"/>
+          <rect x="11.3" y="11.3" width="1.6" height="1.6" fill="currentColor"/>
+          <rect x="14.3" y="9" width="1.6" height="1.6" fill="currentColor"/>
+          <rect x="16.5" y="11.3" width="1.6" height="1.6" fill="currentColor"/>
+        </svg>
+      </button>
+      컴퓨터실습실 현황판<span class="sub">강원대학교 강릉캠퍼스 · 정규수업·예약이 없어 자유롭게 쓸 수 있는 실습실을 보여줍니다</span>
+    </div>
     <div class="clock">
       <div class="time" id="clockTime">--:--</div>
       <div class="date" id="clockDate"></div>
