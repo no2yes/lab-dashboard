@@ -750,7 +750,7 @@
     document.getElementById('clockDate').textContent = res.today;
     const weatherEl = document.getElementById('clockWeather');
     if (res.weather && res.weather.temp !== null && res.weather.temp !== undefined) {
-      weatherEl.textContent = res.weather.icon + ' ' + res.weather.temp + '°C · ' + res.weather.label;
+      weatherEl.textContent = '강릉 ' + res.weather.icon + ' ' + res.weather.temp + '°C · ' + res.weather.label;
     } else {
       weatherEl.textContent = '';
     }
