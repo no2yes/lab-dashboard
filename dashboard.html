@@ -319,7 +319,7 @@
     margin-bottom: 16px;
   }
   .qr-modal-box svg { display: block; width: 200px; height: 200px; }
-  .qr-modal-url { font-size: 12px; color: #9ca3af; word-break: break-all; margin-bottom: 20px; }
+  .qr-modal-timer { font-size: 12px; color: #9ca3af; margin-bottom: 20px; }
   .qr-modal-close {
     width: 100%;
     border: none;
@@ -419,7 +419,7 @@
       <div class="qr-modal-icon">📱</div>
       <div class="qr-modal-desc">스마트폰으로 아래 QR코드를 스캔하면<br><b>이 실습실 현황판</b>이 바로 열립니다</div>
       <div class="qr-modal-box" id="qrModalBox"></div>
-      <div class="qr-modal-url" id="qrModalUrl"></div>
+      <div class="qr-modal-timer" id="qrModalTimer"></div>
       <button class="qr-modal-close" onclick="closeQrModal()">닫기</button>
     </div>
   </div>
@@ -430,6 +430,10 @@
   const TOKEN = new URLSearchParams(location.search).get('t') || '';
 
   // 폰 접속 QR — PC로 이 현황판을 보고 있을 때, 같은 화면을 내 스마트폰으로도 바로 열 수 있게 안내
+  const QR_AUTO_CLOSE_SEC = 300; // 5분 뒤 자동으로 닫힘
+  let qrCloseTimer = null;
+  let qrCountdownTimer = null;
+
   function openQrModal() {
     const url = location.origin + location.pathname + (TOKEN ? ('?t=' + encodeURIComponent(TOKEN)) : '');
     const box = document.getElementById('qrModalBox');
@@ -442,11 +446,28 @@
     } catch (e) {
       box.innerHTML = '<div style="padding:40px 10px;color:#ef4444;font-size:13px;">QR 생성 실패</div>';
     }
-    document.getElementById('qrModalUrl').textContent = url;
     document.getElementById('qrModalOverlay').classList.add('open');
+
+    let remain = QR_AUTO_CLOSE_SEC;
+    const timerEl = document.getElementById('qrModalTimer');
+    const renderTimer = () => {
+      const m = Math.floor(remain / 60), s = remain % 60;
+      timerEl.textContent = '⏱ ' + m + ':' + String(s).padStart(2, '0') + ' 후 자동으로 닫힙니다';
+    };
+    renderTimer();
+    clearInterval(qrCountdownTimer);
+    qrCountdownTimer = setInterval(() => {
+      remain--;
+      if (remain <= 0) { closeQrModal(); return; }
+      renderTimer();
+    }, 1000);
+    clearTimeout(qrCloseTimer);
+    qrCloseTimer = setTimeout(closeQrModal, QR_AUTO_CLOSE_SEC * 1000);
   }
   function closeQrModal() {
     document.getElementById('qrModalOverlay').classList.remove('open');
+    clearTimeout(qrCloseTimer);
+    clearInterval(qrCountdownTimer);
   }
 
   function escapeHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
