@@ -150,6 +150,81 @@
     border-color: rgba(74,222,128,0.5);
     color: #4ade80;
   }
+
+  /* ===== 폰 접속 QR 버튼 — PC(마우스) 화면에서만 노출 ===== */
+  .qr-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4vw;
+    border: 1px solid var(--did-toggle-border);
+    background: var(--did-toggle-bg);
+    color: var(--did-text-dim);
+    border-radius: 999px;
+    padding: 0.5vh 1vw;
+    font-size: 1.1vw;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.3s, border-color 0.3s, color 0.3s, transform 0.15s;
+  }
+  .qr-btn:hover { background: rgba(74,222,128,0.14); border-color: rgba(74,222,128,0.4); transform: translateY(-1px); }
+  @media (pointer: coarse) {
+    .qr-btn { display: none !important; }
+  }
+
+  .qr-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(8,8,10,0.72);
+    backdrop-filter: blur(3px);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+  }
+  .qr-modal-overlay.open { display: flex; }
+  .qr-modal {
+    background: #ffffff;
+    color: #111827;
+    width: min(420px, 86vw);
+    border-radius: 24px;
+    padding: 32px 28px 26px;
+    text-align: center;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.45);
+    animation: qrPopIn 0.22s cubic-bezier(.2,.9,.3,1.2);
+  }
+  @keyframes qrPopIn {
+    from { transform: scale(0.92) translateY(8px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+  }
+  .qr-modal-icon { font-size: 28px; margin-bottom: 6px; }
+  .qr-modal-desc { font-size: 15px; color: #374151; line-height: 1.5; margin-bottom: 18px; }
+  .qr-modal-desc b { color: #059669; }
+  .qr-modal-box {
+    display: inline-flex;
+    padding: 16px;
+    background: #ffffff;
+    border: 2px solid #d1fae5;
+    border-radius: 18px;
+    box-shadow: 0 6px 18px rgba(5,150,105,0.12);
+    margin-bottom: 16px;
+  }
+  .qr-modal-box svg { display: block; width: 200px; height: 200px; }
+  .qr-modal-url { font-size: 12px; color: #9ca3af; word-break: break-all; margin-bottom: 20px; }
+  .qr-modal-close {
+    width: 100%;
+    border: none;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 13px;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .qr-modal-close:hover { filter: brightness(1.08); }
+
   .did-title { font-size: 3.2vw; font-weight: 900; word-break: keep-all; }
   .portrait-break { display: none; }
   .did-clockbox { text-align: right; }
@@ -288,6 +363,7 @@
   <div class="did-top">
     <div class="did-title">🖥️ 지금 개인<br class="portrait-break"> 이용 가능한 실습실</div>
     <div class="theme-controls">
+      <button class="qr-btn" id="qrBtn" onclick="openQrModal()" title="내 스마트폰으로 대시보드 열기">📱 폰으로 보기</button>
       <button class="auto-toggle" id="autoToggleBtn" onclick="toggleAuto()" title="낮에는 화이트, 밤에는 다크로 자동 전환">🕐 자동</button>
       <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="화면 테마 전환">
         <span class="knob" id="themeKnob">🌙</span>
@@ -299,12 +375,45 @@
   <div id="didStage" class="did-stage"></div>
   <div id="didProgress" class="did-progress"></div>
 
+  <div class="qr-modal-overlay" id="qrModalOverlay" onclick="if(event.target===this) closeQrModal()">
+    <div class="qr-modal">
+      <div class="qr-modal-icon">📱</div>
+      <div class="qr-modal-desc">스마트폰으로 아래 QR코드를 스캔하면<br><b>실시간 실습실 현황판</b>이 바로 열립니다</div>
+      <div class="qr-modal-box" id="qrModalBox"></div>
+      <div class="qr-modal-url" id="qrModalUrl"></div>
+      <button class="qr-modal-close" onclick="closeQrModal()">닫기</button>
+    </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script>
   // ▼▼▼ 여기에 Apps Script 배포 주소를 넣어주세요 (예: https://script.google.com/macros/s/xxxxx/exec) ▼▼▼
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   // ▲▲▲
 
   const TOKEN = new URLSearchParams(location.search).get('t') || '';
+
+  // 폰 접속 QR — 전광판(이 화면)이 떠 있는 PC에서 눌러, 같은 토큰으로 연결되는
+  // 일반 대시보드(dashboard.html) 주소를 스마트폰이 스캔하도록 보여준다.
+  function openQrModal() {
+    const url = location.origin + location.pathname.replace(/index\.html$/, '').replace(/\/$/, '') +
+      '/dashboard.html' + (TOKEN ? ('?t=' + encodeURIComponent(TOKEN)) : '');
+    const box = document.getElementById('qrModalBox');
+    box.innerHTML = '';
+    try {
+      const qr = qrcode(0, 'M');
+      qr.addData(url);
+      qr.make();
+      box.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 2 });
+    } catch (e) {
+      box.innerHTML = '<div style="padding:40px 10px;color:#ef4444;font-size:13px;">QR 생성 실패</div>';
+    }
+    document.getElementById('qrModalUrl').textContent = url;
+    document.getElementById('qrModalOverlay').classList.add('open');
+  }
+  function closeQrModal() {
+    document.getElementById('qrModalOverlay').classList.remove('open');
+  }
 
   // 테마 선택 — 수동(dark/light) 또는 자동(auto: 낮엔 화이트, 밤엔 다크)
   let themeMode = 'dark';  // 저장되는 값: 'dark' | 'light' | 'auto'
