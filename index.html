@@ -155,6 +155,7 @@
   .did-clockbox { text-align: right; }
   #didClock { font-size: 4vw; font-weight: 900; font-variant-numeric: tabular-nums; }
   .did-datebox { display: block; font-size: 1.6vw; color: var(--did-text-dim); }
+  .did-weatherbox { font-size: 1.3vw; }
   .did-common-sw { text-align: center; font-size: 1.3vw; color: var(--did-text-faint); margin-bottom: 2vh; text-shadow: var(--did-outline-text-shadow); }
   .did-common-sw b { color: var(--did-text); font-weight: 700; }
 
@@ -293,7 +294,7 @@
         <span class="knob" id="themeKnob">🌙</span>
       </button>
     </div>
-    <div class="did-clockbox"><span id="didClock">--:--</span><span id="didDate" class="did-datebox"></span></div>
+    <div class="did-clockbox"><span id="didClock">--:--</span><span id="didDate" class="did-datebox"></span><span id="didWeather" class="did-datebox did-weatherbox"></span></div>
   </div>
   <div id="didCommonSw" class="did-common-sw"></div>
   <div id="didStage" class="did-stage"></div>
@@ -458,6 +459,12 @@
       return;
     }
     document.getElementById('didDate').textContent = res.today || '';
+    const didWeatherEl = document.getElementById('didWeather');
+    if (res.weather && res.weather.temp !== null && res.weather.temp !== undefined) {
+      didWeatherEl.textContent = '강릉 ' + res.weather.icon + ' ' + res.weather.temp + '°C · ' + res.weather.label;
+    } else {
+      didWeatherEl.textContent = '';
+    }
 
     const commonEl = document.getElementById('didCommonSw');
     if (res.commonSwTags && res.commonSwTags.length > 0) {
