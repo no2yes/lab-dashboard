@@ -99,6 +99,23 @@
     align-items: center;
     gap: 8px;
     margin-bottom: 12px;
+    position: relative;
+  }
+  .filter-bar-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    margin-right: 2px;
+  }
+  @keyframes filterAttractPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
+    50% { box-shadow: 0 0 0 5px rgba(74,222,128,0.25); }
+  }
+  .filter-bar.attract .filter-toggle,
+  .filter-bar.attract .dropdown-btn {
+    animation: filterAttractPulse 1.6s ease-in-out 3;
   }
   .filter-chip {
     background: rgba(255,255,255,0.08);
@@ -169,6 +186,32 @@
     padding: 5px 13px;
   }
   .filter-toggle.active { background: rgba(74,222,128,0.2); border-color: #4ade80; }
+  .filter-toggle:hover, .dropdown-btn:hover {
+    border-color: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.14);
+  }
+  .filter-toggle.active:hover { border-color: #4ade80; background: rgba(74,222,128,0.28); }
+  .filter-switch {
+    display: inline-block;
+    width: 26px;
+    height: 14px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.3);
+    position: relative;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .filter-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s;
+  }
+  .filter-toggle.active .filter-switch { background: #4ade80; }
+  .filter-toggle.active .filter-switch::after { transform: translateX(12px); }
 
   .common-sw-bar {
     display: none;
@@ -184,6 +227,45 @@
   }
   .common-sw-bar .lbl { opacity: 0.6; white-space: nowrap; }
   .common-sw-bar .sw-tag { background: rgba(255,255,255,0.14); }
+
+  .filter-tip {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+    background: #1a3a66;
+    border: 1px solid rgba(74,222,128,0.5);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    padding: 9px 14px;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+    white-space: nowrap;
+    z-index: 40;
+    opacity: 0;
+    transform: translateY(4px);
+    pointer-events: none;
+    transition: opacity 0.35s, transform 0.35s;
+  }
+  .filter-tip.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .filter-tip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 20px;
+    border: 6px solid transparent;
+    border-top-color: #1a3a66;
+  }
+  .filter-tip .tip-close {
+    margin-left: 10px;
+    opacity: 0.6;
+    cursor: pointer;
+    font-weight: 700;
+  }
+  @media (max-width: 480px) {
+    .filter-tip { white-space: normal; max-width: 260px; }
+  }
 
 
   .fav-section-title {
@@ -396,7 +478,9 @@
   </div>
 
   <div class="filter-bar" id="filterBar">
-    <div class="filter-toggle" id="availToggle" onclick="toggleAvailFilter()"><span id="availToggleIcon">☐</span> 사용 가능만 보기</div>
+    <div class="filter-tip" id="filterTip">👆 건물·SW를 눌러 원하는 실습실만 골라볼 수 있어요<span class="tip-close" onclick="dismissFilterTip()">✕</span></div>
+    <span class="filter-bar-label">🔍 필터</span>
+    <div class="filter-toggle" id="availToggle" onclick="toggleAvailFilter()"><span id="availToggleIcon" class="filter-switch"></span> 지금 자유이용 가능만 보기</div>
     <div id="buildingChips"></div>
     <div class="dropdown-wrap">
       <button type="button" class="dropdown-btn" id="swDropdownBtn" onclick="toggleSwDropdown()">
@@ -625,13 +709,14 @@
   function toggleAvailFilter() {
     filterAvailOnly = !filterAvailOnly;
     document.getElementById('availToggle').classList.toggle('active', filterAvailOnly);
-    document.getElementById('availToggleIcon').textContent = filterAvailOnly ? '✅' : '☐';
+    dismissFilterTip();
     if (filterAvailOnly) resetBuildingFilter();
     resetSwFilter();
     applyFilters();
   }
 
   function setBuildingFilter(b) {
+    dismissFilterTip();
     filterBuilding = (filterBuilding === b) ? '' : b;
     document.querySelectorAll('.building-chip').forEach(el => {
       el.classList.toggle('active', el.getAttribute('data-b') === filterBuilding);
@@ -649,7 +734,6 @@
     if (!filterAvailOnly) return;
     filterAvailOnly = false;
     document.getElementById('availToggle').classList.remove('active');
-    document.getElementById('availToggleIcon').textContent = '☐';
   }
 
   // 건물 필터가 걸려있는 상태에서 SW를 고르면 "그 건물 안에서만" 검색되는 꼴이 되어
@@ -698,6 +782,7 @@
   }
 
   function toggleSwDropdown() {
+    dismissFilterTip();
     document.getElementById('swDropdownPanel').classList.toggle('show');
   }
 
@@ -845,6 +930,26 @@
     });
     gridEl.innerHTML = html;
   }
+  // 필터 바 첫 방문 안내 — 이 브라우저에서 한 번 보면 다시 뜨지 않음
+  let filterTipTimer = null;
+  function dismissFilterTip() {
+    if (filterTipTimer) { clearTimeout(filterTipTimer); filterTipTimer = null; }
+    const tipEl = document.getElementById('filterTip');
+    if (tipEl) tipEl.classList.remove('show');
+    try { localStorage.setItem('dash_filterTipSeen', '1'); } catch (e) {}
+  }
+  (function initFilterTip() {
+    let seen = false;
+    try { seen = !!localStorage.getItem('dash_filterTipSeen'); } catch (e) {}
+    if (seen) return;
+    setTimeout(() => {
+      const tipEl = document.getElementById('filterTip');
+      if (tipEl) tipEl.classList.add('show');
+      document.getElementById('filterBar').classList.add('attract');
+      filterTipTimer = setTimeout(dismissFilterTip, 6000);
+    }, 1200);
+  })();
+
   load();
   updateClock();
   setInterval(updateClock, 1000);
