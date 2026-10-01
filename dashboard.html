@@ -38,6 +38,7 @@
   .clock { text-align: right; }
   .clock .time { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
   .clock .date { font-size: 11px; opacity: 0.65; margin-top: 2px; }
+  .clock .weather { font-size: 12px; opacity: 0.85; margin-top: 2px; }
 
   .grid {
     display: grid;
@@ -390,6 +391,7 @@
     <div class="clock">
       <div class="time" id="clockTime">--:--</div>
       <div class="date" id="clockDate"></div>
+      <div class="weather" id="clockWeather"></div>
     </div>
   </div>
 
@@ -746,6 +748,12 @@
     }
     window._lastDashboardRes = res;
     document.getElementById('clockDate').textContent = res.today;
+    const weatherEl = document.getElementById('clockWeather');
+    if (res.weather && res.weather.temp !== null && res.weather.temp !== undefined) {
+      weatherEl.textContent = res.weather.icon + ' ' + res.weather.temp + '°C · ' + res.weather.label;
+    } else {
+      weatherEl.textContent = '';
+    }
     buildFilterOptions(res);
 
     const filteredRooms = res.rooms.filter(r => {
