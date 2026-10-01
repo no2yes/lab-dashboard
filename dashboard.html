@@ -186,6 +186,20 @@
     padding: 5px 13px;
   }
   .filter-toggle.active { background: rgba(74,222,128,0.2); border-color: #4ade80; }
+  .hidden-board-link {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 48px;
+    height: 48px;
+    z-index: 200;
+    opacity: 0;
+    background: transparent;
+  }
+  .hidden-board-link:hover, .hidden-board-link:focus {
+    opacity: 0.1;
+    background: #fff;
+  }
   .filter-toggle:hover, .dropdown-btn:hover {
     border-color: rgba(255,255,255,0.4);
     background: rgba(255,255,255,0.14);
@@ -502,6 +516,7 @@
   <div id="closeGridArea" class="close-grid"></div>
 
   <div class="footer">30초마다 자동 갱신 · <a class="footer-link" id="applyLink" href="#" target="_blank" rel="noopener">교직원 사용신청</a></div>
+  <a href="#" id="hiddenBoardLink" class="hidden-board-link" target="_blank" rel="noopener"></a>
 
   <div class="nav-modal-overlay" id="navModalOverlay" onclick="if(event.target===this) closeNavModal()">
     <div class="nav-modal">
@@ -532,6 +547,8 @@
   // 실습실 사용신청 — GAS 쪽 기본 페이지(?page 없음 = 신청서)로 새 탭 이동
   const applyLinkEl = document.getElementById('applyLink');
   if (applyLinkEl) applyLinkEl.href = GAS_URL;
+  const hiddenBoardEl = document.getElementById('hiddenBoardLink');
+  if (hiddenBoardEl) hiddenBoardEl.href = 'index.html' + (TOKEN ? ('?t=' + encodeURIComponent(TOKEN)) : '');
 
   // 폰 접속 QR — PC로 이 현황판을 보고 있을 때, 같은 화면을 내 스마트폰으로도 바로 열 수 있게 안내
   const QR_AUTO_CLOSE_SEC = 300; // 5분 뒤 자동으로 닫힘
