@@ -48,6 +48,8 @@
   }
   .day-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .day-btn {
+    position: relative;
+    overflow: hidden;
     background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.18);
     color: rgba(255,255,255,0.9);
@@ -61,6 +63,15 @@
   }
   .day-btn:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.35); }
   .day-btn.today { background: rgba(74,222,128,0.2); border-color: #4ade80; color: #86efac; }
+  .day-btn .fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 0%;
+    background: rgba(255,255,255,0.3);
+    z-index: 0;
+  }
+  .day-btn.today .fill { background: rgba(74,222,128,0.5); }
+  .day-btn .label { position: relative; z-index: 1; }
   .day-label {
     font-size: 13px;
     font-weight: 700;
@@ -146,9 +157,9 @@
 
   <div class="daybar">
     <div class="day-nav">
-      <button type="button" class="day-btn" onclick="dayPrev()">◀ 전날</button>
-      <button type="button" class="day-btn today" id="todayBtn" onclick="dayToday()">오늘</button>
-      <button type="button" class="day-btn" onclick="dayNext()">다음날 ▶</button>
+      <button type="button" class="day-btn" id="btnPrev" onclick="dayPrev()"><span class="fill"></span><span class="label">◀ 전날</span></button>
+      <button type="button" class="day-btn today" id="todayBtn" onclick="dayToday()"><span class="fill"></span><span class="label">오늘</span></button>
+      <button type="button" class="day-btn" id="btnNext" onclick="dayNext()"><span class="fill"></span><span class="label">다음날 ▶</span></button>
       <span class="day-label" id="dayLabel"></span>
     </div>
     <div class="legend">
@@ -187,13 +198,45 @@
       (now.getMonth() + 1) + '월 ' + now.getDate() + '일 ' + ['일','월','화','수','목','금','토'][now.getDay()] + '요일';
   }
 
-  function dayPrev() { dayOffset--; load(); }
-  function dayNext() { dayOffset++; load(); }
-  function dayToday() { dayOffset = 0; load(); }
+  function dayPrev() { setActiveNavBtn('btnPrev'); dayOffset--; load(); }
+  function dayNext() { setActiveNavBtn('btnNext'); dayOffset++; load(); }
+  function dayToday() { setActiveNavBtn('todayBtn'); dayOffset = 0; load(); }
 
   function startAutoRefresh() {
     if (autoRefreshTimer) clearInterval(autoRefreshTimer);
-    autoRefreshTimer = setInterval(() => { if (dayOffset === 0) load(); }, 5 * 60 * 1000);
+    autoRefreshTimer = setInterval(() => { if (dayOffset === 0) { setActiveNavBtn('todayBtn'); load(); } }, 5 * 60 * 1000);
+  }
+
+  // 로딩 중인 버튼에 "게이지가 차오르는" 효과를 줘서 어떤 날짜가 바뀌는 중인지 표시
+  let activeNavBtnId = 'todayBtn';
+  function setActiveNavBtn(id) {
+    activeNavBtnId = id;
+    ['btnPrev', 'todayBtn', 'btnNext'].forEach(bid => {
+      const btn = document.getElementById(bid);
+      const fill = btn && btn.querySelector('.fill');
+      if (!fill) return;
+      if (bid === id) {
+        fill.style.transition = 'none';
+        fill.style.width = '0%';
+        void fill.offsetWidth;  // 강제 리플로우 — 바로 다음 transition이 처음부터 다시 재생되도록
+        fill.style.transition = 'width 1.1s cubic-bezier(0.22,0.61,0.36,1)';
+        fill.style.width = '85%';
+      } else {
+        fill.style.transition = 'width 0.2s ease';
+        fill.style.width = '0%';
+      }
+    });
+  }
+  function finishActiveNavBtn() {
+    const btn = document.getElementById(activeNavBtnId);
+    const fill = btn && btn.querySelector('.fill');
+    if (!fill) return;
+    fill.style.transition = 'width 0.25s ease';
+    fill.style.width = '100%';
+    setTimeout(() => {
+      fill.style.transition = 'width 0.35s ease';
+      fill.style.width = '0%';
+    }, 300);
   }
 
   // 날짜를 넘길 때 "이전 날짜의 수업"이 잠깐 겹쳐 보이는 걸 막기 위해,
@@ -255,11 +298,13 @@
       .then(function(res) {
         render(res);
         if (res && res.success && res.rooms) cacheRooms(res.rooms);
+        finishActiveNavBtn();
       })
       .catch(err => {
         if (!document.querySelector('.aw-block')) {
           document.getElementById('arArea').innerHTML = '<div class="aw-error">조회 실패: ' + escapeHtml(err.message) + '</div>';
         }
+        finishActiveNavBtn();
       });
   }
 
@@ -345,6 +390,7 @@
     }
   }
 
+  setActiveNavBtn('todayBtn');
   load();
   startAutoRefresh();
   updateClock();
