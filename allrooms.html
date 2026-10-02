@@ -217,12 +217,14 @@
       if (!fill) return;
       if (bid === id) {
         fill.style.transition = 'none';
+        fill.style.opacity = '1';
         fill.style.width = '0%';
         void fill.offsetWidth;  // 강제 리플로우 — 바로 다음 transition이 처음부터 다시 재생되도록
         fill.style.transition = 'width 3.2s cubic-bezier(0.08,0.6,0.15,1)';
         fill.style.width = '85%';
       } else {
-        fill.style.transition = 'width 0.2s ease';
+        fill.style.transition = 'none';
+        fill.style.opacity = '1';
         fill.style.width = '0%';
       }
     });
@@ -234,9 +236,15 @@
     fill.style.transition = 'width 0.25s ease';
     fill.style.width = '100%';
     setTimeout(() => {
-      fill.style.transition = 'width 0.35s ease';
-      fill.style.width = '0%';
-    }, 300);
+      // 왼쪽으로 줄어들며 되돌아가는 대신, 다 채워진 상태로 그대로 페이드아웃
+      fill.style.transition = 'opacity 0.4s ease';
+      fill.style.opacity = '0';
+      setTimeout(() => {
+        fill.style.transition = 'none';
+        fill.style.width = '0%';
+        fill.style.opacity = '1';
+      }, 420);
+    }, 250);
   }
 
   // 날짜를 넘길 때 "이전 날짜의 수업"이 잠깐 겹쳐 보이는 걸 막기 위해,
