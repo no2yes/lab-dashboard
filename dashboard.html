@@ -488,6 +488,7 @@
       </button>
       <div class="dropdown-panel" id="swDropdownPanel"></div>
     </div>
+    <a href="#" id="allRoomsLink" class="dropdown-btn" style="text-decoration:none;margin-left:auto;" target="_blank" rel="noopener">🗓 전체 시간표 보기</a>
   </div>
 
   <div class="common-sw-bar" id="commonSwBar">
@@ -534,6 +535,8 @@
   if (applyLinkEl) applyLinkEl.href = GAS_URL;
   const boardLinkEl = document.getElementById('boardLink');
   if (boardLinkEl) boardLinkEl.href = 'index.html' + (TOKEN ? ('?t=' + encodeURIComponent(TOKEN)) : '');
+  const allRoomsLinkEl = document.getElementById('allRoomsLink');
+  if (allRoomsLinkEl) allRoomsLinkEl.href = 'allrooms.html' + (TOKEN ? ('?t=' + encodeURIComponent(TOKEN)) : '');
 
   // 폰 접속 QR — PC로 이 현황판을 보고 있을 때, 같은 화면을 내 스마트폰으로도 바로 열 수 있게 안내
   const QR_AUTO_CLOSE_SEC = 300; // 5분 뒤 자동으로 닫힘

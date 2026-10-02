@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>전체 실습실 시간표</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  html { scrollbar-color: rgba(255,255,255,0.25) rgba(255,255,255,0.04); scrollbar-width: thin; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); background-clip: padding-box; }
+  body {
+    font-family: 'Malgun Gothic','맑은 고딕',-apple-system,sans-serif;
+    background: linear-gradient(160deg, #0a1e3d 0%, #003D7C 100%);
+    background-attachment: fixed;
+    color: #fff;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+  }
+  .title { font-size: 18px; font-weight: 800; display: flex; align-items: baseline; gap: 8px; }
+  .title .sub { font-size: 11px; font-weight: 400; opacity: 0.6; }
+  .clock { text-align: right; }
+  .clock .time { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+  .clock .date { font-size: 11px; opacity: 0.65; margin-top: 2px; }
+
+  .daybar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .day-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .day-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.9);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .day-btn:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.35); }
+  .day-btn.today { background: rgba(74,222,128,0.2); border-color: #4ade80; color: #86efac; }
+  .day-label {
+    font-size: 13px;
+    font-weight: 700;
+    opacity: 0.9;
+  }
+  .day-label .vac-tag { color: #fde68a; font-weight: 600; margin-left: 6px; }
+  .legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 11px; opacity: 0.8; }
+  .legend .sw { display: inline-flex; align-items: center; gap: 5px; }
+  .legend .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .legend .dot.regular { background: #f87171; }
+  .legend .dot.reserved { background: #60a5fa; }
+  .legend .dot.issue { background: #fbbf24; }
+
+  .aw-wrap {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    padding: 14px;
+    overflow-x: auto;
+    flex: 1;
+  }
+  .aw-grid { display: grid; gap: 4px; min-width: max-content; }
+  .aw-room-header {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.16);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    padding: 6px 4px;
+    border-radius: 6px;
+    position: relative;
+    line-height: 1.4;
+  }
+  .aw-room-header .issue-badge {
+    position: absolute;
+    top: -6px; right: -6px;
+    background: #fbbf24;
+    color: #1a1a1a;
+    border-radius: 8px;
+    font-size: 9px;
+    padding: 1px 5px;
+    font-weight: 800;
+  }
+  .aw-time-col { width: 44px; font-size: 10px; color: rgba(255,255,255,0.55); text-align: center; }
+  .aw-col { width: 130px; position: relative; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); border-radius: 4px; }
+  .aw-cell { height: 20px; border-bottom: 1px dashed rgba(255,255,255,0.06); }
+  .aw-block {
+    position: absolute;
+    left: 2px; right: 2px;
+    border-radius: 5px;
+    padding: 2px 5px;
+    font-size: 10px;
+    overflow: hidden;
+    box-sizing: border-box;
+    line-height: 1.3;
+  }
+  .aw-block.regular { background: rgba(248,113,113,0.22); border-left: 3px solid #f87171; color: #fecaca; }
+  .aw-block.reserved { background: rgba(96,165,250,0.22); border-left: 3px solid #60a5fa; color: #bfdbfe; }
+  .aw-block .bt { font-weight: 800; }
+  .aw-now-line {
+    position: absolute; left: 0; right: 0; height: 0;
+    border-top: 2px dashed #f87171;
+    box-shadow: 0 0 4px rgba(248,113,113,0.6);
+    z-index: 20;
+  }
+  .aw-now-label {
+    position: absolute; left: 2px; top: -9px;
+    background: #f87171; color: #1a1a1a; font-size: 9px; font-weight: 800;
+    padding: 1px 5px; border-radius: 8px; z-index: 21;
+  }
+  .aw-loading, .aw-error { text-align: center; padding: 60px 20px; color: rgba(255,255,255,0.6); font-size: 14px; }
+
+  .footer { text-align: center; font-size: 11px; opacity: 0.5; margin-top: 14px; }
+  .footer-link { color: inherit; text-decoration: none; }
+  .footer-link:hover { text-decoration: underline; }
+
+  @media (max-width: 480px) {
+    .daybar { flex-direction: column; align-items: stretch; }
+    .legend { order: 3; }
+  }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="title">🖥️ 전체 실습실 시간표<span class="sub">강원대학교 강릉캠퍼스 · 오늘 각 실습실의 정규수업·예약 현황을 한눈에 보여줍니다</span></div>
+    <div class="clock">
+      <div class="time" id="clockTime">--:--</div>
+      <div class="date" id="clockDate"></div>
+    </div>
+  </div>
+
+  <div class="daybar">
+    <div class="day-nav">
+      <button type="button" class="day-btn" onclick="dayPrev()">◀ 전날</button>
+      <button type="button" class="day-btn today" id="todayBtn" onclick="dayToday()">오늘</button>
+      <button type="button" class="day-btn" onclick="dayNext()">다음날 ▶</button>
+      <span class="day-label" id="dayLabel"></span>
+    </div>
+    <div class="legend">
+      <span class="sw"><span class="dot regular"></span>정규수업</span>
+      <span class="sw"><span class="dot reserved"></span>예약됨</span>
+      <span class="sw"><span class="dot issue"></span>고장·신고 있음</span>
+    </div>
+  </div>
+
+  <div class="aw-wrap">
+    <div id="arArea" class="aw-loading">불러오는 중...</div>
+  </div>
+
+  <div class="footer">실습실 현황판으로 돌아가기 · <a class="footer-link" id="backLink" href="dashboard.html">실습실 현황판</a></div>
+
+<script>
+  // ▼▼▼ GAS 배포 주소 (dashboard.html / index.html과 동일) ▼▼▼
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
+  // ▲▲▲
+
+  const TOKEN = new URLSearchParams(location.search).get('t') || '';
+  const backLinkEl = document.getElementById('backLink');
+  if (backLinkEl) backLinkEl.href = 'dashboard.html' + (TOKEN ? ('?t=' + encodeURIComponent(TOKEN)) : '');
+
+  const START_HOUR = 9, END_HOUR = 22, SLOT_MIN = 30;
+  let dayOffset = 0;
+  let autoRefreshTimer = null;
+
+  function escapeHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function t2m(t) { const p = t.split(':'); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
+
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clockTime').textContent =
+      String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('clockDate').textContent =
+      (now.getMonth() + 1) + '월 ' + now.getDate() + '일 ' + ['일','월','화','수','목','금','토'][now.getDay()] + '요일';
+  }
+
+  function dayPrev() { dayOffset--; load(); }
+  function dayNext() { dayOffset++; load(); }
+  function dayToday() { dayOffset = 0; load(); }
+
+  function startAutoRefresh() {
+    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+    autoRefreshTimer = setInterval(() => { if (dayOffset === 0) load(); }, 5 * 60 * 1000);
+  }
+
+  function load() {
+    if (!TOKEN) {
+      document.getElementById('arArea').innerHTML = '<div class="aw-error">접속 주소에 인증 정보(?t=...)가 없습니다. 관리자에게 링크를 다시 요청해주세요.</div>';
+      return;
+    }
+    document.getElementById('arArea').innerHTML = '<div class="aw-loading">불러오는 중...</div>';
+    fetch(GAS_URL + '?page=api&action=allrooms&t=' + encodeURIComponent(TOKEN) + '&dayOffset=' + dayOffset)
+      .then(res => res.json())
+      .then(render)
+      .catch(err => {
+        document.getElementById('arArea').innerHTML = '<div class="aw-error">조회 실패: ' + escapeHtml(err.message) + '</div>';
+      });
+  }
+
+  function render(res) {
+    if (!res || !res.success) {
+      document.getElementById('arArea').innerHTML = '<div class="aw-error">' + escapeHtml((res && res.message) || '조회 실패') + '</div>';
+      return;
+    }
+
+    document.getElementById('todayBtn').classList.toggle('today', !!res.isToday);
+    document.getElementById('dayLabel').innerHTML =
+      escapeHtml(res.today) + ' (' + escapeHtml(res.dayOfWeek) + ')' +
+      (res.isVacation ? '<span class="vac-tag">🏖 방학기간</span>' : '') +
+      (res.isToday ? '' : ' · 과거/미래 날짜');
+
+    const rooms = res.rooms;
+    const totalSlots = ((END_HOUR - START_HOUR) * 60) / SLOT_MIN;
+    const gridCols = '44px repeat(' + rooms.length + ', 130px)';
+
+    let html = '<div class="aw-grid" style="grid-template-columns:' + gridCols + ';">';
+    html += '<div></div>';
+    rooms.forEach(r => {
+      const m = r.name.match(/^(.+?)\)\s*(.+)$/);
+      let line1, line2;
+      if (m) { line1 = m[1] + ')'; line2 = m[2]; }
+      else { line1 = r.name; line2 = ''; }
+      html += '<div class="aw-room-header">' +
+              '<div>' + escapeHtml(line1) + '</div>' +
+              (line2 ? '<div>' + escapeHtml(line2) + '</div>' : '') +
+              (r.issueCount > 0 ? '<span class="issue-badge">⚠' + r.issueCount + '</span>' : '') + '</div>';
+    });
+
+    html += '<div style="position:relative;">';
+    for (let s = 0; s <= totalSlots; s++) {
+      const totalMin = START_HOUR * 60 + s * SLOT_MIN;
+      const h = Math.floor(totalMin / 60), m = totalMin % 60;
+      if (m === 0) {
+        html += '<div class="aw-time-col" style="position:absolute;top:' + (s * 20 - 6) + 'px;width:44px;">' + String(h).padStart(2, '0') + ':00</div>';
+      }
+    }
+    html += '</div>';
+
+    rooms.forEach(r => {
+      html += '<div class="aw-col" style="height:' + (totalSlots * 20) + 'px;">';
+      for (let s = 0; s < totalSlots; s++) html += '<div class="aw-cell"></div>';
+      r.blocks.forEach(b => {
+        const bs = t2m(b.start), be = t2m(b.end);
+        const top = ((bs - START_HOUR * 60) / SLOT_MIN) * 20;
+        const height = ((be - bs) / SLOT_MIN) * 20;
+        const cls = (b.type === '정규수업') ? 'regular' : 'reserved';
+        html += '<div class="aw-block ' + cls + '" style="top:' + top + 'px;height:' + height + 'px;">' +
+                '<div class="bt">' + b.start + '~' + b.end + '</div><div>' + escapeHtml(b.label) + '</div></div>';
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+
+    document.getElementById('arArea').innerHTML = html;
+    if (res.isToday) drawNowLine(totalSlots);
+  }
+
+  function drawNowLine(totalSlots) {
+    const grid = document.querySelector('.aw-grid');
+    if (!grid) return;
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const rangeStart = START_HOUR * 60, rangeEnd = END_HOUR * 60;
+    if (nowMin < rangeStart || nowMin > rangeEnd) return;
+    const top = ((nowMin - rangeStart) / SLOT_MIN) * 20;
+
+    const cols = document.querySelectorAll('.aw-col');
+    cols.forEach(col => {
+      const line = document.createElement('div');
+      line.className = 'aw-now-line';
+      line.style.top = top + 'px';
+      col.appendChild(line);
+    });
+    if (cols[0]) {
+      const label = document.createElement('div');
+      label.className = 'aw-now-label';
+      label.textContent = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+      label.style.top = top + 'px';
+      cols[0].appendChild(label);
+    }
+  }
+
+  load();
+  startAutoRefresh();
+  updateClock();
+  setInterval(updateClock, 1000);
+</script>
+</body>
+</html>
