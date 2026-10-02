@@ -587,6 +587,13 @@
     document.getElementById('clockTime').textContent = t;
   }
 
+  // 직전 화면을 즉시 보여주고(0초 대기) 그 사이에 최신 데이터를 가져와 교체 — "불러오는 중" 공백을 없앰
+  const DASH_CACHE_KEY = 'dash_lastData_' + TOKEN;
+  function renderCachedSnapshotIfAny() {
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(DASH_CACHE_KEY) || 'null'); } catch (e) {}
+    if (cached) render(cached, true);
+  }
   function load() {
     if (!TOKEN) {
       document.getElementById('gridArea').innerHTML = '<div class="error">링크가 올바르지 않습니다. 관리자에게 문의해주세요.</div>';
@@ -594,9 +601,17 @@
     }
     fetch(GAS_URL + '?page=api&action=dashboard&t=' + encodeURIComponent(TOKEN))
       .then(res => res.json())
-      .then(render)
+      .then(function(res) {
+        render(res);
+        if (res && res.success) {
+          try { localStorage.setItem(DASH_CACHE_KEY, JSON.stringify(res)); } catch (e) {}
+        }
+      })
       .catch(function(err) {
-        document.getElementById('gridArea').innerHTML = '<div class="error">조회 실패: ' + escapeHtml(err.message) + '</div>';
+        // 네트워크 실패 시에도 직전 화면이 이미 떠 있으면 그대로 두고, 처음부터 실패한 경우만 에러 표시
+        if (!document.querySelector('.room-card')) {
+          document.getElementById('gridArea').innerHTML = '<div class="error">조회 실패: ' + escapeHtml(err.message) + '</div>';
+        }
       });
   }
 
@@ -955,6 +970,7 @@
     }, 1200);
   })();
 
+  renderCachedSnapshotIfAny();
   load();
   updateClock();
   setInterval(updateClock, 1000);
