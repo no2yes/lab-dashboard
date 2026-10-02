@@ -97,12 +97,6 @@
   }
   .date-pick-input::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; opacity: 0.85; }
   .date-pick-input::-webkit-calendar-picker-indicator:hover { opacity: 1; }
-  .day-label {
-    font-size: 13px;
-    font-weight: 700;
-    opacity: 0.9;
-  }
-  .day-label .vac-tag { color: #fde68a; font-weight: 600; margin-left: 6px; }
   .legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 11px; opacity: 0.8; }
   .legend .sw { display: inline-flex; align-items: center; gap: 5px; }
   .legend .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
@@ -189,7 +183,6 @@
         <span class="fill"></span>
         <input type="date" id="dayPicker" class="date-pick-input" aria-label="날짜 선택">
       </div>
-      <span class="day-label" id="dayLabel"></span>
     </div>
     <div class="legend">
       <span class="sw"><span class="dot regular"></span>정규수업</span>
@@ -377,10 +370,6 @@
 
     document.getElementById('todayBtn').classList.toggle('today', !!res.isToday);
     if (dayPickerEl && res.today) dayPickerEl.value = res.today;
-    document.getElementById('dayLabel').innerHTML =
-      escapeHtml(res.today) + ' (' + escapeHtml(res.dayOfWeek) + ')' +
-      (res.isVacation ? '<span class="vac-tag">🏖 방학기간</span>' : '') +
-      (res.isToday ? '' : ' · 과거/미래 날짜');
 
     const rooms = res.rooms;
     const totalSlots = ((END_HOUR - START_HOUR) * 60) / SLOT_MIN;
