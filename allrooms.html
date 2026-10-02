@@ -110,6 +110,8 @@
   .aw-block.regular { background: rgba(248,113,113,0.22); border-left: 3px solid #f87171; color: #fecaca; }
   .aw-block.reserved { background: rgba(96,165,250,0.22); border-left: 3px solid #60a5fa; color: #bfdbfe; }
   .aw-block .bt { font-weight: 800; }
+  @keyframes awBlockFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .aw-block { animation: awBlockFadeIn 0.35s ease; }
   .aw-now-line {
     position: absolute; left: 0; right: 0; height: 0;
     border-top: 2px dashed #f87171;
@@ -194,12 +196,47 @@
     autoRefreshTimer = setInterval(() => { if (dayOffset === 0) load(); }, 5 * 60 * 1000);
   }
 
-  // 직전에 봤던 같은 날짜의 화면을 먼저 보여주고, 그 사이 최신 데이터로 조용히 교체 (현황판과 동일한 방식)
-  function arCacheKey() { return 'allrooms_lastData_' + TOKEN + '_' + dayOffset; }
-  function renderCachedSnapshotIfAny() {
-    let cached = null;
-    try { cached = JSON.parse(localStorage.getItem(arCacheKey()) || 'null'); } catch (e) {}
-    if (cached) render(cached);
+  // 날짜를 넘길 때 "이전 날짜의 수업"이 잠깐 겹쳐 보이는 걸 막기 위해,
+  // 실제 수업·예약 데이터는 캐시하지 않고 "실습실 목록(틀)"만 캐시해서
+  // 매번 빈 틀을 먼저 그린 뒤, 데이터가 도착하면 그 자리에 페이드인시킨다.
+  const ROOMS_CACHE_KEY = 'allrooms_rooms_' + TOKEN;
+  function getCachedRooms() {
+    try { return JSON.parse(localStorage.getItem(ROOMS_CACHE_KEY) || 'null'); } catch (e) { return null; }
+  }
+  function cacheRooms(rooms) {
+    try { localStorage.setItem(ROOMS_CACHE_KEY, JSON.stringify(rooms.map(r => ({ id: r.id, name: r.name })))); } catch (e) {}
+  }
+
+  function renderSkeleton(rooms) {
+    const totalSlots = ((END_HOUR - START_HOUR) * 60) / SLOT_MIN;
+    const gridCols = '44px repeat(' + rooms.length + ', 130px)';
+    let html = '<div class="aw-grid" style="grid-template-columns:' + gridCols + ';">';
+    html += '<div></div>';
+    rooms.forEach(r => {
+      const m = r.name.match(/^(.+?)\)\s*(.+)$/);
+      let line1, line2;
+      if (m) { line1 = m[1] + ')'; line2 = m[2]; }
+      else { line1 = r.name; line2 = ''; }
+      html += '<div class="aw-room-header">' +
+              '<div>' + escapeHtml(line1) + '</div>' +
+              (line2 ? '<div>' + escapeHtml(line2) + '</div>' : '') + '</div>';
+    });
+    html += '<div style="position:relative;">';
+    for (let s = 0; s <= totalSlots; s++) {
+      const totalMin = START_HOUR * 60 + s * SLOT_MIN;
+      const h = Math.floor(totalMin / 60), m = totalMin % 60;
+      if (m === 0) {
+        html += '<div class="aw-time-col" style="position:absolute;top:' + (s * 20 - 6) + 'px;width:44px;">' + String(h).padStart(2, '0') + ':00</div>';
+      }
+    }
+    html += '</div>';
+    rooms.forEach(() => {
+      html += '<div class="aw-col" style="height:' + (totalSlots * 20) + 'px;opacity:0.5;">';
+      for (let s = 0; s < totalSlots; s++) html += '<div class="aw-cell"></div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    document.getElementById('arArea').innerHTML = html;
   }
 
   function load() {
@@ -207,20 +244,20 @@
       document.getElementById('arArea').innerHTML = '<div class="aw-error">접속 주소에 인증 정보(?t=...)가 없습니다. 관리자에게 링크를 다시 요청해주세요.</div>';
       return;
     }
-    renderCachedSnapshotIfAny();
-    if (!document.querySelector('.aw-grid')) {
+    const cachedRooms = getCachedRooms();
+    if (cachedRooms && cachedRooms.length) {
+      renderSkeleton(cachedRooms);
+    } else {
       document.getElementById('arArea').innerHTML = '<div class="aw-loading">불러오는 중...</div>';
     }
     fetch(GAS_URL + '?page=api&action=allrooms&t=' + encodeURIComponent(TOKEN) + '&dayOffset=' + dayOffset)
       .then(res => res.json())
       .then(function(res) {
         render(res);
-        if (res && res.success) {
-          try { localStorage.setItem(arCacheKey(), JSON.stringify(res)); } catch (e) {}
-        }
+        if (res && res.success && res.rooms) cacheRooms(res.rooms);
       })
       .catch(err => {
-        if (!document.querySelector('.aw-grid')) {
+        if (!document.querySelector('.aw-block')) {
           document.getElementById('arArea').innerHTML = '<div class="aw-error">조회 실패: ' + escapeHtml(err.message) + '</div>';
         }
       });
