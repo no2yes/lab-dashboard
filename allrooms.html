@@ -70,6 +70,11 @@
     background: rgba(255,255,255,0.3);
     z-index: 0;
   }
+  /* 다음날: 왼쪽 → 오른쪽으로 채워짐 (기본값, 진행 방향과 일치) */
+  /* 전날: 오른쪽 → 왼쪽으로 채워짐 (왼쪽 방향 진행과 일치) */
+  #btnPrev .fill { left: auto; right: 0; }
+  /* 오늘: 방향성이 없으므로 가운데서 양옆으로 펼쳐짐 */
+  #todayBtn .fill { left: 50%; right: auto; transform: translateX(-50%); }
   .day-btn.today .fill { background: rgba(74,222,128,0.5); }
   .day-btn .label { position: relative; z-index: 1; }
   .day-label {
