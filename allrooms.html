@@ -72,7 +72,6 @@
   .legend .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
   .legend .dot.regular { background: #f87171; }
   .legend .dot.reserved { background: #60a5fa; }
-  .legend .dot.issue { background: #fbbf24; }
 
   .aw-wrap {
     background: rgba(255,255,255,0.05);
@@ -94,16 +93,6 @@
     border-radius: 6px;
     position: relative;
     line-height: 1.4;
-  }
-  .aw-room-header .issue-badge {
-    position: absolute;
-    top: -6px; right: -6px;
-    background: #fbbf24;
-    color: #1a1a1a;
-    border-radius: 8px;
-    font-size: 9px;
-    padding: 1px 5px;
-    font-weight: 800;
   }
   .aw-time-col { width: 44px; font-size: 10px; color: rgba(255,255,255,0.55); text-align: center; }
   .aw-col { width: 130px; position: relative; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); border-radius: 4px; }
@@ -163,7 +152,6 @@
     <div class="legend">
       <span class="sw"><span class="dot regular"></span>정규수업</span>
       <span class="sw"><span class="dot reserved"></span>예약됨</span>
-      <span class="sw"><span class="dot issue"></span>고장·신고 있음</span>
     </div>
   </div>
 
@@ -245,8 +233,7 @@
       else { line1 = r.name; line2 = ''; }
       html += '<div class="aw-room-header">' +
               '<div>' + escapeHtml(line1) + '</div>' +
-              (line2 ? '<div>' + escapeHtml(line2) + '</div>' : '') +
-              (r.issueCount > 0 ? '<span class="issue-badge">⚠' + r.issueCount + '</span>' : '') + '</div>';
+              (line2 ? '<div>' + escapeHtml(line2) + '</div>' : '') + '</div>';
     });
 
     html += '<div style="position:relative;">';
