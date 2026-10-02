@@ -77,6 +77,26 @@
   #todayBtn .fill { left: 50%; right: auto; transform: translateX(-50%); }
   .day-btn.today .fill { background: rgba(74,222,128,0.5); }
   .day-btn .label { position: relative; z-index: 1; }
+
+  /* 날짜 직접 선택 */
+  .date-pick-wrap { padding: 0 2px 0 10px; display: flex; align-items: center; }
+  .date-pick-input {
+    position: relative;
+    z-index: 1;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 8px;
+    border-radius: 16px;
+    color-scheme: dark;
+    cursor: pointer;
+    outline: none;
+  }
+  .date-pick-input::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; opacity: 0.85; }
+  .date-pick-input::-webkit-calendar-picker-indicator:hover { opacity: 1; }
   .day-label {
     font-size: 13px;
     font-weight: 700;
@@ -165,6 +185,10 @@
       <button type="button" class="day-btn" id="btnPrev" onclick="dayPrev()"><span class="fill"></span><span class="label">◀ 전날</span></button>
       <button type="button" class="day-btn today" id="todayBtn" onclick="dayToday()"><span class="fill"></span><span class="label">오늘</span></button>
       <button type="button" class="day-btn" id="btnNext" onclick="dayNext()"><span class="fill"></span><span class="label">다음날 ▶</span></button>
+      <div class="day-btn date-pick-wrap" id="datePickWrap" title="날짜 선택">
+        <span class="fill"></span>
+        <input type="date" id="dayPicker" class="date-pick-input" aria-label="날짜 선택">
+      </div>
       <span class="day-label" id="dayLabel"></span>
     </div>
     <div class="legend">
@@ -212,15 +236,39 @@
     autoRefreshTimer = setInterval(() => { if (dayOffset === 0) { setActiveNavBtn('todayBtn'); load(); } }, 5 * 60 * 1000);
   }
 
+  // 날짜를 직접 선택하면, 그 날짜가 오늘보다 미래/과거/오늘인지에 따라
+  // 다음날(좌→우)/전날(우→좌)/오늘(가운데서 확산)과 같은 방향으로 게이지가 채워지게 함
+  const NAV_BTN_IDS = ['btnPrev', 'todayBtn', 'btnNext', 'datePickWrap'];
+  const dayPickerEl = document.getElementById('dayPicker');
+  function formatLocalISODate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  if (dayPickerEl) {
+    dayPickerEl.addEventListener('change', function() {
+      if (!this.value) return;
+      const picked = new Date(this.value + 'T00:00:00');
+      const today0 = new Date(); today0.setHours(0, 0, 0, 0);
+      const diffDays = Math.round((picked - today0) / 86400000);
+      const dir = diffDays > 0 ? 'ltr' : (diffDays < 0 ? 'rtl' : 'center');
+      setActiveNavBtn('datePickWrap', dir);
+      dayOffset = diffDays;
+      load();
+    });
+  }
+
   // 로딩 중인 버튼에 "게이지가 차오르는" 효과를 줘서 어떤 날짜가 바뀌는 중인지 표시
+  // dir을 지정하면(날짜 선택 등) 그 방향으로, 지정하지 않으면 버튼별 기본 CSS 방향을 그대로 씀
   let activeNavBtnId = 'todayBtn';
-  function setActiveNavBtn(id) {
+  function setActiveNavBtn(id, dir) {
     activeNavBtnId = id;
-    ['btnPrev', 'todayBtn', 'btnNext'].forEach(bid => {
+    NAV_BTN_IDS.forEach(bid => {
       const btn = document.getElementById(bid);
       const fill = btn && btn.querySelector('.fill');
       if (!fill) return;
       if (bid === id) {
+        if (dir === 'ltr') { fill.style.left = '0'; fill.style.right = 'auto'; fill.style.transform = 'none'; }
+        else if (dir === 'rtl') { fill.style.left = 'auto'; fill.style.right = '0'; fill.style.transform = 'none'; }
+        else if (dir === 'center') { fill.style.left = '50%'; fill.style.right = 'auto'; fill.style.transform = 'translateX(-50%)'; }
         fill.style.transition = 'none';
         fill.style.opacity = '1';
         fill.style.width = '0%';
@@ -328,6 +376,7 @@
     }
 
     document.getElementById('todayBtn').classList.toggle('today', !!res.isToday);
+    if (dayPickerEl && res.today) dayPickerEl.value = res.today;
     document.getElementById('dayLabel').innerHTML =
       escapeHtml(res.today) + ' (' + escapeHtml(res.dayOfWeek) + ')' +
       (res.isVacation ? '<span class="vac-tag">🏖 방학기간</span>' : '') +
