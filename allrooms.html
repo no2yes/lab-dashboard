@@ -194,17 +194,35 @@
     autoRefreshTimer = setInterval(() => { if (dayOffset === 0) load(); }, 5 * 60 * 1000);
   }
 
+  // 직전에 봤던 같은 날짜의 화면을 먼저 보여주고, 그 사이 최신 데이터로 조용히 교체 (현황판과 동일한 방식)
+  function arCacheKey() { return 'allrooms_lastData_' + TOKEN + '_' + dayOffset; }
+  function renderCachedSnapshotIfAny() {
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(arCacheKey()) || 'null'); } catch (e) {}
+    if (cached) render(cached);
+  }
+
   function load() {
     if (!TOKEN) {
       document.getElementById('arArea').innerHTML = '<div class="aw-error">접속 주소에 인증 정보(?t=...)가 없습니다. 관리자에게 링크를 다시 요청해주세요.</div>';
       return;
     }
-    document.getElementById('arArea').innerHTML = '<div class="aw-loading">불러오는 중...</div>';
+    renderCachedSnapshotIfAny();
+    if (!document.querySelector('.aw-grid')) {
+      document.getElementById('arArea').innerHTML = '<div class="aw-loading">불러오는 중...</div>';
+    }
     fetch(GAS_URL + '?page=api&action=allrooms&t=' + encodeURIComponent(TOKEN) + '&dayOffset=' + dayOffset)
       .then(res => res.json())
-      .then(render)
+      .then(function(res) {
+        render(res);
+        if (res && res.success) {
+          try { localStorage.setItem(arCacheKey(), JSON.stringify(res)); } catch (e) {}
+        }
+      })
       .catch(err => {
-        document.getElementById('arArea').innerHTML = '<div class="aw-error">조회 실패: ' + escapeHtml(err.message) + '</div>';
+        if (!document.querySelector('.aw-grid')) {
+          document.getElementById('arArea').innerHTML = '<div class="aw-error">조회 실패: ' + escapeHtml(err.message) + '</div>';
+        }
       });
   }
 
