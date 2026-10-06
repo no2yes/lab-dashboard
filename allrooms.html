@@ -336,6 +336,10 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       b.setAttribute('aria-label', b.title);
     }
   }
+  // 인쇄할 때는 항상 밝은 테마로 (잉크·가독성)
+  var beforeMode = null;
+  window.addEventListener('beforeprint', function () { beforeMode = mode; document.documentElement.setAttribute('data-theme', 'light'); });
+  window.addEventListener('afterprint', function () { if (beforeMode) document.documentElement.setAttribute('data-theme', beforeMode); beforeMode = null; });
   window.toggleLabTheme = function () {
     var next = (mode === 'dark') ? 'light' : 'dark';
     try { localStorage.setItem(KEY, next); } catch (e) {}
