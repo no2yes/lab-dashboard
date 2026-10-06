@@ -592,8 +592,28 @@
     stage.innerHTML = '<div class="did-deck">' + renderGhostStack() + '<div class="did-flex' + singleClass + '">' + html + '</div></div>';
     stage.classList.add('enter');
 
+    fitDeck();
     renderProgress(start, slice.length);
+    fitDeck();
   }
+
+  // 화면 크기에 맞춰 카드 묶음을 자동으로 줄여서, 위아래·좌우가 잘리지 않고 전부 보이게 함
+  function fitDeck() {
+    const stage = document.getElementById('didStage');
+    const deck = stage && stage.querySelector('.did-deck');
+    if (!deck) return;
+    deck.style.transform = 'none';
+    const ghostPad = (getCardsPerSlide() === 1) ? 0 : window.innerHeight * 0.045;
+    const availH = stage.clientHeight - ghostPad;
+    const availW = stage.clientWidth;
+    const dh = deck.offsetHeight, dw = deck.scrollWidth;
+    if (!dh || !dw) return;
+    const scale = Math.min(1, availH / dh, availW / dw);
+    deck.style.transformOrigin = 'center center';
+    deck.style.transform = (scale < 0.999) ? 'scale(' + scale.toFixed(3) + ')' : 'none';
+  }
+  window.addEventListener('resize', fitDeck);
+  window.addEventListener('orientationchange', function() { setTimeout(fitDeck, 200); });
 
   load();
   updateClock();
