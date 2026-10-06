@@ -580,7 +580,9 @@
   --w90:rgba(38,40,44,0.92);
 }
 html { background: var(--bg); }
-option { background: var(--surface-pop); color: var(--text); }
+/* 드롭다운(select) 목록: 페이지별 색 지정보다 우선해서 항상 읽히게 */
+select option, select optgroup, option, optgroup { background-color: var(--surface-pop) !important; color: var(--text) !important; }
+select optgroup { color: var(--t3) !important; font-weight: 700; font-style: normal; }
 
 /* 테마 전환 버튼 */
 #labThemeBtn {
