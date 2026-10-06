@@ -448,6 +448,8 @@
     const totalSlots = ((END_HOUR - START_HOUR) * 60) / SLOT_MIN;
     const gridCols = '44px repeat(' + rooms.length + ', 130px)';
 
+    const selDate = new Date(); selDate.setHours(0, 0, 0, 0); selDate.setDate(selDate.getDate() + dayOffset);
+    const selDateStr = formatLocalISODate(selDate);
     let html = '<div class="aw-grid" style="grid-template-columns:' + gridCols + ';">';
     html += '<div></div>';
     rooms.forEach(r => {
@@ -455,7 +457,7 @@
       let line1, line2;
       if (m) { line1 = m[1] + ')'; line2 = m[2]; }
       else { line1 = r.name; line2 = ''; }
-      html += '<a class="aw-room-header aw-room-link" href="' + GAS_URL + '?room=' + encodeURIComponent(r.id) + '" target="_blank" rel="noopener" title="이 실습실 신청하기">' +
+      html += '<a class="aw-room-header aw-room-link" href="' + GAS_URL + '?room=' + encodeURIComponent(r.id) + '&date=' + selDateStr + '" target="_blank" rel="noopener" title="이 실습실 신청하기">' +
               '<div>' + escapeHtml(line1) + '</div>' +
               (line2 ? '<div>' + escapeHtml(line2) + '</div>' : '') + '</a>';
     });
