@@ -131,6 +131,8 @@
     position: relative;
     line-height: 1.4;
   }
+  .aw-room-link { display: block; text-decoration: none; cursor: pointer; transition: background .15s, border-color .15s; }
+  .aw-room-link:hover { background: rgba(127,179,255,0.28); border-color: rgba(127,179,255,0.7); }
   .aw-time-col { width: 44px; font-size: 10px; color: rgba(255,255,255,0.55); text-align: center; }
   .aw-col { width: 130px; position: relative; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); border-radius: 4px; }
   .aw-cell { height: 20px; border-bottom: 1px dashed rgba(255,255,255,0.06); }
@@ -453,9 +455,9 @@
       let line1, line2;
       if (m) { line1 = m[1] + ')'; line2 = m[2]; }
       else { line1 = r.name; line2 = ''; }
-      html += '<div class="aw-room-header">' +
+      html += '<a class="aw-room-header aw-room-link" href="' + GAS_URL + '?room=' + encodeURIComponent(r.id) + '" target="_blank" rel="noopener" title="이 실습실 신청하기">' +
               '<div>' + escapeHtml(line1) + '</div>' +
-              (line2 ? '<div>' + escapeHtml(line2) + '</div>' : '') + '</div>';
+              (line2 ? '<div>' + escapeHtml(line2) + '</div>' : '') + '</a>';
     });
 
     html += '<div style="position:relative;">';
