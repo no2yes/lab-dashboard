@@ -630,6 +630,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     document.body.appendChild(b);
     apply(mode);
   }
+  window.mountLabThemeBtn = mount;   // 화면이 통째로 교체되는 경우(관리자 로그인 직후)에 버튼을 다시 달기 위해 공개
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
 })();
 </script>
