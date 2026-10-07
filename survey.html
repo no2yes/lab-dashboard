@@ -272,8 +272,8 @@
   function groupedOptionsHtml(withCount) {
     const gates = buildings.filter(b => b.gate), blds = buildings.filter(b => !b.gate);
     if (!gates.length) return optionsHtml(blds, withCount);
-    return '<optgroup label="🚪 학교 출입구">' + optionsHtml(gates, withCount) + '</optgroup>' +
-           '<optgroup label="🏢 건물">' + optionsHtml(blds, withCount) + '</optgroup>';
+    return '<optgroup label="🏢 건물">' + optionsHtml(blds, withCount) + '</optgroup>' +
+           '<optgroup label="🚪 학교 출입구">' + optionsHtml(gates, withCount) + '</optgroup>';
   }
   function renderBuildings(keepValue) {
     const cur = keepValue !== undefined ? keepValue : el.bld.value;
