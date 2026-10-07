@@ -61,6 +61,16 @@
   .progress { font-size:12px; color:var(--t3); text-align:right; margin-top:4px; }
   a { color:var(--accent); }
   .hide { display:none !important; }
+  .seg { display:flex; gap:6px; }
+  .seg button { flex:1; border:1px solid var(--line); background:transparent; color:var(--t2); border-radius:10px; padding:10px 4px;
+                font-size:15px; font-family:inherit; cursor:pointer; }
+  .seg button.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:800; }
+  .tabs { display:flex; gap:6px; margin-bottom:12px; }
+  .tabs button { flex:1; border:1px solid var(--line); background:var(--card); color:var(--t2); border-radius:12px; padding:11px 4px;
+                 font-size:15px; font-family:inherit; font-weight:700; cursor:pointer; }
+  .tabs button.on { background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+  .big { font-size:26px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .btn.stop { background:var(--danger); color:#fff; }
 </style>
 </head>
 <body>
@@ -70,6 +80,12 @@
 
 <div id="topMsg"></div>
 
+<div class="tabs" id="tabs">
+  <button type="button" class="on" data-m="loc">📍 건물 위치</button>
+  <button type="button" data-m="path">🚶 걸은 길 기록</button>
+</div>
+
+<div id="modeLoc">
 <div class="card" id="cardInfo">
   <div class="step"><b>1</b>건물 선택</div>
   <div class="who hide" id="who"></div>
@@ -79,14 +95,17 @@
     <div class="progress" id="bldProgress"></div>
   </div>
   <div class="row">
-    <label for="note">지점 메모 <span style="color:var(--t3)">(선택)</span></label>
-    <input type="text" id="note" maxlength="60" placeholder="예: 정문 출입구 앞">
-    <div class="chips" id="chips">
-      <button type="button" class="chip" data-v="정문 출입구">정문 출입구</button>
-      <button type="button" class="chip" data-v="후문 출입구">후문 출입구</button>
-      <button type="button" class="chip" data-v="측면 출입구">측면 출입구</button>
-      <button type="button" class="chip" data-v="주 출입구">주 출입구</button>
+    <label>측정할 출입구 <span style="color:var(--danger)">*</span></label>
+    <div class="seg" id="seg">
+      <button type="button" class="on" data-v="정문">정문</button>
+      <button type="button" data-v="후문">후문</button>
+      <button type="button" data-v="측면">측면</button>
     </div>
+    <div class="progress" id="typeProgress" style="text-align:left"></div>
+  </div>
+  <div class="row">
+    <label for="note">지점 메모 <span style="color:var(--t3)">(선택)</span></label>
+    <input type="text" id="note" maxlength="60" placeholder="예: 도서관 쪽 계단 앞">
   </div>
 </div>
 
@@ -110,7 +129,43 @@
     <li>측정 중(약 20초)에는 폰을 <b>들고 가만히</b> 서 있어 주세요.</li>
     <li>폰의 <b>위치(GPS) 기능을 켜 두세요.</b> 위치 권한을 물으면 허용해 주세요.</li>
     <li>오차가 크다고 나오면 자리를 옮겨 다시 측정해 보세요.</li>
+    <li>지도 안내에는 <b>정문</b> 위치가 쓰여요. 후문·측면은 따로 기록만 해 둬요.</li>
   </ul>
+</div>
+</div>
+
+<div id="modePath" class="hide">
+  <div class="card">
+    <div class="step"><b>1</b>출발·도착 (알면 선택)</div>
+    <div class="row">
+      <label for="pFrom">출발 건물</label>
+      <select id="pFrom"><option value="">선택 안 함</option></select>
+    </div>
+    <div class="row">
+      <label for="pTo">도착 건물</label>
+      <select id="pTo"><option value="">선택 안 함</option></select>
+    </div>
+  </div>
+  <div class="card">
+    <div class="step"><b>2</b>걸으며 기록</div>
+    <button class="btn" id="btnPath" disabled>걷기 시작</button>
+    <div class="live" id="pLive" style="margin-top:10px;"></div>
+    <div id="pResult"></div>
+  </div>
+  <div class="card hide" id="cardPathSave">
+    <div class="step"><b>3</b>저장</div>
+    <button class="btn ok" id="btnPathSave">이 길 저장</button>
+    <button class="btn ghost" id="btnPathDiscard" style="margin-top:8px;">버리고 다시 기록</button>
+  </div>
+  <div class="card">
+    <div class="step" style="margin-bottom:4px;">길 기록 요령 <span class="progress" id="pathCount" style="margin:0 0 0 auto;"></span></div>
+    <ul class="tip">
+      <li>한 건물 출입구에서 출발해 <b>평소 걷는 길 그대로</b> 다른 건물 출입구까지 걸어가세요. 지름길·건물 사이 통로·계단도 꼭 걸어 주세요.</li>
+      <li>기록하는 동안 <b>화면을 켜 둔 채</b> 폰을 손에 들고 걸어 주세요. 화면이 꺼지면 기록이 끊겨요.</li>
+      <li>같은 길을 여러 번 걸어도 괜찮아요. 겹치는 길은 자동으로 합쳐져요.</li>
+      <li>길이 갈라지는 곳은 갈래마다 따로 걸어 기록해 주세요.</li>
+    </ul>
+  </div>
 </div>
 
 <script>
@@ -128,7 +183,7 @@
 
   const $ = id => document.getElementById(id);
   const el = {
-    top: $('topMsg'), who: $('who'), bld: $('bld'), note: $('note'), chips: $('chips'),
+    top: $('topMsg'), who: $('who'), bld: $('bld'), note: $('note'), seg: $('seg'), typeProg: $('typeProgress'),
     btnMeasure: $('btnMeasure'), btnSave: $('btnSave'), meter: $('meter'), bar: $('meterBar'),
     live: $('live'), result: $('result'), prog: $('bldProgress')
   };
@@ -138,6 +193,8 @@
   let measured = null;        // { lat, lng, acc, n, spread }
   let surveyor = '';          // 링크에 지정된 조사자 이름(서버가 알려 줌)
   let busy = false;
+  let entType = '정문';       // 출입구 종류 (필수, 기본 정문)
+  const TYPES = ['정문', '후문', '측면'];
 
   function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
@@ -159,18 +216,27 @@
 
   // ---------- 건물 목록 ----------
   let buildings = [];
+  let pathCount = 0;
   function renderBuildings(keepValue) {
     const cur = keepValue !== undefined ? keepValue : el.bld.value;
     let html = '<option value="">건물을 선택하세요</option>';
     buildings.forEach(b => {
       const done = b.count >= minSamples;
       html += '<option value="' + esc(b.code) + '">' + (done ? '✓ ' : '') + esc(b.code) + (b.name ? ' ' + esc(b.name) : '') +
-              ' · ' + b.count + '건</option>';
+              ' · 정문 ' + b.count + '건</option>';
     });
     el.bld.innerHTML = html;
     el.bld.value = cur;
     const done = buildings.filter(b => b.count >= minSamples).length;
-    el.prog.textContent = buildings.length ? ('✓ = ' + minSamples + '건 이상 모임 · 전체 ' + buildings.length + '동 중 ' + done + '동 완료') : '';
+    el.prog.textContent = buildings.length ? ('✓ = 정문 ' + minSamples + '건 이상 모임 · 전체 ' + buildings.length + '동 중 ' + done + '동 완료') : '';
+    updateTypeProgress();
+    fillPathSelects();
+  }
+  function updateTypeProgress() {
+    const b = buildings.find(x => x.code === el.bld.value);
+    if (!b) { el.typeProg.textContent = ''; return; }
+    const t = b.types || {};
+    el.typeProg.textContent = TYPES.map(k => k + ' ' + (t[k] || 0) + '건').join(' · ');
   }
 
   function loadInfo() {
@@ -181,6 +247,7 @@
       if (res.maxAcc) maxAcc = res.maxAcc;
       if (res.minSamples) minSamples = res.minSamples;
       surveyor = res.surveyor || '';
+      pathCount = res.pathCount || 0; $('pathCount').textContent = '기록된 길 ' + pathCount + '개';
       if (surveyor) { el.who.textContent = '👤 ' + surveyor + '님으로 기록됩니다'; el.who.classList.remove('hide'); }
       renderBuildings(lsGet('survey_last_bld'));
       refreshButtons();
@@ -192,15 +259,14 @@
     const ok = !!surveyor && !!el.bld.value && !!TOKEN;
     el.btnMeasure.disabled = !ok || busy;
     el.btnSave.disabled = !(ok && measured && !busy);
+    const pb = document.getElementById('btnPath'); if (pb) pb.disabled = !(surveyor && TOKEN);
   }
-  el.bld.addEventListener('change', function () { lsSet('survey_last_bld', el.bld.value); resetMeasure(); refreshButtons(); });
-  el.chips.addEventListener('click', function (e) {
-    const b = e.target.closest('.chip'); if (!b) return;
-    const on = b.classList.contains('on');
-    el.chips.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
-    if (!on) { b.classList.add('on'); el.note.value = b.dataset.v; } else { el.note.value = ''; }
+  el.bld.addEventListener('change', function () { lsSet('survey_last_bld', el.bld.value); resetMeasure(); updateTypeProgress(); refreshButtons(); });
+  el.seg.addEventListener('click', function (e) {
+    const b = e.target.closest('button'); if (!b) return;
+    entType = b.dataset.v;
+    el.seg.querySelectorAll('button').forEach(c => c.classList.toggle('on', c === b));
   });
-  el.note.addEventListener('input', function () { el.chips.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.v === el.note.value.trim())); });
 
   // ---------- 측정 ----------
   function resetMeasure() {
@@ -305,18 +371,23 @@
     api({
       op: 'submit',
       bld: code, note: el.note.value.trim(),
+      etype: entType,
       lat: measured.lat.toFixed(7), lng: measured.lng.toFixed(7),
       acc: measured.acc.toFixed(1), n: measured.n
     }).then(res => {
       busy = false; el.btnSave.textContent = '이 위치 저장';
       if (res && res.success) {
         const b = buildings.find(x => x.code === code);
-        if (b) b.count = res.count !== undefined ? res.count : (b.count + 1);
+        if (b) {
+          b.types = b.types || {};
+          b.types[entType] = res.count !== undefined ? res.count : ((b.types[entType] || 0) + 1);
+          if (entType === '정문') b.count = b.types[entType];
+        }
         renderBuildings(code);
         measured = null;
         el.result.innerHTML = '';
         el.btnMeasure.textContent = '현재 위치 측정';
-        topMsg('ok', '저장했어요. 수고하셨습니다! 다른 건물로 이동해서 계속 측정해 주세요.');
+        topMsg('ok', entType + ' 위치를 저장했어요. 수고하셨습니다! 다른 출입구나 건물로 이동해서 계속 측정해 주세요.');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         topMsg('err', (res && res.message) || '저장하지 못했습니다. 다시 시도해 주세요.');
@@ -328,6 +399,162 @@
       refreshButtons();
     });
   });
+
+  // ================= 걸은 길 기록 =================
+  const P_MAX_ACC = 20;      // 이 오차보다 나쁜 신호는 버림
+  const P_MIN_STEP = 4;      // 이만큼(또는 오차의 60%) 움직여야 새 점으로 기록
+  const P_SIMPLIFY_M = 3;    // 저장 전 직선에 가깝게 단순화하는 허용치(m)
+  const P_MAX_PTS = 250;
+  let pWatch = null, pPts = [], pBusy = false, pWake = null, pFinal = null;
+
+  function fillPathSelects() {
+    ['pFrom', 'pTo'].forEach(id => {
+      const sel = $(id), cur = sel.value;
+      let html = '<option value="">선택 안 함</option>';
+      buildings.forEach(b => { html += '<option value="' + esc(b.code) + '">' + esc(b.code) + (b.name ? ' ' + esc(b.name) : '') + '</option>'; });
+      sel.innerHTML = html; sel.value = cur;
+    });
+  }
+
+  function setMode(m) {
+    document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+    $('modeLoc').classList.toggle('hide', m !== 'loc');
+    $('modePath').classList.toggle('hide', m !== 'path');
+    topMsg('', '');
+  }
+  $('tabs').addEventListener('click', function (e) {
+    const b = e.target.closest('button'); if (!b) return;
+    if (pBusy || watchId !== null) { topMsg('err', '기록(측정) 중에는 탭을 바꿀 수 없어요. 먼저 끝내 주세요.'); return; }
+    setMode(b.dataset.m);
+  });
+
+  function toXY(p) { return [p.lng * 88000, p.lat * 110950]; }
+  function pathLen(pts) {
+    let L = 0;
+    for (let i = 1; i < pts.length; i++) L += distM(pts[i - 1].lat, pts[i - 1].lng, pts[i].lat, pts[i].lng);
+    return L;
+  }
+  function smooth(pts) {
+    if (pts.length < 4) return pts;
+    return pts.map((p, i) => {
+      if (i === 0 || i === pts.length - 1) return p;
+      const a = pts[i - 1], c = pts[i + 1];
+      return { lat: (a.lat + p.lat + c.lat) / 3, lng: (a.lng + p.lng + c.lng) / 3 };
+    });
+  }
+  // Douglas-Peucker (미터 단위 근사 좌표)
+  function simplify(pts, tol) {
+    if (pts.length < 3) return pts.slice();
+    const xy = pts.map(toXY), keep = new Array(pts.length).fill(false);
+    keep[0] = keep[pts.length - 1] = true;
+    const stack = [[0, pts.length - 1]];
+    while (stack.length) {
+      const se = stack.pop(), s0 = se[0], e0 = se[1];
+      const ax = xy[s0][0], ay = xy[s0][1], bx = xy[e0][0], by = xy[e0][1];
+      const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+      let maxD = -1, idx = -1;
+      for (let i = s0 + 1; i < e0; i++) {
+        let t = len2 ? ((xy[i][0] - ax) * dx + (xy[i][1] - ay) * dy) / len2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        const px = ax + t * dx, py = ay + t * dy;
+        const d = Math.hypot(xy[i][0] - px, xy[i][1] - py);
+        if (d > maxD) { maxD = d; idx = i; }
+      }
+      if (maxD > tol && idx > 0) { keep[idx] = true; stack.push([s0, idx], [idx, e0]); }
+    }
+    return pts.filter((_, i) => keep[i]);
+  }
+  // "위도*1e5,경도*1e5;증분,증분;..."
+  function encodePath(pts) {
+    let la = Math.round(pts[0].lat * 1e5), ln = Math.round(pts[0].lng * 1e5);
+    const out = [la + ',' + ln];
+    for (let i = 1; i < pts.length; i++) {
+      const a = Math.round(pts[i].lat * 1e5), b = Math.round(pts[i].lng * 1e5);
+      out.push((a - la) + ',' + (b - ln)); la = a; ln = b;
+    }
+    return out.join(';');
+  }
+
+  function wakeOn() { try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { pWake = w; }).catch(() => {}); } catch (e) {} }
+  function wakeOff() { try { if (pWake) { pWake.release(); pWake = null; } } catch (e) {} }
+
+  function startPath() {
+    if (!navigator.geolocation) { topMsg('err', '이 기기(브라우저)는 위치 기능을 지원하지 않습니다.'); return; }
+    topMsg('', '');
+    pPts = []; pFinal = null; pBusy = true;
+    $('pResult').innerHTML = ''; $('cardPathSave').classList.add('hide');
+    $('btnPath').textContent = '기록 끝내기'; $('btnPath').classList.add('stop');
+    $('pLive').textContent = '위치 신호를 찾는 중...';
+    wakeOn();
+    pWatch = navigator.geolocation.watchPosition(onPathPos, function (err) {
+      if (err && err.code === 1) { endPath(true); topMsg('err', '위치 권한이 꺼져 있어요. 설정에서 이 페이지의 위치 권한을 허용해 주세요.'); }
+      else $('pLive').textContent = '위치 신호를 찾는 중... 하늘이 트인 곳으로 이동해 주세요.';
+    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+  }
+
+  function onPathPos(pos) {
+    const c = pos.coords;
+    if (c.accuracy > P_MAX_ACC) { $('pLive').textContent = '신호가 약해요 (오차 ±' + Math.round(c.accuracy) + 'm). 잠시 기다려 주세요.'; return; }
+    const last = pPts[pPts.length - 1];
+    if (!last || distM(last.lat, last.lng, c.latitude, c.longitude) >= Math.max(P_MIN_STEP, c.accuracy * 0.6)) {
+      pPts.push({ lat: c.latitude, lng: c.longitude, acc: c.accuracy });
+    }
+    $('pLive').innerHTML = '<span class="big">' + Math.round(pathLen(pPts)) + 'm</span> 걸었어요 · 점 ' + pPts.length + '개 · 오차 ±' + Math.round(c.accuracy) + 'm';
+  }
+
+  function endPath(silent) {
+    if (pWatch !== null) { try { navigator.geolocation.clearWatch(pWatch); } catch (e) {} pWatch = null; }
+    wakeOff();
+    pBusy = false;
+    $('btnPath').textContent = '걷기 시작'; $('btnPath').classList.remove('stop');
+    if (silent) { $('pLive').textContent = ''; return; }
+    if (pPts.length < 3 || pathLen(pPts) < 15) {
+      $('pLive').textContent = '';
+      $('pResult').innerHTML = '<div class="result bad">기록된 길이 너무 짧아요(15m 이상 필요). 다시 걸으며 기록해 주세요.</div>';
+      return;
+    }
+    let tol = P_SIMPLIFY_M, simp, enc;
+    for (let i = 0; i < 12; i++) {
+      simp = simplify(smooth(pPts), tol);
+      enc = encodePath(simp);
+      if (simp.length <= P_MAX_PTS && enc.length <= 5000) break;
+      tol += 1.5;
+    }
+    const len = pathLen(simp);
+    pFinal = { enc: enc, len: Math.round(len), pts: simp.length };
+    $('pLive').textContent = '';
+    $('pResult').innerHTML = '<div class="result good"><span class="coord">' + Math.round(len) + 'm · 점 ' + simp.length + '개</span>' +
+      '기록이 끝났어요. 아래에서 저장해 주세요.</div>';
+    $('cardPathSave').classList.remove('hide');
+  }
+
+  $('btnPath').addEventListener('click', function () { if (pBusy) endPath(false); else startPath(); });
+  $('btnPathDiscard').addEventListener('click', function () {
+    pFinal = null; pPts = []; $('pResult').innerHTML = ''; $('cardPathSave').classList.add('hide');
+  });
+  $('btnPathSave').addEventListener('click', function () {
+    if (!pFinal || pBusy) return;
+    const btn = $('btnPathSave'); btn.disabled = true; btn.textContent = '저장 중...';
+    api({ op: 'pathsubmit', from: $('pFrom').value, to: $('pTo').value, path: pFinal.enc, len: pFinal.len, pts: pFinal.pts })
+      .then(res => {
+        btn.disabled = false; btn.textContent = '이 길 저장';
+        if (res && res.success) {
+          pathCount = res.pathCount !== undefined ? res.pathCount : pathCount + 1;
+          $('pathCount').textContent = '기록된 길 ' + pathCount + '개';
+          pFinal = null; pPts = [];
+          $('pResult').innerHTML = ''; $('cardPathSave').classList.add('hide');
+          topMsg('ok', '길을 저장했어요. 다른 길도 이어서 걸어 주세요!');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          topMsg('err', (res && res.message) || '저장하지 못했습니다. 다시 시도해 주세요.');
+        }
+      }).catch(() => {
+        btn.disabled = false; btn.textContent = '이 길 저장';
+        topMsg('err', '서버에 연결하지 못했습니다. 인터넷을 확인하고 다시 저장해 주세요. (기록은 그대로 남아 있어요)');
+      });
+  });
+  function refreshPathBtn() { $('btnPath').disabled = !(surveyor && TOKEN); }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && pBusy) wakeOn(); });
 
   loadInfo();
   refreshButtons();

@@ -857,6 +857,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       if (res && res.success && res.coords) {
         Object.keys(res.coords).forEach(function (code) { BUILDING_COORDS[code] = res.coords[code]; });
       }
+      if (res && res.success && res.paths) { setWalkPaths(res.paths); }
     })
     .catch(function () { /* 실패해도 기본 좌표로 계속 동작 */ });
 
@@ -881,6 +882,146 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     const dLng = toRad(lng2 - lng1);
     const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  // ---------- 현장에서 걸어 기록한 길(보행 그래프) ----------
+  // 서버가 주는 경로 문자열: "위도*1e5,경도*1e5;증분,증분;증분,증분..." (survey.html에서 기록)
+  const WALK_STEP_M = 5;      // 기록된 길을 이 간격으로 촘촘히 나눠 교차점을 찾음
+  const WALK_JOIN_M = 9;      // 서로 다른 기록이 이 거리 안에 있으면 같은 길로 이어 붙임
+  const WALK_SNAP_M = 60;     // 내 위치·건물이 기록된 길에서 이 거리 안이어야 길 안내에 사용
+  const KX = 88000, KY = 110950;   // 캠퍼스 위도 기준 1도당 미터(근사)
+  let walkPaths = [];
+  let walkGraph = null;
+
+  function decodeWalkPath(str) {
+    const parts = String(str || '').split(';');
+    if (parts.length < 2) return [];
+    const f = parts[0].split(',');
+    let la = parseInt(f[0], 10), ln = parseInt(f[1], 10);
+    if (!isFinite(la) || !isFinite(ln)) return [];
+    const out = [[la / 1e5, ln / 1e5]];
+    for (let i = 1; i < parts.length; i++) {
+      const d = parts[i].split(',');
+      const a = parseInt(d[0], 10), b = parseInt(d[1], 10);
+      if (!isFinite(a) || !isFinite(b)) return [];
+      la += a; ln += b;
+      out.push([la / 1e5, ln / 1e5]);
+    }
+    return out;
+  }
+  function setWalkPaths(list) {
+    walkPaths = (list || []).map(decodeWalkPath).filter(function (p) { return p.length >= 2; });
+    walkGraph = null;
+  }
+
+  function buildWalkGraph() {
+    const nodes = [];   // {la, ln, x, y, t}
+    const adj = [];
+    function addNode(la, ln, t) {
+      nodes.push({ la: la, ln: ln, x: ln * KX, y: la * KY, t: t });
+      adj.push([]);
+      return nodes.length - 1;
+    }
+    function link(a, b) {
+      const dx = nodes[a].x - nodes[b].x, dy = nodes[a].y - nodes[b].y;
+      const w = Math.sqrt(dx * dx + dy * dy);
+      adj[a].push([b, w]); adj[b].push([a, w]);
+    }
+    walkPaths.forEach(function (path, t) {
+      let prev = addNode(path[0][0], path[0][1], t);
+      for (let i = 1; i < path.length; i++) {
+        const a = path[i - 1], b = path[i];
+        const dx = (b[1] - a[1]) * KX, dy = (b[0] - a[0]) * KY;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        const k = Math.max(1, Math.ceil(len / WALK_STEP_M));
+        for (let j = 1; j <= k; j++) {
+          const f = j / k;
+          const cur = addNode(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, t);
+          link(prev, cur);
+          prev = cur;
+        }
+      }
+    });
+    // 서로 다른 기록끼리 가까우면 이어 붙임 (격자로 이웃 탐색)
+    const grid = {};
+    function key(cx, cy) { return cx + '_' + cy; }
+    nodes.forEach(function (n, i) {
+      const cx = Math.floor(n.x / WALK_JOIN_M), cy = Math.floor(n.y / WALK_JOIN_M);
+      for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+        const cell = grid[key(cx + ox, cy + oy)];
+        if (!cell) continue;
+        for (let q = 0; q < cell.length; q++) {
+          const m = cell[q];
+          if (nodes[m].t === n.t) continue;
+          const dx = nodes[m].x - n.x, dy = nodes[m].y - n.y;
+          if (dx * dx + dy * dy <= WALK_JOIN_M * WALK_JOIN_M) link(i, m);
+        }
+      }
+      const k0 = key(cx, cy);
+      (grid[k0] = grid[k0] || []).push(i);
+    });
+    return { nodes: nodes, adj: adj };
+  }
+
+  function nearestWalkNodes(g, la, ln, maxM, count) {
+    const x = ln * KX, y = la * KY, list = [];
+    for (let i = 0; i < g.nodes.length; i++) {
+      const dx = g.nodes[i].x - x, dy = g.nodes[i].y - y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d <= maxM) list.push([i, d]);
+    }
+    list.sort(function (a, b) { return a[1] - b[1]; });
+    return list.slice(0, count);
+  }
+
+  // 기록된 길 위에서의 최단 경로. 길이 이어지지 않았거나 멀면 null
+  function graphWalkRoute(from, to) {
+    if (!walkPaths.length) return null;
+    if (!walkGraph) walkGraph = buildWalkGraph();
+    const g = walkGraph;
+    const starts = nearestWalkNodes(g, from[0], from[1], WALK_SNAP_M, 4);
+    const ends = nearestWalkNodes(g, to[0], to[1], WALK_SNAP_M, 4);
+    if (!starts.length || !ends.length) return null;
+    const endCost = {};
+    ends.forEach(function (e) { endCost[e[0]] = e[1]; });
+
+    const dist = new Array(g.nodes.length).fill(Infinity), prev = new Array(g.nodes.length).fill(-1);
+    const heap = [];   // [cost, node] 최소 힙
+    function push(c, n) {
+      heap.push([c, n]); let i = heap.length - 1;
+      while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; const t = heap[p]; heap[p] = heap[i]; heap[i] = t; i = p; }
+    }
+    function pop() {
+      const top = heap[0], last = heap.pop();
+      if (heap.length) {
+        heap[0] = last; let i = 0;
+        for (;;) {
+          let l = i * 2 + 1, r = l + 1, m = i;
+          if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
+          if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
+          if (m === i) break; const t = heap[m]; heap[m] = heap[i]; heap[i] = t; i = m;
+        }
+      }
+      return top;
+    }
+    starts.forEach(function (s) { dist[s[0]] = s[1]; push(s[1], s[0]); });
+    let best = Infinity, bestNode = -1;
+    while (heap.length) {
+      const top = pop(), c = top[0], u = top[1];
+      if (c > dist[u]) continue;
+      if (c >= best) break;
+      if (endCost[u] !== undefined && c + endCost[u] < best) { best = c + endCost[u]; bestNode = u; }
+      const a = g.adj[u];
+      for (let k = 0; k < a.length; k++) {
+        const v = a[k][0], nc = c + a[k][1];
+        if (nc < dist[v]) { dist[v] = nc; prev[v] = u; push(nc, v); }
+      }
+    }
+    if (bestNode < 0) return null;
+    const pts = [];
+    for (let n = bestNode; n !== -1; n = prev[n]) pts.push([g.nodes[n].la, g.nodes[n].ln]);
+    pts.reverse();
+    return { distance: best, duration: best / 1.25, points: pts, source: 'recorded' };
   }
 
   // 도보 경로 조회 (OpenStreetMap 기반 무료 서비스). 7초 안에 못 받으면 실패 처리
@@ -932,7 +1073,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
           radius: 8, color: 'var(--accent)', fillColor: '#3b82f6', fillOpacity: 0.9, weight: 2
         }).addTo(navMap).bindPopup('현재 위치');
 
-        const straightLine = L.polyline([me, coord], {
+        let straightLine = L.polyline([me, coord], {
           color: 'var(--ok-strong)', weight: 4, opacity: 0.9,
           dashArray: '8, 10', className: 'nav-route-line'
         }).addTo(navMap);
@@ -941,26 +1082,53 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 
         const dist = Math.round(haversineMeters(me[0], me[1], coord[0], coord[1]));
         const infoEl = document.getElementById('navModalInfo');
-        infoEl.innerHTML = '직선거리 약 <span class="dist">' + dist + 'm</span> · 도보 경로를 찾는 중...';
-
-        // 걸어서 가는 최단 경로 (OpenStreetMap 기반 무료 도보 경로). 실패하면 위의 직선 표시를 그대로 유지
         const seq = navOpenSeq;
-        fetchWalkRoute(me, coord).then(function (r) {
+        let walkLine = null;
+        const grey = 'color:var(--t3);font-size:11px;';
+
+        function showRoute(r, noteHtml) {
           if (!navMap || seq !== navOpenSeq) return;
-          navMap.removeLayer(straightLine);
-          const walkLine = L.polyline([me].concat(r.points).concat([coord]), {
+          if (straightLine) { navMap.removeLayer(straightLine); straightLine = null; }
+          if (walkLine) navMap.removeLayer(walkLine);
+          walkLine = L.polyline([me].concat(r.points).concat([coord]), {
             color: 'var(--ok-strong)', weight: 5, opacity: 0.95, lineJoin: 'round'
           }).addTo(navMap);
           navMap.fitBounds(walkLine.getBounds(), { padding: [40, 40] });
           const meters = Math.round(r.distance);
           const min = Math.max(1, Math.round(r.duration / 60));
+          infoEl.innerHTML = '도보 약 <span class="dist">' + min + '분</span> · 경로 ' + meters + 'm <span style="color:var(--t3)">(직선 ' + dist + 'm)</span>' + (noteHtml || '');
+        }
+        function showStraight(noteHtml) {
+          if (!navMap || seq !== navOpenSeq) return;
+          const min = Math.max(1, Math.round(dist / 1.25 / 60));
+          infoEl.innerHTML = '직선거리 약 <span class="dist">' + dist + 'm</span> · 도보 약 ' + min + '분' + (noteHtml || '');
+        }
+        // 1) 현장에서 걸어 기록한 길이 이어져 있으면 그 길로 바로 안내
+        let rec = null;
+        try { rec = graphWalkRoute(me, coord); } catch (e) { rec = null; }
+        if (rec) {
+          showRoute(rec, '<br><span style="' + grey + '">직접 걸어서 기록한 캠퍼스 길 기준이에요</span>');
+        } else {
+          infoEl.innerHTML = '직선거리 약 <span class="dist">' + dist + 'm</span> · 도보 경로를 찾는 중...';
+        }
+
+        // 2) OpenStreetMap 도보 경로. 기록된 길이 없으면 이것을 쓰고, 있어도 훨씬 짧으면 그쪽으로 교체
+        fetchWalkRoute(me, coord).then(function (r) {
+          if (!navMap || seq !== navOpenSeq) return;
+          if (rec && r.distance >= rec.distance * 0.85) return;      // 기록된 길이 충분히 짧음
+          const meters = Math.round(r.distance);
+          if (dist <= 300 && meters > dist * 3) {
+            // 가까운데 큰길로 크게 돌아가는 경로는 캠퍼스 안 길 정보가 없어서 생기는 결과 → 직선으로 안내
+            if (!rec) showStraight('<br><span style="' + grey + '">캠퍼스 안 길 정보가 부족해 돌아가는 경로 대신 직선으로 보여드려요</span>');
+            return;
+          }
           let note = '';
           if (meters > dist * 2.5 + 300) {
-            note = '<br><span style="color:var(--t3);font-size:11px;">캠퍼스 안 길 정보가 부족해 많이 돌아가는 경로일 수 있어요</span>';
+            note = '<br><span style="' + grey + '">캠퍼스 안 길 정보가 부족해 많이 돌아가는 경로일 수 있어요</span>';
           }
-          infoEl.innerHTML = '도보 약 <span class="dist">' + min + '분</span> · 경로 ' + meters + 'm <span style="color:var(--t3)">(직선 ' + dist + 'm)</span>' + note;
+          showRoute(r, note);
         }).catch(function () {
-          if (!navMap || seq !== navOpenSeq) return;
+          if (!navMap || seq !== navOpenSeq || rec) return;
           infoEl.innerHTML = '직선거리 약 <span class="dist">' + dist + 'm</span> · 도보 경로를 불러오지 못해 직선으로 표시해요';
         });
       }, function() {
