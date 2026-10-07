@@ -266,7 +266,8 @@
     return list.map(b => {
       const done = b.count >= minSamples;
       return '<option value="' + esc(b.code) + '">' + (done ? '✓ ' : '') + esc(b.code) + (b.name ? ' ' + esc(b.name) : '') +
-             (withCount ? ' · ' + (b.gate ? '' : '정문 ') + b.count + '건' : '') + '</option>';
+             (withCount ? (isSideGate(b.code) ? ' · ① ' + ((b.types || {})['정문'] || 0) + '건 · ② ' + ((b.types || {})['측면'] || 0) + '건'
+                                                : ' · ' + (b.gate ? '' : '정문 ') + b.count + '건') : '') + '</option>';
     }).join('');
   }
   function groupedOptionsHtml(withCount) {
