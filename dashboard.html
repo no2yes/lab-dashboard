@@ -355,6 +355,27 @@
     color: rgba(245,245,244,0.7);
   }
   .nav-modal-info .dist { color: var(--ok-strong); font-weight: 700; }
+  .nav-map-wrap { position: relative; }
+  .nav-follow-btn {
+    position: absolute; right: 10px; bottom: 12px; z-index: 500;
+    border: 0; border-radius: 999px; padding: 8px 13px; font-size: 12.5px; font-weight: 700; font-family: inherit;
+    background: #fff; color: #1f2937; box-shadow: 0 2px 8px rgba(0,0,0,.35); cursor: pointer; display: none;
+  }
+  .nav-follow-btn.show { display: block; }
+  .nav-follow-btn.on { background: #3b82f6; color: #fff; }
+  .nav-me { position: relative; width: 26px; height: 26px; }
+  .nav-me-dot {
+    position: absolute; left: 5px; top: 5px; width: 16px; height: 16px; border-radius: 50%;
+    background: #3b82f6; border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(59,130,246,.45), 0 1px 6px rgba(0,0,0,.5);
+  }
+  .nav-me-arrow { position: absolute; left: 0; top: 0; width: 26px; height: 26px; display: none; }
+  .nav-me-arrow::before {
+    content: ''; position: absolute; left: 8px; top: -8px;
+    border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 10px solid #3b82f6;
+  }
+  .nav-info-main { font-size: 15px; font-weight: 700; color: #f5f5f4; }
+  .nav-info-sub { color: var(--t3); font-size: 11.5px; margin-top: 3px; }
+  .nav-info-done { font-size: 16px; font-weight: 800; color: var(--ok-strong); }
   .nav-route-line { animation: navDash 1s linear infinite; }
   @keyframes navDash { to { stroke-dashoffset: -18; } }
 
@@ -709,7 +730,10 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         <span class="name" id="navModalName"></span>
         <button class="nav-modal-close" onclick="closeNavModal()" title="닫기">✕</button>
       </div>
-      <div id="navMapContainer"></div>
+      <div class="nav-map-wrap">
+        <div id="navMapContainer"></div>
+        <button class="nav-follow-btn" id="navFollowBtn" type="button">📍 내 위치 따라가기</button>
+      </div>
       <div class="nav-modal-info" id="navModalInfo"></div>
     </div>
   </div>
@@ -1045,14 +1069,212 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       });
   }
 
+  // ---------- 실시간 도보 안내 ----------
+  const NAV_OFF_ROUTE_M = 35;        // 경로에서 이만큼 벗어나면 다시 찾음
+  const NAV_ARRIVE_M = 25;           // 건물 입구까지 이 거리 안이면 도착
+  const NAV_REPLAN_MIN_MS = 12000;   // 다시 찾기 최소 간격
+  const NAV_MAX_ACC = 60;            // 이보다 오차 큰 위치 값은 무시(첫 값 제외)
+  const NAV_SPEED = 1.25;            // 도보 속도(m/s, 약 4.5km/h)
+  let navSt = null;
+
+  function navCleanup() {
+    if (navSt) {
+      if (navSt.watchId !== null) { try { navigator.geolocation.clearWatch(navSt.watchId); } catch (e) {} }
+      if (navSt.wake) { try { navSt.wake.release(); } catch (e) {} }
+    }
+    navSt = null;
+  }
+  function navWake() {
+    try {
+      if (navSt && navigator.wakeLock && !navSt.wake) {
+        navigator.wakeLock.request('screen').then(function (w) {
+          if (navSt) { navSt.wake = w; w.addEventListener('release', function () { if (navSt) navSt.wake = null; }); } else { w.release(); }
+        }).catch(function () {});
+      }
+    } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && navSt && !navSt.arrived) navWake();
+  });
+
+  // 경로(좌표 배열)에 점을 투영: 경로까지 거리, 출발점부터의 거리 등
+  function navProject(route, p) {
+    const pts = route.points, cum = route.cum;
+    const px = p[1] * KX, py = p[0] * KY;
+    let best = { dist: Infinity, idx: 0, point: pts[0], along: 0 };
+    for (let i = 0; i < pts.length - 1; i++) {
+      const ax = pts[i][1] * KX, ay = pts[i][0] * KY, bx = pts[i + 1][1] * KX, by = pts[i + 1][0] * KY;
+      const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+      let t = l2 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0;
+      t = Math.max(0, Math.min(1, t));
+      const qx = ax + t * dx, qy = ay + t * dy;
+      const d = Math.sqrt((px - qx) * (px - qx) + (py - qy) * (py - qy));
+      if (d < best.dist) {
+        best = { dist: d, idx: i, point: [qy / KY, qx / KX], along: cum[i] + t * Math.sqrt(l2) };
+      }
+    }
+    return best;
+  }
+  function navMakeRoute(me, coord, pts, kind, note) {
+    const all = [me].concat(pts || []).concat([coord]);
+    const cum = [0];
+    for (let i = 1; i < all.length; i++) {
+      const dx = (all[i][1] - all[i - 1][1]) * KX, dy = (all[i][0] - all[i - 1][0]) * KY;
+      cum.push(cum[i - 1] + Math.sqrt(dx * dx + dy * dy));
+    }
+    return { points: all, cum: cum, total: cum[cum.length - 1], kind: kind, note: note || '' };
+  }
+
+  function navFmt(remaining) {
+    const m = Math.max(0, Math.round(remaining / 5) * 5);
+    const min = Math.max(1, Math.round(remaining / NAV_SPEED / 60));
+    return { m: m, min: min };
+  }
+
+  // 지도·안내문 갱신 (현재 위치와 경로가 있을 때마다)
+  function navRender() {
+    if (!navSt || !navMap) return;
+    const st = navSt, infoEl = document.getElementById('navModalInfo');
+    if (!st.me) return;
+    st.meMarker.setLatLng(st.me);
+    st.accCircle.setLatLng(st.me).setRadius(Math.min(st.acc || 0, 80));
+    if (!st.route) return;
+    const r = st.route;
+    const pr = navProject(r, st.me);
+    // 남은 거리 = 경로 위 남은 길 + (경로에서 벗어나 있다면) 경로로 돌아가는 거리
+    const remaining = Math.max(0, r.total - pr.along) + (pr.dist > 10 ? pr.dist : 0);
+    st.lastProj = pr;
+
+    const rem = [pr.point].concat(r.points.slice(pr.idx + 1));
+    const passed = r.points.slice(0, pr.idx + 1).concat([pr.point]);
+    st.line.setLatLngs(rem);
+    st.passed.setLatLngs(passed.length > 1 ? passed : []);
+
+    const direct = haversineMeters(st.me[0], st.me[1], st.coord[0], st.coord[1]);
+    if (direct <= NAV_ARRIVE_M || remaining <= 8) {
+      st.arrived = true;
+      infoEl.innerHTML = '<div class="nav-info-done">🎉 도착했어요!</div><div class="nav-info-sub">' + st.label + ' 입구 근처예요.</div>';
+      if (st.watchId !== null) { try { navigator.geolocation.clearWatch(st.watchId); } catch (e) {} st.watchId = null; }
+      if (st.wake) { try { st.wake.release(); } catch (e) {} st.wake = null; }
+      return;
+    }
+    const f = navFmt(remaining);
+    let sub = r.note;
+    if (st.rerouting) sub = '경로에서 벗어나 다시 찾는 중...';
+    infoEl.innerHTML = '<div class="nav-info-main">남은 도보 약 <span class="dist">' + f.min + '분</span> · <span class="dist">' + f.m + 'm</span>' +
+      ' <span style="color:var(--t3);font-weight:400;font-size:12px;">(직선 ' + Math.round(direct) + 'm)</span></div>' +
+      (sub ? '<div class="nav-info-sub">' + sub + '</div>' : '');
+  }
+
+  function navApplyRoute(route, fit) {
+    if (!navSt || !navMap) return;
+    const st = navSt;
+    st.route = route;
+    st.rerouting = false;
+    const dashed = route.kind === 'straight';
+    st.line.setStyle({ dashArray: dashed ? '8, 10' : null, weight: dashed ? 4 : 6 });
+    st.line.getElement && st.line.getElement() && st.line.getElement().classList.toggle('nav-route-line', dashed);
+    navRender();
+    if (fit && !st.userMoved && !st.follow) {
+      navMap.fitBounds(L.latLngBounds(route.points), { padding: [40, 40] });
+    }
+  }
+
+  // 현재 위치에서 목적지까지 경로 찾기: 기록한 길 → OSM → 직선 순으로 시도
+  function navPlan(first) {
+    if (!navSt || !navSt.me) return;
+    const st = navSt, me = st.me, coord = st.coord;
+    const planId = ++st.planId;
+    st.lastPlan = Date.now();
+    const direct = haversineMeters(me[0], me[1], coord[0], coord[1]);
+    const alive = function () { return navSt === st && st.planId === planId && !st.arrived; };
+    const grey = 'color:var(--t3);font-size:11px;';
+    let rec = null;
+    try { rec = graphWalkRoute(me, coord); } catch (e) { rec = null; }
+    if (rec) {
+      navApplyRoute(navMakeRoute(me, coord, rec.points, 'recorded', '직접 걸어서 기록한 캠퍼스 길 기준이에요'), first);
+    } else {
+      navApplyRoute(navMakeRoute(me, coord, [], 'straight', '도보 경로를 찾는 중...'), first);
+    }
+    fetchWalkRoute(me, coord).then(function (r) {
+      if (!alive()) return;
+      if (rec && r.distance >= rec.distance * 0.85) return;      // 기록된 길이 충분히 짧음
+      if (direct <= 300 && r.distance > direct * 3) {
+        if (!rec) navApplyRoute(navMakeRoute(me, coord, [], 'straight', '캠퍼스 안 길 정보가 부족해 돌아가는 경로 대신 직선으로 보여드려요'), false);
+        return;
+      }
+      let note = '';
+      if (r.distance > direct * 2.5 + 300) note = '캠퍼스 안 길 정보가 부족해 많이 돌아가는 경로일 수 있어요';
+      navApplyRoute(navMakeRoute(me, coord, r.points, 'osm', note), first);
+    }).catch(function () {
+      if (!alive() || rec) return;
+      navApplyRoute(navMakeRoute(me, coord, [], 'straight', '도보 경로를 불러오지 못해 직선으로 표시해요'), false);
+    });
+  }
+
+  function navOnPosition(pos) {
+    const st = navSt;
+    if (!st || !navMap || st.arrived) return;
+    const c = pos.coords;
+    if (st.me && c.accuracy > NAV_MAX_ACC) return;             // 신호가 너무 나쁜 값은 무시
+    const prev = st.me;
+    st.me = [c.latitude, c.longitude];
+    st.acc = c.accuracy;
+    if (c.heading !== null && isFinite(c.heading) && (c.speed === null || c.speed > 0.4)) {
+      const el = st.meMarker.getElement();
+      const ar = el && el.querySelector('.nav-me-arrow');
+      if (ar) { ar.style.display = 'block'; ar.style.transform = 'rotate(' + c.heading + 'deg)'; }
+    }
+    if (!st.start) st.start = st.me;
+
+    if (!st.route) {
+      document.getElementById('navFollowBtn').classList.add('show');
+      navMap.closePopup();   // 목적지 말풍선이 경로를 가리지 않게
+      navPlan(true);
+      return;
+    }
+    // 걷기 시작하면(출발점에서 20m 이상) 자동으로 내 위치를 따라감
+    if (!st.userMoved && !st.follow && haversineMeters(st.start[0], st.start[1], st.me[0], st.me[1]) >= 20) navSetFollow(true);
+
+    const now = Date.now();
+    const pr = navProject(st.route, st.me);
+    if (st.route.kind === 'straight') {
+      // 직선 안내는 위치가 바뀔 때마다 갱신, 가끔은 기록된 길/OSM 경로를 다시 시도
+      st.route = navMakeRoute(st.me, st.coord, [], 'straight', st.route.note);
+      navRender();
+      if (now - st.lastPlan > 25000) navPlan(false);
+    } else {
+      const limit = Math.max(NAV_OFF_ROUTE_M, (st.acc || 0) * 1.5);
+      if (pr.dist > limit) st.offCount++; else st.offCount = 0;
+      navRender();
+      if (st.offCount >= 2 && now - st.lastPlan > NAV_REPLAN_MIN_MS) {
+        st.offCount = 0; st.rerouting = true; navRender();
+        navPlan(false);
+      }
+    }
+    if (st.follow) navMap.panTo(st.me, { animate: true, duration: 0.5 });
+  }
+
+  function navSetFollow(on) {
+    if (!navSt || !navMap) return;
+    navSt.follow = on;
+    const btn = document.getElementById('navFollowBtn');
+    btn.classList.toggle('on', on);
+    btn.textContent = on ? '📍 따라가는 중' : '📍 내 위치 따라가기';
+    if (on && navSt.me) navMap.setView(navSt.me, Math.max(navMap.getZoom(), 18), { animate: true });
+  }
+
   function openNavModal(roomId, roomLabel) {
     navOpenSeq++;
+    navCleanup();
     const coord = BUILDING_COORDS[parseBuildingCode(roomId)];
     if (!coord) return;
 
     document.getElementById('navModalName').textContent = roomLabel;
     document.getElementById('navModalInfo').textContent = '';
     document.getElementById('navModalOverlay').classList.add('open');
+    const fbtn = document.getElementById('navFollowBtn');
+    fbtn.classList.remove('show', 'on'); fbtn.textContent = '📍 내 위치 따라가기';
 
     if (navMap) { navMap.remove(); navMap = null; }
 
@@ -1065,80 +1287,42 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 
     const isMobile = window.matchMedia('(pointer: coarse)').matches;
     if (isMobile && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(function(pos) {
-        if (!navMap) return;
-        const me = [pos.coords.latitude, pos.coords.longitude];
-
-        L.circleMarker(me, {
-          radius: 8, color: 'var(--accent)', fillColor: '#3b82f6', fillOpacity: 0.9, weight: 2
-        }).addTo(navMap).bindPopup('현재 위치');
-
-        let straightLine = L.polyline([me, coord], {
-          color: 'var(--ok-strong)', weight: 4, opacity: 0.9,
-          dashArray: '8, 10', className: 'nav-route-line'
-        }).addTo(navMap);
-
-        navMap.fitBounds([me, coord], { padding: [40, 40] });
-
-        const dist = Math.round(haversineMeters(me[0], me[1], coord[0], coord[1]));
-        const infoEl = document.getElementById('navModalInfo');
-        const seq = navOpenSeq;
-        let walkLine = null;
-        const grey = 'color:var(--t3);font-size:11px;';
-
-        function showRoute(r, noteHtml) {
-          if (!navMap || seq !== navOpenSeq) return;
-          if (straightLine) { navMap.removeLayer(straightLine); straightLine = null; }
-          if (walkLine) navMap.removeLayer(walkLine);
-          walkLine = L.polyline([me].concat(r.points).concat([coord]), {
-            color: 'var(--ok-strong)', weight: 5, opacity: 0.95, lineJoin: 'round'
-          }).addTo(navMap);
-          navMap.fitBounds(walkLine.getBounds(), { padding: [40, 40] });
-          const meters = Math.round(r.distance);
-          const min = Math.max(1, Math.round(r.duration / 60));
-          infoEl.innerHTML = '도보 약 <span class="dist">' + min + '분</span> · 경로 ' + meters + 'm <span style="color:var(--t3)">(직선 ' + dist + 'm)</span>' + (noteHtml || '');
+      document.getElementById('navModalInfo').textContent = '현재 위치를 찾는 중...';
+      const st = navSt = {
+        coord: coord, label: roomLabel, me: null, acc: 0, start: null, route: null, lastProj: null,
+        watchId: null, wake: null, follow: false, userMoved: false, arrived: false,
+        planId: 0, lastPlan: 0, offCount: 0, rerouting: false
+      };
+      st.passed = L.polyline([], { color: '#9ca3af', weight: 5, opacity: 0.75, lineJoin: 'round' }).addTo(navMap);
+      st.line = L.polyline([], { color: 'var(--ok-strong)', weight: 6, opacity: 0.95, lineJoin: 'round' }).addTo(navMap);
+      st.accCircle = L.circle(coord, { radius: 0, stroke: false, fillColor: '#3b82f6', fillOpacity: 0.15, interactive: false }).addTo(navMap);
+      st.meMarker = L.marker(coord, {
+        icon: L.divIcon({ className: '', html: '<div class="nav-me"><span class="nav-me-arrow"></span><span class="nav-me-dot"></span></div>', iconSize: [26, 26], iconAnchor: [13, 13] }),
+        interactive: false, zIndexOffset: 1000
+      }).addTo(navMap);
+      st.meMarker.setOpacity(0);
+      navMap.on('dragstart', function () { if (navSt) { navSt.userMoved = true; if (navSt.follow) navSetFollow(false); } });
+      fbtn.onclick = function () { if (navSt) { navSt.userMoved = false; navSetFollow(!navSt.follow); } };
+      navWake();
+      st.watchId = navigator.geolocation.watchPosition(function (pos) {
+        if (navSt !== st) return;
+        st.meMarker.setOpacity(1);
+        navOnPosition(pos);
+      }, function (err) {
+        if (navSt !== st) return;
+        const info = document.getElementById('navModalInfo');
+        if (err && err.code === 1) {
+          info.textContent = '위치 접근이 거부되어 건물 위치만 표시합니다. 아이폰이면 설정 → 개인정보 보호 및 보안 → 위치 서비스 → Safari를 "앱을 사용하는 동안"으로 확인해보세요.';
+        } else if (!st.me) {
+          info.textContent = '현재 위치를 찾는 중... 하늘이 트인 곳에서 잠시 기다려 주세요.';
         }
-        function showStraight(noteHtml) {
-          if (!navMap || seq !== navOpenSeq) return;
-          const min = Math.max(1, Math.round(dist / 1.25 / 60));
-          infoEl.innerHTML = '직선거리 약 <span class="dist">' + dist + 'm</span> · 도보 약 ' + min + '분' + (noteHtml || '');
-        }
-        // 1) 현장에서 걸어 기록한 길이 이어져 있으면 그 길로 바로 안내
-        let rec = null;
-        try { rec = graphWalkRoute(me, coord); } catch (e) { rec = null; }
-        if (rec) {
-          showRoute(rec, '<br><span style="' + grey + '">직접 걸어서 기록한 캠퍼스 길 기준이에요</span>');
-        } else {
-          infoEl.innerHTML = '직선거리 약 <span class="dist">' + dist + 'm</span> · 도보 경로를 찾는 중...';
-        }
-
-        // 2) OpenStreetMap 도보 경로. 기록된 길이 없으면 이것을 쓰고, 있어도 훨씬 짧으면 그쪽으로 교체
-        fetchWalkRoute(me, coord).then(function (r) {
-          if (!navMap || seq !== navOpenSeq) return;
-          if (rec && r.distance >= rec.distance * 0.85) return;      // 기록된 길이 충분히 짧음
-          const meters = Math.round(r.distance);
-          if (dist <= 300 && meters > dist * 3) {
-            // 가까운데 큰길로 크게 돌아가는 경로는 캠퍼스 안 길 정보가 없어서 생기는 결과 → 직선으로 안내
-            if (!rec) showStraight('<br><span style="' + grey + '">캠퍼스 안 길 정보가 부족해 돌아가는 경로 대신 직선으로 보여드려요</span>');
-            return;
-          }
-          let note = '';
-          if (meters > dist * 2.5 + 300) {
-            note = '<br><span style="' + grey + '">캠퍼스 안 길 정보가 부족해 많이 돌아가는 경로일 수 있어요</span>';
-          }
-          showRoute(r, note);
-        }).catch(function () {
-          if (!navMap || seq !== navOpenSeq || rec) return;
-          infoEl.innerHTML = '직선거리 약 <span class="dist">' + dist + 'm</span> · 도보 경로를 불러오지 못해 직선으로 표시해요';
-        });
-      }, function() {
-        document.getElementById('navModalInfo').textContent = '위치 접근이 거부되어 건물 위치만 표시합니다. 아이폰이면 설정 → 개인정보 보호 및 보안 → 위치 서비스 → Safari를 "앱을 사용하는 동안"으로 확인해보세요.';
-      }, { enableHighAccuracy: true, timeout: 8000 });
+      }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
     }
   }
 
   function closeNavModal() {
     navOpenSeq++;
+    navCleanup();
     document.getElementById('navModalOverlay').classList.remove('open');
     if (navMap) { navMap.remove(); navMap = null; }
   }
