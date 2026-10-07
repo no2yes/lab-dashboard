@@ -490,13 +490,14 @@
   @media (min-width: 2200px) { :root { --bigzoom: 1.7; } }
   @media (min-width: 2560px) { :root { --bigzoom: 1.95; } }
   @media (min-width: 3200px) { :root { --bigzoom: 2.5; } }
-  .top, .filter-bar, .common-sw-bar, #gridArea, .section-title, #closeGridArea, .footer { zoom: var(--bigzoom, 1); }
+  .top, .filter-bar, .common-sw-bar, #gridArea, .section-title, #closeGridArea, .footer-note, .demo-links { zoom: var(--bigzoom, 1); }
   .footer { text-align: center; margin-top: 14px; }
   .footer-note { font-size: 10px; opacity: 0.4; margin-bottom: 8px; }
-  .demo-links { border: 1.5px dashed var(--accent); border-radius: 12px; padding: 10px 12px 12px; }
-  .demo-title { font-size: 13px; font-weight: 700; color: var(--t2); margin-bottom: 8px; }
+  .demo-links { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: var(--surface-1); border-top: 2px dashed var(--accent); padding: 8px 12px 10px; box-shadow: 0 -4px 14px rgba(0,0,0,0.25); }
+  .demo-title { font-size: 13px; font-weight: 700; color: var(--t2); margin-bottom: 6px; }
   .demo-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
   .demo-link { font-size: 16px; font-weight: 600; padding: 10px 16px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line-soft); color: var(--t1); text-decoration: none; }
+  @media (max-width: 600px) { .demo-link { font-size: 13px; padding: 7px 10px; } .demo-row { gap: 6px; } .demo-title { font-size: 11px; margin-bottom: 4px; } }
   .demo-link:hover, .demo-link:active { background: var(--accent); color: #fff; }
 </style>
 <style id="labThemeCss">
@@ -634,7 +635,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 
 /* 테마 전환 버튼 */
 #labThemeBtn {
-  position: fixed; left: 14px; bottom: 14px; z-index: 99999;
+  position: fixed; left: 14px; bottom: calc(var(--demoBarH, 0px) + 14px); z-index: 99999;
   width: 40px; height: 40px; border-radius: 50%;
   border: 1px solid var(--w22); background: var(--surface-pop); color: var(--text);
   font-size: 18px; line-height: 1; cursor: pointer; padding: 0;
@@ -765,6 +766,18 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   const TOKEN = new URLSearchParams(location.search).get('t') || '';
 
   // 실습실 사용신청 — GAS 쪽 기본 페이지(?page 없음 = 신청서)로 새 탭 이동
+
+  // 시연용 임시 링크 바(화면 최하단 고정)가 본문을 가리지 않도록 그 높이만큼 아래 여백 확보
+  function fitDemoBar() {
+    const bar = document.querySelector('.demo-links');
+    if (!bar) return;
+    const h = Math.ceil(bar.getBoundingClientRect().height);
+    document.body.style.paddingBottom = (h + 16) + 'px';
+    document.documentElement.style.setProperty('--demoBarH', h + 'px');
+  }
+  window.addEventListener('resize', fitDemoBar);
+  window.addEventListener('load', fitDemoBar);
+  fitDemoBar();
   const boardLinkEl = document.getElementById('boardLink');
   if (boardLinkEl) boardLinkEl.href = 'index.html' + (TOKEN ? ('?t=' + encodeURIComponent(TOKEN)) : '');
   const allRoomsLinkEl = document.getElementById('allRoomsLink');
