@@ -135,6 +135,11 @@
 </div>
 
 <div id="modePath" class="hide">
+  <div class="card hide" id="cardPending">
+    <div class="step" style="margin-bottom:6px;">📦 아직 서버에 저장되지 않은 길</div>
+    <div class="tip" id="pendingInfo"></div>
+    <button class="btn ghost" id="btnPending" style="margin-top:8px;">다시 보내기</button>
+  </div>
   <div class="card">
     <div class="step"><b>1</b>출발·도착 (알면 선택)</div>
     <div class="row">
@@ -410,6 +415,29 @@
   const P_MAX_PTS = 250;
   let pWatch = null, pPts = [], pBusy = false, pWake = null, pFinal = null;
 
+  // ---- 기록한 길은 먼저 폰에 보관하고, 서버 저장이 확인될 때만 지움 ----
+  const PEND_KEY = 'survey_pending_paths';
+  function pendGet() { try { const a = JSON.parse(lsGet(PEND_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+  function pendSet(a) { lsSet(PEND_KEY, JSON.stringify(a)); renderPending(); }
+  function pendRemove(id) { pendSet(pendGet().filter(x => x.id !== id)); }
+  function pendUpsert(item) {
+    const a = pendGet().filter(x => x.id !== item.id); a.push(item); pendSet(a);
+  }
+  function renderPending() {
+    const a = pendGet(), card = $('cardPending');
+    if (!a.length) { card.classList.add('hide'); return; }
+    card.classList.remove('hide');
+    $('pendingInfo').textContent = a.length + '개의 길이 이 폰에 보관되어 있어요 (총 ' + a.reduce((s, x) => s + (x.len || 0), 0) + 'm). 서버에 저장되면 자동으로 지워져요.';
+  }
+  function sendPath(item) {
+    return api({ op: 'pathsubmit', from: item.from || '', to: item.to || '', path: item.enc, len: item.len, pts: item.pts })
+      .then(res => {
+        if (res && res.success && res.pathCount !== undefined) return { ok: true, pathCount: res.pathCount };
+        if (res && res.success) return { ok: false, message: '서버가 아직 길 저장을 지원하는 새 버전이 아니에요. 저장되지 않았습니다.' };
+        return { ok: false, message: (res && res.message) || '저장하지 못했습니다.' };
+      }).catch(() => ({ ok: false, message: '서버에 연결하지 못했습니다.' }));
+  }
+
   function fillPathSelects() {
     ['pFrom', 'pTo'].forEach(id => {
       const sel = $(id), cur = sel.value;
@@ -524,7 +552,8 @@
       tol += 1.5;
     }
     const len = pathLen(simp);
-    pFinal = { enc: enc, len: Math.round(len), pts: simp.length };
+    pFinal = { id: 'p' + Date.now(), enc: enc, len: Math.round(len), pts: simp.length };
+    pendUpsert({ id: pFinal.id, enc: enc, len: pFinal.len, pts: pFinal.pts, from: $('pFrom').value, to: $('pTo').value });
     $('pLive').textContent = '';
     $('pResult').innerHTML = '<div class="result good"><span class="coord">' + Math.round(len) + 'm · 점 ' + simp.length + '개</span>' +
       '기록이 끝났어요. 아래에서 저장해 주세요.</div>';
@@ -533,37 +562,48 @@
 
   $('btnPath').addEventListener('click', function () { if (pBusy) endPath(false); else startPath(); });
   $('btnPathDiscard').addEventListener('click', function () {
+    if (pFinal) pendRemove(pFinal.id);
     pFinal = null; pPts = []; $('pResult').innerHTML = ''; $('cardPathSave').classList.add('hide');
   });
   $('btnPathSave').addEventListener('click', function () {
     if (!pFinal || pBusy) return;
     const btn = $('btnPathSave'); btn.disabled = true; btn.textContent = '저장 중...';
-    api({ op: 'pathsubmit', from: $('pFrom').value, to: $('pTo').value, path: pFinal.enc, len: pFinal.len, pts: pFinal.pts })
-      .then(res => {
-        btn.disabled = false; btn.textContent = '이 길 저장';
-        if (res && res.success && res.pathCount === undefined) {
-          // 옛 서버는 알 수 없는 요청에 조회 응답(success)만 돌려줌 → 실제로는 저장되지 않은 것
-          topMsg('err', '서버가 아직 길 기록을 저장하는 새 버전이 아니에요. 저장되지 않았습니다. 관리자에게 서버(GAS) 새 버전 배포를 요청해 주세요. (기록은 이 화면에 그대로 남아 있어요)');
-          return;
-        }
-        if (res && res.success) {
-          pathCount = res.pathCount;
-          $('pathCount').textContent = '기록된 길 ' + pathCount + '개';
-          pFinal = null; pPts = [];
-          $('pResult').innerHTML = ''; $('cardPathSave').classList.add('hide');
-          topMsg('ok', '길을 저장했어요. 다른 길도 이어서 걸어 주세요!');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else {
-          topMsg('err', (res && res.message) || '저장하지 못했습니다. 다시 시도해 주세요.');
-        }
-      }).catch(() => {
-        btn.disabled = false; btn.textContent = '이 길 저장';
-        topMsg('err', '서버에 연결하지 못했습니다. 인터넷을 확인하고 다시 저장해 주세요. (기록은 그대로 남아 있어요)');
+    const item = { id: pFinal.id, enc: pFinal.enc, len: pFinal.len, pts: pFinal.pts, from: $('pFrom').value, to: $('pTo').value };
+    pendUpsert(item);   // 출발·도착을 확정해 폰에 보관
+    sendPath(item).then(r => {
+      btn.disabled = false; btn.textContent = '이 길 저장';
+      if (r.ok) {
+        pendRemove(item.id);
+        pathCount = r.pathCount; $('pathCount').textContent = '기록된 길 ' + pathCount + '개';
+        pFinal = null; pPts = [];
+        $('pResult').innerHTML = ''; $('cardPathSave').classList.add('hide');
+        topMsg('ok', '서버에 저장됐어요 (기록된 길 ' + pathCount + '개). 다른 길도 이어서 걸어 주세요!');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        topMsg('err', r.message + ' 걸은 길은 이 폰에 보관되어 있으니 걱정 마세요. 나중에 "다시 보내기"로 보낼 수 있어요.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
+  });
+
+  // 보관 중인 길 다시 보내기
+  $('btnPending').addEventListener('click', function () {
+    const btn = $('btnPending'); btn.disabled = true;
+    const list = pendGet();
+    let done = 0;
+    (function next(i) {
+      if (i >= list.length) { btn.disabled = false; btn.textContent = '다시 보내기'; topMsg('ok', done + '개의 길을 서버에 저장했어요.'); return; }
+      btn.textContent = '보내는 중... (' + (i + 1) + '/' + list.length + ')';
+      sendPath(list[i]).then(r => {
+        if (r.ok) { done++; pathCount = r.pathCount; $('pathCount').textContent = '기록된 길 ' + pathCount + '개'; pendRemove(list[i].id); next(i + 1); }
+        else { btn.disabled = false; btn.textContent = '다시 보내기'; topMsg('err', r.message + ' (' + done + '개 보냄, ' + (list.length - done) + '개 남음. 폰에 그대로 보관돼요)'); }
       });
+    })(0);
   });
   function refreshPathBtn() { $('btnPath').disabled = !(surveyor && TOKEN); }
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && pBusy) wakeOn(); });
 
+  renderPending();
   loadInfo();
   refreshButtons();
 })();
