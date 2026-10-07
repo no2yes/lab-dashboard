@@ -1472,6 +1472,14 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     if (window._lastDashboardRes) render(window._lastDashboardRes);
   }
 
+  // 실습실 카드와 '오늘 이용 가능 시간' 카드가 같은 순서로 보이도록 공용 정렬 기준 사용
+  const ROOM_STATUS_ORDER = { available: 0, before_open: 1, in_use: 2, closed: 3 };
+  function roomCardOrder(a, b) {
+    return parseBuildingCode(a.roomId).localeCompare(parseBuildingCode(b.roomId), undefined, { numeric: true }) ||
+      (ROOM_STATUS_ORDER[a.status] - ROOM_STATUS_ORDER[b.status]) ||
+      a.roomName.localeCompare(b.roomName);
+  }
+
   function render(res) {
     const scrollY = window.scrollY;
     const area = document.getElementById('gridArea');
@@ -1546,11 +1554,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       out += '<div class="grid" style="margin-bottom:16px;">' + favRooms.map(r => roomCardHtml(r, true)).join('') + '</div>';
     }
 
-    const allSorted = filteredRooms.slice().sort((a, b) =>
-      parseBuildingCode(a.roomId).localeCompare(parseBuildingCode(b.roomId), undefined, { numeric: true }) ||
-      (STATUS_ORDER[a.status] - STATUS_ORDER[b.status]) ||
-      a.roomName.localeCompare(b.roomName)
-    );
+    const allSorted = filteredRooms.slice().sort(roomCardOrder);
     out += '<div class="grid">' + allSorted.map(r => roomCardHtml(r, true)).join('') + '</div>';
 
     area.innerHTML = out || '<div class="error">조건에 맞는 실습실이 없습니다.</div>';
@@ -1561,22 +1565,21 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   }
 
   function renderCloseGrid(rooms) {
-    const closeRooms = rooms.filter(r => r.closeTime).slice().sort((a, b) => a.closeTime.localeCompare(b.closeTime));
     const titleEl = document.getElementById('closeSectionTitle');
     const gridEl = document.getElementById('closeGridArea');
-    if (closeRooms.length === 0) { titleEl.style.display = 'none'; gridEl.innerHTML = ''; return; }
+    if (!rooms || rooms.length === 0) { titleEl.style.display = 'none'; gridEl.innerHTML = ''; return; }
     titleEl.style.display = 'flex';
 
     let html = '';
-    closeRooms.forEach(r => {
-      html += '<div class="close-card' + (r.isException ? ' exception' : '') + '">';
-      html += '<span class="cname">' + escapeHtml(r.roomId) + '</span>';
-      html += '<span class="ctime">' + escapeHtml(r.closeTime) + '</span>';
-      html += '</div>';
-    });
-    // 휴무인 실습실도 목록 끝에 참고용으로 표시
-    rooms.filter(r => !r.closeTime).forEach(r => {
-      html += '<div class="close-card"><span class="cname">' + escapeHtml(r.roomId) + '</span><span class="ctime off">휴무</span></div>';
+    rooms.slice().sort(roomCardOrder).forEach(r => {
+      if (r.closeTime) {
+        html += '<div class="close-card' + (r.isException ? ' exception' : '') + '">';
+        html += '<span class="cname">' + escapeHtml(r.roomId) + '</span>';
+        html += '<span class="ctime">' + escapeHtml(r.closeTime) + '</span>';
+        html += '</div>';
+      } else {
+        html += '<div class="close-card"><span class="cname">' + escapeHtml(r.roomId) + '</span><span class="ctime off">휴무</span></div>';
+      }
     });
     gridEl.innerHTML = html;
   }
