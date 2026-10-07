@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>건물 위치 현장조사</title>
+<style>
+  :root {
+    --bg:#f6f4ef; --card:#ffffff; --text:#25272b; --t2:#5b6068; --t3:#8a8f98;
+    --line:#dcd8cf; --accent:#2f6fb5; --accent-soft:rgba(47,111,181,.12); --on-accent:#fff;
+    --ok:#2e8b57; --ok-soft:rgba(46,139,87,.12); --warn:#b9770e; --warn-soft:rgba(185,119,14,.13);
+    --danger:#c0392b; --danger-soft:rgba(192,57,43,.11); --field:#fbfaf7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#1d1f23; --card:#272a2f; --text:#e7e8ea; --t2:#aeb2b9; --t3:#7f858d;
+      --line:#3a3e45; --accent:#6aa6e6; --accent-soft:rgba(106,166,230,.16); --on-accent:#0f1a28;
+      --ok:#5fc08a; --ok-soft:rgba(95,192,138,.15); --warn:#e0a84a; --warn-soft:rgba(224,168,74,.16);
+      --danger:#ef8a7e; --danger-soft:rgba(239,138,126,.15); --field:#202327;
+    }
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; background:var(--bg); color:var(--text); }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif; line-height:1.5;
+         padding:16px 16px calc(24px + env(safe-area-inset-bottom)); max-width:560px; margin:0 auto; }
+  h1 { font-size:20px; margin:4px 0 2px; }
+  .sub { color:var(--t2); font-size:13px; margin-bottom:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+  .step { display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px; margin-bottom:10px; }
+  .step b { display:inline-flex; width:22px; height:22px; border-radius:50%; background:var(--accent); color:var(--on-accent);
+            align-items:center; justify-content:center; font-size:12px; flex:none; }
+  label { display:block; font-size:12px; color:var(--t2); margin:0 0 4px; }
+  input[type=text], select { width:100%; font-size:16px; padding:11px 12px; border:1px solid var(--line); border-radius:10px;
+                             background:var(--field); color:var(--text); font-family:inherit; }
+  select option { background:var(--card); color:var(--text); }
+  input:focus, select:focus { outline:2px solid var(--accent); outline-offset:1px; }
+  .row { margin-bottom:10px; } .row:last-child { margin-bottom:0; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .chip { border:1px solid var(--line); background:transparent; color:var(--t2); border-radius:999px; padding:6px 11px; font-size:13px; font-family:inherit; cursor:pointer; }
+  .chip.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:700; }
+  .btn { width:100%; border:0; border-radius:12px; padding:15px; font-size:17px; font-weight:800; font-family:inherit; cursor:pointer;
+         background:var(--accent); color:var(--on-accent); }
+  .btn:disabled { opacity:.45; cursor:default; }
+  .btn.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); font-size:15px; padding:11px; font-weight:700; }
+  .btn.ok { background:var(--ok); color:#fff; }
+  .meter { height:8px; background:var(--line); border-radius:6px; overflow:hidden; margin:10px 0 6px; }
+  .meter > i { display:block; height:100%; width:0; background:var(--accent); transition:width .25s linear; }
+  .live { font-size:13px; color:var(--t2); min-height:20px; }
+  .result { margin-top:10px; border-radius:10px; padding:11px 12px; font-size:14px; }
+  .result.good { background:var(--ok-soft); color:var(--ok); }
+  .result.warn { background:var(--warn-soft); color:var(--warn); }
+  .result.bad  { background:var(--danger-soft); color:var(--danger); }
+  .coord { font-variant-numeric:tabular-nums; font-weight:800; font-size:16px; color:var(--text); display:block; margin:2px 0; }
+  .tip { font-size:12.5px; color:var(--t2); }
+  .tip li { margin:3px 0; } .tip ul { margin:6px 0 0; padding-left:18px; }
+  .msg { font-size:14px; border-radius:10px; padding:11px 12px; margin-bottom:12px; }
+  .msg.err { background:var(--danger-soft); color:var(--danger); }
+  .msg.ok { background:var(--ok-soft); color:var(--ok); }
+  .progress { font-size:12px; color:var(--t3); text-align:right; margin-top:4px; }
+  a { color:var(--accent); }
+  .hide { display:none !important; }
+</style>
+</head>
+<body>
+
+<h1>📍 건물 위치 현장조사</h1>
+<div class="sub">건물 출입구 앞에서 측정해 주세요. 여러 명이 측정한 값을 모아 지도 안내에 자동으로 반영돼요.</div>
+
+<div id="topMsg"></div>
+
+<div class="card" id="cardInfo">
+  <div class="step"><b>1</b>조사자와 건물 선택</div>
+  <div class="row">
+    <label for="surveyor">조사자 이름</label>
+    <input type="text" id="surveyor" maxlength="20" placeholder="예: 홍길동" autocomplete="name">
+  </div>
+  <div class="row">
+    <label for="bld">측정할 건물</label>
+    <select id="bld"><option value="">불러오는 중...</option></select>
+    <div class="progress" id="bldProgress"></div>
+  </div>
+  <div class="row">
+    <label for="note">지점 메모 <span style="color:var(--t3)">(선택)</span></label>
+    <input type="text" id="note" maxlength="60" placeholder="예: 정문 출입구 앞">
+    <div class="chips" id="chips">
+      <button type="button" class="chip" data-v="정문 출입구">정문 출입구</button>
+      <button type="button" class="chip" data-v="후문 출입구">후문 출입구</button>
+      <button type="button" class="chip" data-v="측면 출입구">측면 출입구</button>
+      <button type="button" class="chip" data-v="주 출입구">주 출입구</button>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="cardMeasure">
+  <div class="step"><b>2</b>위치 측정</div>
+  <button class="btn" id="btnMeasure" disabled>현재 위치 측정</button>
+  <div class="meter hide" id="meter"><i id="meterBar"></i></div>
+  <div class="live" id="live"></div>
+  <div id="result"></div>
+</div>
+
+<div class="card" id="cardSave">
+  <div class="step"><b>3</b>저장</div>
+  <button class="btn ok" id="btnSave" disabled>이 위치 저장</button>
+</div>
+
+<div class="card">
+  <div class="step" style="margin-bottom:4px;">측정이 잘 되는 요령</div>
+  <ul class="tip">
+    <li>건물 <b>밖</b>, 하늘이 트인 <b>출입구 바로 앞</b>에서 측정하세요. 건물 안에서는 오차가 크게 나요.</li>
+    <li>측정 중(약 20초)에는 폰을 <b>들고 가만히</b> 서 있어 주세요.</li>
+    <li>폰의 <b>위치(GPS) 기능을 켜 두세요.</b> 위치 권한을 물으면 허용해 주세요.</li>
+    <li>오차가 크다고 나오면 자리를 옮겨 다시 측정해 보세요.</li>
+  </ul>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
+  const TOKEN = new URLSearchParams(location.search).get('t') || '';
+
+  const MAX_MS = 25000;     // 측정 최대 시간
+  const TARGET_GOOD = 8;    // 이만큼 좋은 값이 모이면 조기 종료
+  const KEEP_BEST = 6;      // 좋은 값 중 가장 정확한 N개만 평균
+  let maxAcc = 20;          // 서버가 알려 주는 허용 오차(m)
+  let minSamples = 3;
+
+  const $ = id => document.getElementById(id);
+  const el = {
+    top: $('topMsg'), surveyor: $('surveyor'), bld: $('bld'), note: $('note'), chips: $('chips'),
+    btnMeasure: $('btnMeasure'), btnSave: $('btnSave'), meter: $('meter'), bar: $('meterBar'),
+    live: $('live'), result: $('result'), prog: $('bldProgress')
+  };
+
+  let watchId = null, timer = null, startTs = 0;
+  let samples = [];
+  let measured = null;        // { lat, lng, acc, n, spread }
+  let busy = false;
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function topMsg(type, text) { el.top.innerHTML = text ? '<div class="msg ' + type + '">' + esc(text) + '</div>' : ''; }
+
+  function distM(la1, ln1, la2, ln2) {
+    const R = 6371000, r = Math.PI / 180;
+    const dLa = (la2 - la1) * r, dLn = (ln2 - ln1) * r;
+    const a = Math.sin(dLa / 2) ** 2 + Math.cos(la1 * r) * Math.cos(la2 * r) * Math.sin(dLn / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  function api(params) {
+    const q = Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&');
+    return fetch(GAS_URL + '?page=api&action=survey&t=' + encodeURIComponent(TOKEN) + '&' + q + '&_=' + Date.now())
+      .then(r => r.json());
+  }
+
+  // ---------- 건물 목록 ----------
+  let buildings = [];
+  function renderBuildings(keepValue) {
+    const cur = keepValue !== undefined ? keepValue : el.bld.value;
+    let html = '<option value="">건물을 선택하세요</option>';
+    buildings.forEach(b => {
+      const done = b.count >= minSamples;
+      html += '<option value="' + esc(b.code) + '">' + (done ? '✓ ' : '') + esc(b.code) + (b.name ? ' ' + esc(b.name) : '') +
+              ' · ' + b.count + '건</option>';
+    });
+    el.bld.innerHTML = html;
+    el.bld.value = cur;
+    const done = buildings.filter(b => b.count >= minSamples).length;
+    el.prog.textContent = buildings.length ? ('✓ = ' + minSamples + '건 이상 모임 · 전체 ' + buildings.length + '동 중 ' + done + '동 완료') : '';
+  }
+
+  function loadInfo() {
+    if (!TOKEN) { topMsg('err', '조사용 링크로 접속해 주세요. 관리자에게 링크를 요청하세요.'); el.bld.innerHTML = '<option value="">링크가 필요합니다</option>'; return; }
+    api({ op: 'info' }).then(res => {
+      if (!res || !res.success) { topMsg('err', (res && res.message) || '불러오지 못했습니다.'); el.bld.innerHTML = '<option value="">불러오기 실패</option>'; return; }
+      buildings = res.buildings || [];
+      if (res.maxAcc) maxAcc = res.maxAcc;
+      if (res.minSamples) minSamples = res.minSamples;
+      renderBuildings(lsGet('survey_last_bld'));
+      refreshButtons();
+    }).catch(() => { topMsg('err', '서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.'); });
+  }
+
+  // ---------- 입력 상태 ----------
+  function refreshButtons() {
+    const ok = !!el.surveyor.value.trim() && !!el.bld.value && !!TOKEN;
+    el.btnMeasure.disabled = !ok || busy;
+    el.btnSave.disabled = !(ok && measured && !busy);
+  }
+  el.surveyor.value = lsGet('survey_name');
+  el.surveyor.addEventListener('input', function () { lsSet('survey_name', el.surveyor.value.trim()); refreshButtons(); });
+  el.bld.addEventListener('change', function () { lsSet('survey_last_bld', el.bld.value); resetMeasure(); refreshButtons(); });
+  el.chips.addEventListener('click', function (e) {
+    const b = e.target.closest('.chip'); if (!b) return;
+    const on = b.classList.contains('on');
+    el.chips.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+    if (!on) { b.classList.add('on'); el.note.value = b.dataset.v; } else { el.note.value = ''; }
+  });
+  el.note.addEventListener('input', function () { el.chips.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.v === el.note.value.trim())); });
+
+  // ---------- 측정 ----------
+  function resetMeasure() {
+    stopWatch();
+    samples = []; measured = null; busy = false;
+    el.meter.classList.add('hide'); el.bar.style.width = '0';
+    el.live.textContent = ''; el.result.innerHTML = '';
+    el.btnMeasure.textContent = '현재 위치 측정';
+  }
+  function stopWatch() {
+    if (watchId !== null) { try { navigator.geolocation.clearWatch(watchId); } catch (e) {} watchId = null; }
+    if (timer) { clearInterval(timer); timer = null; }
+  }
+  function goodSamples() { return samples.filter(s => s.acc <= maxAcc); }
+
+  function startMeasure() {
+    if (!navigator.geolocation) { topMsg('err', '이 기기(브라우저)는 위치 기능을 지원하지 않습니다.'); return; }
+    topMsg('', '');
+    resetMeasure();
+    busy = true; refreshButtons();
+    el.meter.classList.remove('hide');
+    el.btnMeasure.textContent = '측정 중... 폰을 들고 가만히 계세요';
+    startTs = Date.now();
+    watchId = navigator.geolocation.watchPosition(onPos, onErr, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+    timer = setInterval(tick, 250);
+  }
+
+  function onPos(pos) {
+    const c = pos.coords;
+    samples.push({ lat: c.latitude, lng: c.longitude, acc: c.accuracy });
+    const g = goodSamples().length;
+    el.live.textContent = '현재 오차 ±' + Math.round(c.accuracy) + 'm · 사용 가능한 측정 ' + g + '회';
+  }
+
+  function onErr(err) {
+    if (!busy) return;
+    if (err && err.code === 1) {
+      finishFail('위치 권한이 꺼져 있어요. 브라우저/폰 설정에서 이 페이지의 위치 권한을 허용한 뒤 다시 눌러 주세요.');
+    } else {
+      // 신호를 잡는 중에 일시적으로 나는 오류(코드 2·3)는 무시하고 계속 기다림. 끝까지 값이 없으면 종료 시 안내
+      el.live.textContent = '위치 신호를 찾는 중... 하늘이 트인 곳인지 확인해 주세요.';
+    }
+  }
+
+  function tick() {
+    const el_ms = Date.now() - startTs;
+    el.bar.style.width = Math.min(100, Math.round(el_ms / MAX_MS * 100)) + '%';
+    if (goodSamples().length >= TARGET_GOOD || el_ms >= MAX_MS) finishMeasure();
+  }
+
+  function finishFail(text) {
+    stopWatch(); busy = false; measured = null;
+    el.meter.classList.add('hide');
+    el.btnMeasure.textContent = '다시 측정';
+    el.result.innerHTML = '<div class="result bad">' + esc(text) + '</div>';
+    refreshButtons();
+  }
+
+  function finishMeasure() {
+    stopWatch();
+    const good = goodSamples();
+    if (good.length < 3) {
+      const best = samples.length ? Math.round(Math.min.apply(null, samples.map(s => s.acc))) : null;
+      finishFail(best === null
+        ? '위치 값을 받지 못했어요. 폰의 위치(GPS)를 켜고 건물 밖에서 다시 시도해 주세요.'
+        : '오차가 너무 커요 (가장 좋은 값 ±' + best + 'm, 기준 ±' + maxAcc + 'm). 하늘이 트인 출입구 앞으로 이동해 다시 측정해 주세요.');
+      return;
+    }
+    good.sort((a, b) => a.acc - b.acc);
+    const use = good.slice(0, KEEP_BEST);
+    let sw = 0, sLa = 0, sLn = 0;
+    use.forEach(s => { const w = 1 / (s.acc * s.acc); sw += w; sLa += s.lat * w; sLn += s.lng * w; });
+    const lat = sLa / sw, lng = sLn / sw;
+    const accs = use.map(s => s.acc).sort((a, b) => a - b);
+    const acc = accs[Math.floor(accs.length / 2)];
+    let spread = 0;
+    use.forEach(s => { spread = Math.max(spread, distM(lat, lng, s.lat, s.lng)); });
+    measured = { lat: lat, lng: lng, acc: acc, n: use.length, spread: spread };
+    busy = false;
+    el.meter.classList.add('hide');
+    el.live.textContent = '';
+    el.btnMeasure.textContent = '다시 측정';
+    const shaky = spread > 12;
+    el.result.innerHTML =
+      '<div class="result ' + (shaky ? 'warn' : 'good') + '">' +
+      '<span class="coord">' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '</span>' +
+      '오차 약 ±' + acc.toFixed(1) + 'm · 측정 ' + use.length + '회 평균' +
+      (shaky ? '<br>값이 많이 흔들렸어요. 가능하면 가만히 서서 다시 측정해 주세요.' : '') +
+      '<br><a href="https://maps.google.com/?q=' + lat.toFixed(6) + ',' + lng.toFixed(6) + '" target="_blank" rel="noopener">지도에서 위치 확인</a>' +
+      '</div>';
+    refreshButtons();
+  }
+
+  el.btnMeasure.addEventListener('click', startMeasure);
+
+  // ---------- 저장 ----------
+  el.btnSave.addEventListener('click', function () {
+    if (!measured || busy) return;
+    busy = true; refreshButtons();
+    el.btnSave.textContent = '저장 중...';
+    const code = el.bld.value;
+    api({
+      op: 'submit',
+      name: el.surveyor.value.trim(), bld: code, note: el.note.value.trim(),
+      lat: measured.lat.toFixed(7), lng: measured.lng.toFixed(7),
+      acc: measured.acc.toFixed(1), n: measured.n
+    }).then(res => {
+      busy = false; el.btnSave.textContent = '이 위치 저장';
+      if (res && res.success) {
+        const b = buildings.find(x => x.code === code);
+        if (b) b.count = res.count !== undefined ? res.count : (b.count + 1);
+        renderBuildings(code);
+        measured = null;
+        el.result.innerHTML = '';
+        el.btnMeasure.textContent = '현재 위치 측정';
+        topMsg('ok', '저장했어요. 수고하셨습니다! 다른 건물로 이동해서 계속 측정해 주세요.');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        topMsg('err', (res && res.message) || '저장하지 못했습니다. 다시 시도해 주세요.');
+      }
+      refreshButtons();
+    }).catch(() => {
+      busy = false; el.btnSave.textContent = '이 위치 저장';
+      topMsg('err', '서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 다시 저장해 주세요. (측정값은 그대로 남아 있어요)');
+      refreshButtons();
+    });
+  });
+
+  loadInfo();
+  refreshButtons();
+})();
+</script>
+</body>
+</html>

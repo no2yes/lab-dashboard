@@ -850,6 +850,16 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     S4: [37.76455, 128.87099]
   };
 
+  // 현장조사(survey.html)로 모인 측정값이 기준을 넘긴 건물은 위 기본 좌표를 자동으로 덮어씀
+  fetch(GAS_URL + '?page=api&action=buildingcoords&t=' + encodeURIComponent(TOKEN))
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      if (res && res.success && res.coords) {
+        Object.keys(res.coords).forEach(function (code) { BUILDING_COORDS[code] = res.coords[code]; });
+      }
+    })
+    .catch(function () { /* 실패해도 기본 좌표로 계속 동작 */ });
+
   function hasNavCoord(roomId) {
     return !!BUILDING_COORDS[parseBuildingCode(roomId)];
   }
