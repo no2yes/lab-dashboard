@@ -616,7 +616,10 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     el.textContent = '📅 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (' + ['일', '월', '화', '수', '목', '금', '토'][d.getDay()] + ')';
   }
 
+  let loadSeq = 0;   // 조회 순번: 날짜를 빠르게 넘길 때 늦게 도착한 이전 날짜 응답이 화면을 덮어쓰지 않게
   function load() {
+    const seq = ++loadSeq;
+    const reqOffset = dayOffset;
     updateDateLabel();
     if (!TOKEN) {
       document.getElementById('arArea').innerHTML = '<div class="aw-error">접속 주소에 인증 정보(?t=...)가 없습니다. 관리자에게 링크를 다시 요청해주세요.</div>';
@@ -628,14 +631,16 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     } else {
       document.getElementById('arArea').innerHTML = '<div class="aw-loading">불러오는 중...</div>';
     }
-    fetch(GAS_URL + '?page=api&action=allrooms&t=' + encodeURIComponent(TOKEN) + '&dayOffset=' + dayOffset)
+    fetch(GAS_URL + '?page=api&action=allrooms&t=' + encodeURIComponent(TOKEN) + '&dayOffset=' + reqOffset)
       .then(res => res.json())
       .then(function(res) {
-        render(res);
+        if (seq !== loadSeq) return;   // 더 최신 조회가 있으면 이 응답은 버림
+        render(res, reqOffset);
         if (res && res.success && res.rooms) cacheRooms(res.rooms);
         finishActiveNavBtn();
       })
       .catch(err => {
+        if (seq !== loadSeq) return;
         if (!document.querySelector('.aw-block')) {
           document.getElementById('arArea').innerHTML = '<div class="aw-error">조회 실패: ' + escapeHtml(err.message) + '</div>';
         }
@@ -643,7 +648,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       });
   }
 
-  function render(res) {
+  function render(res, offset) {
     if (!res || !res.success) {
       document.getElementById('arArea').innerHTML = '<div class="aw-error">' + escapeHtml((res && res.message) || '조회 실패') + '</div>';
       return;
@@ -655,7 +660,8 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     const totalSlots = ((END_HOUR - START_HOUR) * 60) / SLOT_MIN;
     const gridCols = '44px repeat(' + rooms.length + ', 130px)';
 
-    const selDate = new Date(); selDate.setHours(0, 0, 0, 0); selDate.setDate(selDate.getDate() + dayOffset);
+    // 실습실 링크에 넘기는 날짜는 "지금 화면에 그려지는 응답의 날짜"로 고정 (그 사이 날짜 버튼을 또 눌러도 어긋나지 않게)
+    const selDate = new Date(); selDate.setHours(0, 0, 0, 0); selDate.setDate(selDate.getDate() + (offset !== undefined ? offset : dayOffset));
     const selDateStr = formatLocalISODate(selDate);
     let html = '<div class="aw-grid" style="grid-template-columns:' + gridCols + ';">';
     html += '<div></div>';
