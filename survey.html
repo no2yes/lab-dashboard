@@ -57,6 +57,7 @@
   .msg { font-size:14px; border-radius:10px; padding:11px 12px; margin-bottom:12px; }
   .msg.err { background:var(--danger-soft); color:var(--danger); }
   .msg.ok { background:var(--ok-soft); color:var(--ok); }
+  .who { background:var(--accent-soft); color:var(--accent); border-radius:10px; padding:9px 12px; font-weight:700; font-size:14px; margin-bottom:10px; }
   .progress { font-size:12px; color:var(--t3); text-align:right; margin-top:4px; }
   a { color:var(--accent); }
   .hide { display:none !important; }
@@ -70,11 +71,8 @@
 <div id="topMsg"></div>
 
 <div class="card" id="cardInfo">
-  <div class="step"><b>1</b>조사자와 건물 선택</div>
-  <div class="row">
-    <label for="surveyor">조사자 이름</label>
-    <input type="text" id="surveyor" maxlength="20" placeholder="예: 홍길동" autocomplete="name">
-  </div>
+  <div class="step"><b>1</b>건물 선택</div>
+  <div class="who hide" id="who"></div>
   <div class="row">
     <label for="bld">측정할 건물</label>
     <select id="bld"><option value="">불러오는 중...</option></select>
@@ -130,7 +128,7 @@
 
   const $ = id => document.getElementById(id);
   const el = {
-    top: $('topMsg'), surveyor: $('surveyor'), bld: $('bld'), note: $('note'), chips: $('chips'),
+    top: $('topMsg'), who: $('who'), bld: $('bld'), note: $('note'), chips: $('chips'),
     btnMeasure: $('btnMeasure'), btnSave: $('btnSave'), meter: $('meter'), bar: $('meterBar'),
     live: $('live'), result: $('result'), prog: $('bldProgress')
   };
@@ -138,6 +136,7 @@
   let watchId = null, timer = null, startTs = 0;
   let samples = [];
   let measured = null;        // { lat, lng, acc, n, spread }
+  let surveyor = '';          // 링크에 지정된 조사자 이름(서버가 알려 줌)
   let busy = false;
 
   function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -181,6 +180,8 @@
       buildings = res.buildings || [];
       if (res.maxAcc) maxAcc = res.maxAcc;
       if (res.minSamples) minSamples = res.minSamples;
+      surveyor = res.surveyor || '';
+      if (surveyor) { el.who.textContent = '👤 ' + surveyor + '님으로 기록됩니다'; el.who.classList.remove('hide'); }
       renderBuildings(lsGet('survey_last_bld'));
       refreshButtons();
     }).catch(() => { topMsg('err', '서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.'); });
@@ -188,12 +189,10 @@
 
   // ---------- 입력 상태 ----------
   function refreshButtons() {
-    const ok = !!el.surveyor.value.trim() && !!el.bld.value && !!TOKEN;
+    const ok = !!surveyor && !!el.bld.value && !!TOKEN;
     el.btnMeasure.disabled = !ok || busy;
     el.btnSave.disabled = !(ok && measured && !busy);
   }
-  el.surveyor.value = lsGet('survey_name');
-  el.surveyor.addEventListener('input', function () { lsSet('survey_name', el.surveyor.value.trim()); refreshButtons(); });
   el.bld.addEventListener('change', function () { lsSet('survey_last_bld', el.bld.value); resetMeasure(); refreshButtons(); });
   el.chips.addEventListener('click', function (e) {
     const b = e.target.closest('.chip'); if (!b) return;
@@ -305,7 +304,7 @@
     const code = el.bld.value;
     api({
       op: 'submit',
-      name: el.surveyor.value.trim(), bld: code, note: el.note.value.trim(),
+      bld: code, note: el.note.value.trim(),
       lat: measured.lat.toFixed(7), lng: measured.lng.toFixed(7),
       acc: measured.acc.toFixed(1), n: measured.n
     }).then(res => {
