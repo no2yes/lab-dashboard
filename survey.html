@@ -224,7 +224,40 @@
   let pathCount = 0;
   let serverHasPath = true;   // 서버(GAS)가 길 기록을 지원하는 새 버전인지
   function isGate(code) { const b = buildings.find(x => x.code === code); return !!(b && b.gate); }
-  function curEntType() { return isGate(el.bld.value) ? '정문' : entType; }   // 학교 출입구는 한 지점이라 종류 구분 없이 '정문' 칸에 모읍니다
+  // 차로가 있는 출입구(정문, 치과병원 방향)는 도로 양쪽 인도를 따로 측정: ①은 '정문' 칸(안내에 사용), ②는 '측면' 칸(참고용으로만 저장)
+  const SIDE_GATES = ['N1', 'G3'];
+  let prevSideGate = false;
+  function isSideGate(code) { return SIDE_GATES.indexOf(code) >= 0 && isGate(code); }
+  function curEntType() {
+    const c = el.bld.value;
+    if (isSideGate(c)) return entType === '측면' ? '측면' : '정문';
+    return isGate(c) ? '정문' : entType;   // 그 밖의 출입구는 한 지점이라 '정문' 칸에 모읍니다
+  }
+  function applyEntUi() {
+    const code = el.bld.value, gate = isGate(code), side = isSideGate(code);
+    const rowEnt = document.getElementById('rowEnt'); if (!rowEnt) return;
+    rowEnt.classList.toggle('hide', gate && !side);
+    const lab = rowEnt.querySelector('label');
+    if (lab) {
+      if (lab.dataset.orig === undefined) lab.dataset.orig = lab.innerHTML;
+      lab.innerHTML = side ? '측정할 인도 <span style="color:var(--danger)">*</span>' : lab.dataset.orig;
+    }
+    el.seg.querySelectorAll('button').forEach(btn => {
+      if (btn.dataset.orig === undefined) btn.dataset.orig = btn.textContent;
+      const v = btn.dataset.v;
+      btn.classList.toggle('hide', side && v === '후문');
+      btn.textContent = side ? (v === '정문' ? '인도 ① (안내에 사용)' : v === '측면' ? '인도 ② (참고용)' : btn.dataset.orig) : btn.dataset.orig;
+    });
+    if (!side && prevSideGate) {   // 인도 ② 선택(=측면 칸)이 일반 건물로 그대로 넘어가 잘못 저장되는 것을 막음
+      entType = '정문';
+      el.seg.querySelectorAll('button').forEach(c => c.classList.toggle('on', c.dataset.v === '정문'));
+    }
+    prevSideGate = side;
+    if (side && entType === '후문') {
+      entType = '정문';
+      el.seg.querySelectorAll('button').forEach(c => c.classList.toggle('on', c.dataset.v === '정문'));
+    }
+  }
   function optionsHtml(list, withCount) {
     return list.map(b => {
       const done = b.count >= minSamples;
@@ -253,7 +286,8 @@
   function updateTypeProgress() {
     const b = buildings.find(x => x.code === el.bld.value);
     const gate = !!(b && b.gate);
-    const rowEnt = document.getElementById('rowEnt'); if (rowEnt) rowEnt.classList.toggle('hide', gate);
+    applyEntUi();
+    if (b && isSideGate(b.code)) { const tt = b.types || {}; el.typeProg.textContent = '인도 ① ' + (tt['정문'] || 0) + '건 · 인도 ② ' + (tt['측면'] || 0) + '건'; return; }
     if (!b || gate) { el.typeProg.textContent = ''; return; }
     const t = b.types || {};
     el.typeProg.textContent = TYPES.map(k => k + ' ' + (t[k] || 0) + '건').join(' · ');
@@ -410,7 +444,7 @@
         measured = null;
         el.result.innerHTML = '';
         el.btnMeasure.textContent = '현재 위치 측정';
-        topMsg('ok', (isGate(code) ? '출입구' : et) + ' 위치를 저장했어요. 수고하셨습니다! 다른 출입구나 건물로 이동해서 계속 측정해 주세요.');
+        topMsg('ok', (isSideGate(code) ? (et === '측면' ? '인도 ②' : '인도 ①') : isGate(code) ? '출입구' : et) + ' 위치를 저장했어요. 수고하셨습니다! 다른 출입구나 건물로 이동해서 계속 측정해 주세요.');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         topMsg('err', (res && res.message) || '저장하지 못했습니다. 다시 시도해 주세요.');
