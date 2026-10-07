@@ -263,7 +263,7 @@
     if (!TOKEN) { topMsg('err', '조사용 링크로 접속해 주세요. 관리자에게 링크를 요청하세요.'); el.bld.innerHTML = '<option value="">링크가 필요합니다</option>'; return; }
     api({ op: 'info' }).then(res => {
       if (!res || !res.success) { topMsg('err', (res && res.message) || '불러오지 못했습니다.'); el.bld.innerHTML = '<option value="">불러오기 실패</option>'; return; }
-      buildings = res.buildings || [];
+      buildings = (res.buildings || []).map(b => { if (b.gateName) b.name = b.gateName; return b; });   // 출입구 이름은 서버의 출입구 목록 이름을 우선 사용
       if (res.maxAcc) maxAcc = res.maxAcc;
       if (res.minSamples) minSamples = res.minSamples;
       surveyor = res.surveyor || '';
