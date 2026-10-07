@@ -72,9 +72,25 @@
   .room-card.closed { background: var(--w03); border-color: var(--line-soft); opacity: 0.55; }
   .room-card.closed::before { background: var(--w25); }
 
-  .room-name { margin: 4px 0 8px; color:var(--text); }
-  .building-line { font-size: 11px; font-weight: 600; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .room-num-line { font-size: 15px; font-weight: 800; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .room-name { margin: 6px -38px 10px 0; color:var(--text); }
+  .building-line {
+    display: inline-block; max-width: 100%;
+    font-size: 11px; font-weight: 700; color: var(--w75);
+    background: var(--w10); border-radius: 10px; padding: 1px 9px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: top;
+  }
+  /* 호실 번호: 카드에서 가장 크고 굵게, 상태 색으로 한눈에 */
+  .room-num-line {
+    font-size: 34px; font-weight: 900; line-height: 1.05; letter-spacing: -0.5px;
+    margin-top: 6px; font-variant-numeric: tabular-nums;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .room-num-line.long { font-size: 27px; }
+  .room-num-line .ho { font-size: 15px; font-weight: 800; margin-left: 2px; letter-spacing: 0; opacity: 0.85; }
+  .room-card.available .room-num-line { color: var(--ok-strong); }
+  .room-card.in_use .room-num-line { color: var(--danger-line); }
+  .room-card.before_open .room-num-line { color: var(--warn-text); }
+  .room-card.closed .room-num-line { color: var(--t4); }
   .badge {
     display: inline-block;
     font-size: 11px;
@@ -1077,7 +1093,9 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       html += '<div class="badge ' + r.status + '">' + escapeHtml(r.statusLabel) + '</div>';
       html += '<div class="room-name">';
       html += '<div class="building-line">' + escapeHtml(parseBuilding(r.roomName)) + '</div>';
-      html += '<div class="room-num-line">' + escapeHtml(parseRoomOnly(r.roomName)) + '</div>';
+      const roomOnly = parseRoomOnly(r.roomName);
+      const roomNum = roomOnly.replace(/호\s*$/, '');
+      html += '<div class="room-num-line' + (roomNum.length > 5 ? ' long' : '') + '">' + escapeHtml(roomNum) + (roomNum !== roomOnly ? '<span class="ho">호</span>' : '') + '</div>';
       html += '</div>';
       html += '<div class="room-meta">';
       if (r.availableUntil) html += escapeHtml(r.availableUntil) + '<br>';
