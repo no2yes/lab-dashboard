@@ -883,7 +883,29 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
+  // 도보 경로 조회 (OpenStreetMap 기반 무료 서비스). 7초 안에 못 받으면 실패 처리
+  let navOpenSeq = 0;
+  function fetchWalkRoute(from, to) {
+    const url = 'https://routing.openstreetmap.de/routed-foot/route/v1/foot/' +
+      from[1] + ',' + from[0] + ';' + to[1] + ',' + to[0] + '?overview=full&geometries=geojson&steps=false';
+    const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    const timer = setTimeout(function () { if (ctl) ctl.abort(); }, 7000);
+    return fetch(url, ctl ? { signal: ctl.signal } : undefined)
+      .then(function (res) { clearTimeout(timer); if (!res.ok) throw new Error('http'); return res.json(); })
+      .then(function (j) {
+        if (!j || j.code !== 'Ok' || !j.routes || !j.routes[0]) throw new Error('noroute');
+        const rt = j.routes[0];
+        return {
+          distance: rt.distance,
+          // 걷는 시간은 서비스 값과 시속 약 4.5km 추정 중 더 긴 쪽 (너무 낙관적이지 않게)
+          duration: Math.max(rt.duration, rt.distance / 1.25),
+          points: rt.geometry.coordinates.map(function (c) { return [c[1], c[0]]; })
+        };
+      });
+  }
+
   function openNavModal(roomId, roomLabel) {
+    navOpenSeq++;
     const coord = BUILDING_COORDS[parseBuildingCode(roomId)];
     if (!coord) return;
 
@@ -910,7 +932,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
           radius: 8, color: 'var(--accent)', fillColor: '#3b82f6', fillOpacity: 0.9, weight: 2
         }).addTo(navMap).bindPopup('현재 위치');
 
-        L.polyline([me, coord], {
+        const straightLine = L.polyline([me, coord], {
           color: 'var(--ok-strong)', weight: 4, opacity: 0.9,
           dashArray: '8, 10', className: 'nav-route-line'
         }).addTo(navMap);
@@ -918,7 +940,29 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         navMap.fitBounds([me, coord], { padding: [40, 40] });
 
         const dist = Math.round(haversineMeters(me[0], me[1], coord[0], coord[1]));
-        document.getElementById('navModalInfo').innerHTML = '직선거리 약 <span class="dist">' + dist + 'm</span> · 실제 도로 경로와는 다를 수 있어요';
+        const infoEl = document.getElementById('navModalInfo');
+        infoEl.innerHTML = '직선거리 약 <span class="dist">' + dist + 'm</span> · 도보 경로를 찾는 중...';
+
+        // 걸어서 가는 최단 경로 (OpenStreetMap 기반 무료 도보 경로). 실패하면 위의 직선 표시를 그대로 유지
+        const seq = navOpenSeq;
+        fetchWalkRoute(me, coord).then(function (r) {
+          if (!navMap || seq !== navOpenSeq) return;
+          navMap.removeLayer(straightLine);
+          const walkLine = L.polyline([me].concat(r.points).concat([coord]), {
+            color: 'var(--ok-strong)', weight: 5, opacity: 0.95, lineJoin: 'round'
+          }).addTo(navMap);
+          navMap.fitBounds(walkLine.getBounds(), { padding: [40, 40] });
+          const meters = Math.round(r.distance);
+          const min = Math.max(1, Math.round(r.duration / 60));
+          let note = '';
+          if (meters > dist * 2.5 + 300) {
+            note = '<br><span style="color:var(--t3);font-size:11px;">캠퍼스 안 길 정보가 부족해 많이 돌아가는 경로일 수 있어요</span>';
+          }
+          infoEl.innerHTML = '도보 약 <span class="dist">' + min + '분</span> · 경로 ' + meters + 'm <span style="color:var(--t3)">(직선 ' + dist + 'm)</span>' + note;
+        }).catch(function () {
+          if (!navMap || seq !== navOpenSeq) return;
+          infoEl.innerHTML = '직선거리 약 <span class="dist">' + dist + 'm</span> · 도보 경로를 불러오지 못해 직선으로 표시해요';
+        });
       }, function() {
         document.getElementById('navModalInfo').textContent = '위치 접근이 거부되어 건물 위치만 표시합니다. 아이폰이면 설정 → 개인정보 보호 및 보안 → 위치 서비스 → Safari를 "앱을 사용하는 동안"으로 확인해보세요.';
       }, { enableHighAccuracy: true, timeout: 8000 });
@@ -926,6 +970,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   }
 
   function closeNavModal() {
+    navOpenSeq++;
     document.getElementById('navModalOverlay').classList.remove('open');
     if (navMap) { navMap.remove(); navMap = null; }
   }
