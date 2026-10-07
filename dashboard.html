@@ -484,6 +484,13 @@
   .close-card.exception .ctime { color: var(--warn-text); }
   .close-card .ctime.off { opacity: 0.4; font-weight: 600; font-size: 11px; }
 
+  /* 큰 화면(시연용 모니터·TV): 본문 전체를 화면 폭에 비례해 키워 카드가 작게 남지 않도록 함 (모달은 제외) */
+  @media (min-width: 1500px) { :root { --bigzoom: 1.15; } }
+  @media (min-width: 1800px) { :root { --bigzoom: 1.4; } }
+  @media (min-width: 2200px) { :root { --bigzoom: 1.7; } }
+  @media (min-width: 2560px) { :root { --bigzoom: 1.95; } }
+  @media (min-width: 3200px) { :root { --bigzoom: 2.5; } }
+  .top, .filter-bar, .common-sw-bar, #gridArea, .section-title, #closeGridArea, .footer { zoom: var(--bigzoom, 1); }
   .footer { text-align: center; margin-top: 14px; }
   .footer-note { font-size: 10px; opacity: 0.4; margin-bottom: 8px; }
   .demo-links { border: 1.5px dashed var(--accent); border-radius: 12px; padding: 10px 12px 12px; }
