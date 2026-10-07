@@ -131,6 +131,12 @@
     position: relative;
     line-height: 1.4;
   }
+    .aw-seat {
+    display: inline-block; margin-left: 4px; padding: 0 6px;
+    font-size: 10px; font-weight: 800; line-height: 1.5;
+    color: var(--accent); background: var(--knu-primary-soft);
+    border-radius: 8px; white-space: nowrap; vertical-align: 1px;
+  }
   .aw-hint { text-align: center; margin: 4px 0 10px; }
   .aw-hint span { display: inline-block; background: rgba(127,179,255,0.16); border: 1px solid rgba(127,179,255,0.45); color: var(--accent-soft); font-size: 13px; font-weight: 700; padding: 7px 16px; border-radius: 20px; }
   .aw-room-link { display: block; text-decoration: none; cursor: pointer; transition: background .15s, border-color .15s; }
@@ -562,7 +568,12 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     try { return JSON.parse(localStorage.getItem(ROOMS_CACHE_KEY) || 'null'); } catch (e) { return null; }
   }
   function cacheRooms(rooms) {
-    try { localStorage.setItem(ROOMS_CACHE_KEY, JSON.stringify(rooms.map(r => ({ id: r.id, name: r.name })))); } catch (e) {}
+    try { localStorage.setItem(ROOMS_CACHE_KEY, JSON.stringify(rooms.map(r => ({ id: r.id, name: r.name, seats: r.seats || 0 })))); } catch (e) {}
+  }
+  // 호실명 옆에 표시할 좌석수 (학생 몇 명이 수업받을 수 있는지)
+  function seatTag(r) {
+    const n = parseInt(r && r.seats, 10);
+    return n > 0 ? '<span class="aw-seat" title="수용 인원(좌석수)">' + n + '석</span>' : '';
   }
 
   function renderSkeleton(rooms) {
@@ -577,7 +588,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       else { line1 = r.name; line2 = ''; }
       html += '<div class="aw-room-header">' +
               '<div>' + escapeHtml(line1) + '</div>' +
-              (line2 ? '<div>' + escapeHtml(line2) + '</div>' : '') + '</div>';
+              ((line2 || seatTag(r)) ? '<div>' + escapeHtml(line2) + seatTag(r) + '</div>' : '') + '</div>';
     });
     html += '<div style="position:relative;">';
     for (let s = 0; s <= totalSlots; s++) {
@@ -655,7 +666,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       else { line1 = r.name; line2 = ''; }
       html += '<a class="aw-room-header aw-room-link" href="' + GAS_URL + '?room=' + encodeURIComponent(r.id) + '&date=' + selDateStr + '" target="_blank" rel="noopener" title="이 실습실 신청하기">' +
               '<div>' + escapeHtml(line1) + '</div>' +
-              (line2 ? '<div>' + escapeHtml(line2) + '</div>' : '') + '</a>';
+              ((line2 || seatTag(r)) ? '<div>' + escapeHtml(line2) + seatTag(r) + '</div>' : '') + '</a>';
     });
 
     html += '<div style="position:relative;">';
