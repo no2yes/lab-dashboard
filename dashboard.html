@@ -485,19 +485,21 @@
   .close-card .ctime.off { opacity: 0.4; font-weight: 600; font-size: 11px; }
 
   /* 큰 화면(시연용 모니터·TV): 본문 전체를 화면 폭에 비례해 키워 카드가 작게 남지 않도록 함 (모달은 제외) */
-  @media (min-width: 1500px) { :root { --bigzoom: 1.15; } }
-  @media (min-width: 1800px) { :root { --bigzoom: 1.4; } }
-  @media (min-width: 2200px) { :root { --bigzoom: 1.7; } }
-  @media (min-width: 2560px) { :root { --bigzoom: 1.95; } }
-  @media (min-width: 3200px) { :root { --bigzoom: 2.5; } }
-  .top, .filter-bar, .common-sw-bar, #gridArea, .section-title, #closeGridArea, .footer-note, .demo-links { zoom: var(--bigzoom, 1); }
-  .footer { text-align: center; margin-top: 14px; }
-  .footer-note { font-size: 10px; opacity: 0.4; margin-bottom: 8px; }
-  .demo-links { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: var(--surface-1); border-top: 2px dashed var(--accent); padding: 8px 12px 10px; box-shadow: 0 -4px 14px rgba(0,0,0,0.25); }
-  .demo-title { font-size: 13px; font-weight: 700; color: var(--t2); margin-bottom: 6px; }
+  @media (min-width: 1500px) { :root { --bigzoom: 1.15; --barzoom: 1.1; } }
+  @media (min-width: 1800px) { :root { --bigzoom: 1.4; --barzoom: 1.25; } }
+  @media (min-width: 2200px) { :root { --bigzoom: 1.7; --barzoom: 1.4; } }
+  @media (min-width: 2560px) { :root { --bigzoom: 1.95; --barzoom: 1.6; } }
+  @media (min-width: 3200px) { :root { --bigzoom: 2.5; --barzoom: 2; } }
+  /* --bigzoom은 JS(autoFitScreen)가 화면 높이에 맞게 줄여 가며 최종값을 정함. 하단 링크 막대는 따로 --barzoom 고정 */
+  .top, .filter-bar, .common-sw-bar, #gridArea, .section-title, #closeGridArea, .footer-note { zoom: var(--bigzoom, 1); }
+  .demo-links { zoom: var(--barzoom, 1); }
+  .footer { text-align: center; margin-top: 8px; }
+  .footer-note { font-size: 10px; opacity: 0.4; margin-bottom: 4px; }
+  .demo-links { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: var(--surface-1); border-top: 2px dashed var(--accent); padding: 5px 12px; box-shadow: 0 -4px 14px rgba(0,0,0,0.25); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 14px; }
+  .demo-title { font-size: 12px; font-weight: 700; color: var(--t2); white-space: nowrap; }
   .demo-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-  .demo-link { font-size: 16px; font-weight: 600; padding: 10px 16px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line-soft); color: var(--t1); text-decoration: none; }
-  @media (max-width: 600px) { .demo-link { font-size: 13px; padding: 7px 10px; } .demo-row { gap: 6px; } .demo-title { font-size: 11px; margin-bottom: 4px; } }
+  .demo-link { font-size: 14px; font-weight: 600; padding: 5px 14px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line-soft); color: var(--t1); text-decoration: none; white-space: nowrap; }
+  @media (max-width: 600px) { .demo-link { font-size: 12px; padding: 5px 9px; } .demo-row { gap: 5px; } .demo-title { font-size: 11px; } }
   .demo-link:hover, .demo-link:active { background: var(--accent); color: #fff; }
 </style>
 <style id="labThemeCss">
@@ -775,8 +777,24 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     document.body.style.paddingBottom = (h + 16) + 'px';
     document.documentElement.style.setProperty('--demoBarH', h + 'px');
   }
-  window.addEventListener('resize', fitDemoBar);
-  window.addEventListener('load', fitDemoBar);
+  // 큰 화면(시연 모니터)에서는 본문이 스크롤 없이 한 화면에 들어오도록, 화면 폭 기준 배율에서 시작해 높이가 맞을 때까지 줄임(최소 0.85배)
+  function autoFitScreen() {
+    const root = document.documentElement;
+    root.style.removeProperty('--bigzoom');   // CSS가 정한 폭 기준 배율로 시작
+    fitDemoBar();
+    if (window.innerWidth < 1500) return;      // 노트북·폰 화면은 건드리지 않음
+    const MIN_Z = 0.85;                         // 아무리 줄여도 이보다 작게는 안 함(그래도 넘치면 스크롤)
+    let z = parseFloat(getComputedStyle(root).getPropertyValue('--bigzoom')) || 1;
+    let guard = 80;
+    while (z > MIN_Z + 0.0001 && root.scrollHeight > window.innerHeight + 1 && guard-- > 0) {
+      z = Math.max(MIN_Z, Math.round((z - 0.05) * 100) / 100);
+      root.style.setProperty('--bigzoom', String(z));
+    }
+  }
+  var fitTimer = null;
+  function scheduleFit() { clearTimeout(fitTimer); fitTimer = setTimeout(autoFitScreen, 80); }
+  window.addEventListener('resize', scheduleFit);
+  window.addEventListener('load', scheduleFit);
   fitDemoBar();
   const boardLinkEl = document.getElementById('boardLink');
   if (boardLinkEl) boardLinkEl.href = 'index.html' + (TOKEN ? ('?t=' + encodeURIComponent(TOKEN)) : '');
@@ -1560,6 +1578,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     area.innerHTML = out || '<div class="error">조건에 맞는 실습실이 없습니다.</div>';
 
     renderCloseGrid(res.rooms);
+    scheduleFit();
 
     requestAnimationFrame(function() { window.scrollTo(0, scrollY); });
   }
