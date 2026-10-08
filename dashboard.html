@@ -485,22 +485,15 @@
   .close-card .ctime.off { opacity: 0.4; font-weight: 600; font-size: 11px; }
 
   /* 큰 화면(시연용 모니터·TV): 본문 전체를 화면 폭에 비례해 키워 카드가 작게 남지 않도록 함 (모달은 제외) */
-  @media (min-width: 1500px) { :root { --bigzoom: 1.15; --barzoom: 1.1; } }
-  @media (min-width: 1800px) { :root { --bigzoom: 1.4; --barzoom: 1.25; } }
-  @media (min-width: 2200px) { :root { --bigzoom: 1.7; --barzoom: 1.4; } }
-  @media (min-width: 2560px) { :root { --bigzoom: 1.95; --barzoom: 1.6; } }
-  @media (min-width: 3200px) { :root { --bigzoom: 2.5; --barzoom: 2; } }
-  /* --bigzoom은 JS(autoFitScreen)가 화면 높이에 맞게 줄여 가며 최종값을 정함. 하단 링크 막대는 따로 --barzoom 고정 */
+  @media (min-width: 1500px) { :root { --bigzoom: 1.15; } }
+  @media (min-width: 1800px) { :root { --bigzoom: 1.4; } }
+  @media (min-width: 2200px) { :root { --bigzoom: 1.7; } }
+  @media (min-width: 2560px) { :root { --bigzoom: 1.95; } }
+  @media (min-width: 3200px) { :root { --bigzoom: 2.5; } }
+  /* --bigzoom은 JS(autoFitScreen)가 화면 높이에 맞게 줄여 가며 최종값을 정함 */
   .top, .filter-bar, .common-sw-bar, #gridArea, .section-title, #closeGridArea, .footer-note { zoom: var(--bigzoom, 1); }
-  .demo-links { zoom: var(--barzoom, 1); }
   .footer { text-align: center; margin-top: 8px; }
   .footer-note { font-size: 10px; opacity: 0.4; margin-bottom: 4px; }
-  .demo-links { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: var(--surface-1); border-top: 2px dashed var(--accent); padding: 5px 12px; box-shadow: 0 -4px 14px rgba(0,0,0,0.25); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 14px; }
-  .demo-title { font-size: 12px; font-weight: 700; color: var(--t2); white-space: nowrap; }
-  .demo-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-  .demo-link { font-size: 14px; font-weight: 600; padding: 5px 14px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line-soft); color: var(--t1); text-decoration: none; white-space: nowrap; }
-  @media (max-width: 600px) { .demo-link { font-size: 12px; padding: 5px 9px; } .demo-row { gap: 5px; } .demo-title { font-size: 11px; } }
-  .demo-link:hover, .demo-link:active { background: var(--accent); color: #fff; }
 </style>
 <style id="labThemeCss">
 /* ====== 공통 테마 (다크 = 차콜 / 라이트 = 따뜻한 오프화이트) ======
@@ -637,7 +630,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 
 /* 테마 전환 버튼 */
 #labThemeBtn {
-  position: fixed; left: 14px; bottom: calc(var(--demoBarH, 0px) + 14px); z-index: 99999;
+  position: fixed; left: 14px; bottom: 14px; z-index: 99999;
   width: 40px; height: 40px; border-radius: 50%;
   border: 1px solid var(--w22); background: var(--surface-pop); color: var(--text);
   font-size: 18px; line-height: 1; cursor: pointer; padding: 0;
@@ -736,7 +729,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   <div class="section-title" id="closeSectionTitle" style="display:none;">🕐 오늘 이용 가능 시간</div>
   <div id="closeGridArea" class="close-grid"></div>
 
-  <div class="footer"><div class="footer-note">30초마다 자동 갱신</div><div class="demo-links"><div class="demo-title">🎬 시연을 위한 임시 링크</div><div class="demo-row"><a class="demo-link" href="https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec?page=report&amp;t=2a23f7ba97854f0fbe48cd1c1ae7af0a" target="_blank" rel="noopener">QR신고 페이지(C4-203 예시)</a><a class="demo-link" id="boardLink" href="#" target="_blank" rel="noopener">게시용 현황판</a><a class="demo-link" href="https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec?page=doorlock&amp;t=90efbddffa3642f7a21175f2cf2da2b1" target="_blank" rel="noopener">문단속 페이지</a><a class="demo-link" href="https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec?page=admin" target="_blank" rel="noopener">관리자페이지</a></div></div></div>
+  <div class="footer"><div class="footer-note">30초마다 자동 갱신</div></div>
 
   <div class="nav-modal-overlay" id="navModalOverlay" onclick="if(event.target===this) closeNavModal()">
     <div class="nav-modal">
@@ -769,19 +762,10 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 
   // 실습실 사용신청 — GAS 쪽 기본 페이지(?page 없음 = 신청서)로 새 탭 이동
 
-  // 시연용 임시 링크 바(화면 최하단 고정)가 본문을 가리지 않도록 그 높이만큼 아래 여백 확보
-  function fitDemoBar() {
-    const bar = document.querySelector('.demo-links');
-    if (!bar) return;
-    const h = Math.ceil(bar.getBoundingClientRect().height);
-    document.body.style.paddingBottom = (h + 16) + 'px';
-    document.documentElement.style.setProperty('--demoBarH', h + 'px');
-  }
   // 큰 화면(시연 모니터)에서는 본문이 스크롤 없이 한 화면에 들어오도록, 화면 폭 기준 배율에서 시작해 높이가 맞을 때까지 줄임(최소 0.85배)
   function autoFitScreen() {
     const root = document.documentElement;
     root.style.removeProperty('--bigzoom');   // CSS가 정한 폭 기준 배율로 시작
-    fitDemoBar();
     if (window.innerWidth < 1500) return;      // 노트북·폰 화면은 건드리지 않음
     const MIN_Z = 0.85;                         // 아무리 줄여도 이보다 작게는 안 함(그래도 넘치면 스크롤)
     let z = parseFloat(getComputedStyle(root).getPropertyValue('--bigzoom')) || 1;
@@ -795,9 +779,6 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   function scheduleFit() { clearTimeout(fitTimer); fitTimer = setTimeout(autoFitScreen, 80); }
   window.addEventListener('resize', scheduleFit);
   window.addEventListener('load', scheduleFit);
-  fitDemoBar();
-  const boardLinkEl = document.getElementById('boardLink');
-  if (boardLinkEl) boardLinkEl.href = 'index.html' + (TOKEN ? ('?t=' + encodeURIComponent(TOKEN)) : '');
   const allRoomsLinkEl = document.getElementById('allRoomsLink');
   if (allRoomsLinkEl) allRoomsLinkEl.href = 'allrooms.html' + (TOKEN ? ('?t=' + encodeURIComponent(TOKEN)) : '');
 
