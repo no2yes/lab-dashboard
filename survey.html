@@ -227,10 +227,13 @@
   // 차로가 있는 출입구(정문, 치과병원 방향)는 도로 양쪽 인도를 따로 측정: ①은 '정문' 칸(안내에 사용), ②는 '측면' 칸(참고용으로만 저장)
   const SIDE_GATES = {
     N1: ['버스정류장 방향 인도', '반대쪽 인도'],      // 정문
-    G3: ['교동택지 쪽 인도', '반대쪽 인도']          // 치과병원 방향 출입로
+    G3: ['교동택지 쪽 인도', '반대쪽 인도'],          // 치과병원 방향 출입로
+    N2: ['도로 쪽', '체육관 쪽']                      // 대운동장 (건물이지만 같은 방식으로 두 지점 측정)
   };
+  const SIDE_LABEL = { N2: '측정할 지점' };           // 기본은 '측정할 인도'
+  const SIDE_TAG = { N2: '2곳 측정' };                // 목록에 붙는 짧은 안내(기본 '인도 2곳')
   let prevSideGate = false;
-  function isSideGate(code) { return !!SIDE_GATES[code] && isGate(code); }
+  function isSideGate(code) { return !!SIDE_GATES[code]; }
   function sideName(code, et) { const n = SIDE_GATES[code]; return n ? (et === '측면' ? n[1] : n[0]) : ''; }
   function curEntType() {
     const c = el.bld.value;
@@ -244,7 +247,7 @@
     const lab = rowEnt.querySelector('label');
     if (lab) {
       if (lab.dataset.orig === undefined) lab.dataset.orig = lab.innerHTML;
-      lab.innerHTML = side ? '측정할 인도 <span style="color:var(--danger)">*</span>' : lab.dataset.orig;
+      lab.innerHTML = side ? (SIDE_LABEL[code] || '측정할 인도') + ' <span style="color:var(--danger)">*</span>' : lab.dataset.orig;
     }
     el.seg.querySelectorAll('button').forEach(btn => {
       if (btn.dataset.orig === undefined) btn.dataset.orig = btn.textContent;
@@ -267,7 +270,7 @@
       const done = b.count >= minSamples;
       // 건수 표시는 하지 않음(완료는 ✓로만 표시). 인도를 둘로 나눠 측정하는 출입구만 짧게 안내
       return '<option value="' + esc(b.code) + '">' + (done ? '✓ ' : '') + esc(b.code) + (b.name ? ' ' + esc(b.name) : '') +
-             (withCount && isSideGate(b.code) ? ' · 인도 2곳' : '') + '</option>';
+             (withCount && isSideGate(b.code) ? ' · ' + (SIDE_TAG[b.code] || '인도 2곳') : '') + '</option>';
     }).join('');
   }
   function groupedOptionsHtml(withCount) {
