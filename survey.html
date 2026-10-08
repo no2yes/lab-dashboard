@@ -265,9 +265,9 @@
   function optionsHtml(list, withCount) {
     return list.map(b => {
       const done = b.count >= minSamples;
+      // 건수 표시는 하지 않음(완료는 ✓로만 표시). 인도를 둘로 나눠 측정하는 출입구만 짧게 안내
       return '<option value="' + esc(b.code) + '">' + (done ? '✓ ' : '') + esc(b.code) + (b.name ? ' ' + esc(b.name) : '') +
-             (withCount ? (isSideGate(b.code) ? ' · ① ' + ((b.types || {})['정문'] || 0) + '건 · ② ' + ((b.types || {})['측면'] || 0) + '건'
-                                                : ' · ' + (b.gate ? '' : '정문 ') + b.count + '건') : '') + '</option>';
+             (withCount && isSideGate(b.code) ? ' · 인도 2곳' : '') + '</option>';
     }).join('');
   }
   function groupedOptionsHtml(withCount) {
