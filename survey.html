@@ -233,6 +233,7 @@
   const SIDE_LABEL = { N2: '측정할 지점' };           // 기본은 '측정할 인도'
   const SIDE_TAG = { N2: '2곳 측정' };                // 목록에 붙는 짧은 안내(기본 '인도 2곳')
   let prevSideGate = false;
+  function isTrail(code) { const b = buildings.find(x => x.code === code); return !!(b && b.trail); }
   function isSideGate(code) { return !!SIDE_GATES[code]; }
   function sideName(code, et) { const n = SIDE_GATES[code]; return n ? (et === '측면' ? n[1] : n[0]) : ''; }
   function curEntType() {
@@ -274,20 +275,22 @@
     }).join('');
   }
   function groupedOptionsHtml(withCount) {
-    const gates = buildings.filter(b => b.gate), blds = buildings.filter(b => !b.gate);
-    if (!gates.length) return optionsHtml(blds, withCount);
+    const gates = buildings.filter(b => b.gate && !b.trail), trails = buildings.filter(b => b.trail), blds = buildings.filter(b => !b.gate);
+    if (!gates.length && !trails.length) return optionsHtml(blds, withCount);
     return '<optgroup label="🏢 건물">' + optionsHtml(blds, withCount) + '</optgroup>' +
-           '<optgroup label="🚪 학교 출입구">' + optionsHtml(gates, withCount) + '</optgroup>';
+           (gates.length ? '<optgroup label="🚪 학교 출입구">' + optionsHtml(gates, withCount) + '</optgroup>' : '') +
+           (trails.length ? '<optgroup label="🥾 등산로">' + optionsHtml(trails, withCount) + '</optgroup>' : '');
   }
   function renderBuildings(keepValue) {
     const cur = keepValue !== undefined ? keepValue : el.bld.value;
     el.bld.innerHTML = '<option value="">건물 또는 출입구를 선택하세요</option>' + groupedOptionsHtml(true);
     el.bld.value = cur;
-    const gates = buildings.filter(b => b.gate), blds = buildings.filter(b => !b.gate);
+    const gates = buildings.filter(b => b.gate && !b.trail), trails = buildings.filter(b => b.trail), blds = buildings.filter(b => !b.gate);
     const dn = list => list.filter(b => b.count >= minSamples).length;
     el.prog.textContent = buildings.length
       ? ('✓ = 정문 ' + minSamples + '건 이상 모임 · 건물 ' + blds.length + '동 중 ' + dn(blds) + '동 완료' +
-         (gates.length ? ' · 출입구 ' + gates.length + '곳 중 ' + dn(gates) + '곳 완료' : '')) : '';
+         (gates.length ? ' · 출입구 ' + gates.length + '곳 중 ' + dn(gates) + '곳 완료' : '') +
+         (trails.length ? ' · 등산로 ' + trails.length + '곳 중 ' + dn(trails) + '곳 완료' : '')) : '';
     updateTypeProgress();
     fillPathSelects();
   }
@@ -452,7 +455,7 @@
         measured = null;
         el.result.innerHTML = '';
         el.btnMeasure.textContent = '현재 위치 측정';
-        topMsg('ok', (isSideGate(code) ? sideName(code, et) : isGate(code) ? '출입구' : et) + ' 위치를 저장했어요. 수고하셨습니다! 다른 출입구나 건물로 이동해서 계속 측정해 주세요.');
+        topMsg('ok', (isSideGate(code) ? sideName(code, et) : isGate(code) ? (isTrail(code) ? '등산로 지점' : '출입구') : et) + ' 위치를 저장했어요. 수고하셨습니다! 다른 출입구나 건물로 이동해서 계속 측정해 주세요.');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         topMsg('err', (res && res.message) || '저장하지 못했습니다. 다시 시도해 주세요.');
