@@ -53,6 +53,14 @@
   .result.bad  { background:var(--danger-soft); color:var(--danger); }
   .coord { font-variant-numeric:tabular-nums; font-weight:800; font-size:16px; color:var(--text); display:block; margin:2px 0; }
   .tip { font-size:12.5px; color:var(--t2); }
+  details.gap { margin-top:12px; border-top:1px dashed var(--line); padding-top:10px; }
+  details.gap summary { font-weight:700; font-size:14px; cursor:pointer; }
+  .gapsum { font-size:12.5px; color:var(--t2); margin:8px 0 4px; }
+  .gaph { font-size:12.5px; font-weight:700; margin:12px 0 0; }
+  .gapchip { border:1px solid var(--line); background:var(--field); color:var(--text); border-radius:999px; padding:6px 11px; font-size:13px; font-family:inherit; cursor:pointer; }
+  .gapchip.bad { border-color:var(--danger); background:var(--danger-soft); }
+  .gapchip.mid { border-color:var(--warn); background:var(--warn-soft); }
+  .gapchip.on { outline:2px solid var(--accent); }
   .tip li { margin:3px 0; } .tip ul { margin:6px 0 0; padding-left:18px; }
   .msg { font-size:14px; border-radius:10px; padding:11px 12px; margin-bottom:12px; }
   .msg.err { background:var(--danger-soft); color:var(--danger); }
@@ -150,6 +158,12 @@
       <label for="pTo">도착 건물</label>
       <select id="pTo"><option value="">선택 안 함</option></select>
     </div>
+    <details class="gap" id="gapBox">
+      <summary>🗺 아직 안 걸은 길 보기</summary>
+      <div class="gapsum" id="gapSum">불러오는 중…</div>
+      <div class="tip" id="gapHint">위에서 <b>출발 건물</b>을 고르면, 거기서 아직 안 걸은 곳이 나와요. 누르면 도착 건물이 채워져요.</div>
+      <div id="gapList"></div>
+    </details>
   </div>
   <div class="card">
     <div class="step"><b>2</b>걸으며 기록</div>
@@ -327,6 +341,7 @@
       if (surveyor) { el.who.textContent = '👤 ' + surveyor + '님으로 기록됩니다'; el.who.classList.remove('hide'); }
       renderBuildings(lsGet('survey_last_bld'));
       refreshButtons();
+      loadGapPairs();
     }).catch(() => { topMsg('err', '서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.'); });
   }
 
@@ -512,7 +527,54 @@
       const sel = $(id), cur = sel.value;
       sel.innerHTML = '<option value="">선택 안 함</option>' + groupedOptionsHtml(false); sel.value = cur;
     });
+    if (typeof renderGap === 'function') renderGap();
   }
+
+  // ── 아직 안 걸은 길: 기록된 길(출발→도착)을 기준으로 직접/이어서/못 가는 곳을 나눠 보여줌 ──
+  let gapPairs = null;   // [[from,to],...] 또는 null(서버 미지원)
+  function codeOf(v) { return String(v || '').trim().split(/[\s(]/)[0]; }
+  function loadGapPairs() {
+    fetch(GAS_URL + '?page=api&action=surveypairs&_=' + Date.now()).then(r => r.json()).then(res => {
+      gapPairs = (res && res.success) ? (res.pairs || []) : null;
+      if (!gapPairs) $('gapSum').textContent = '서버 업데이트 후에 볼 수 있어요.';
+      renderGap();
+    }).catch(() => { gapPairs = null; $('gapSum').textContent = '서버 업데이트 후에 볼 수 있어요.'; });
+  }
+  function renderGap() {
+    if (!gapPairs || !buildings.length) return;
+    const codes = buildings.map(b => b.code), has = {}; codes.forEach(c => has[c] = true);
+    const parent = {}; codes.forEach(c => parent[c] = c);
+    const find = x => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+    const direct = {}; const key = (a, b) => a < b ? a + '|' + b : b + '|' + a;
+    gapPairs.forEach(pr => {
+      const a = codeOf(pr[0]), b = codeOf(pr[1]);
+      if (!has[a] || !has[b] || a === b) return;
+      direct[key(a, b)] = true; parent[find(a)] = find(b);
+    });
+    let nd = 0, nc = 0, nu = 0;
+    for (let i = 0; i < codes.length; i++) for (let j = i + 1; j < codes.length; j++) {
+      if (direct[key(codes[i], codes[j])]) nd++; else if (find(codes[i]) === find(codes[j])) nc++; else nu++;
+    }
+    $('gapSum').innerHTML = '전체 ' + (nd + nc + nu) + '쌍 중 · <b style="color:var(--ok)">직접 기록 ' + nd + '</b> · <b style="color:var(--warn)">이어서 갈 수 있음 ' + nc + '</b> · <b style="color:var(--danger)">아직 못 가는 곳 ' + nu + '</b>';
+    const from = $('pFrom').value, box = $('gapList'); box.innerHTML = '';
+    if (!from) { $('gapHint').classList.remove('hide'); return; }
+    $('gapHint').classList.add('hide');
+    const nameOf = c => { const b = buildings.find(x => x.code === c); return c + (b && b.name ? ' ' + b.name : ''); };
+    const bad = [], mid = [], ok = [];
+    codes.forEach(c => { if (c === from) return; (direct[key(from, c)] ? ok : (find(c) === find(from) ? mid : bad)).push(c); });
+    const add = (title, list, cls) => {
+      if (!list.length) return;
+      const h = document.createElement('div'); h.className = 'gaph'; h.textContent = title + ' (' + list.length + ')'; box.appendChild(h);
+      const w = document.createElement('div'); w.className = 'chips';
+      list.forEach(c => { const b = document.createElement('button'); b.type = 'button'; b.className = 'gapchip ' + cls + ($('pTo').value === c ? ' on' : ''); b.textContent = nameOf(c);
+        b.addEventListener('click', () => { $('pTo').value = c; renderGap(); topMsg('ok', nameOf(from) + ' → ' + nameOf(c) + ' 으로 채웠어요. 아래에서 걷기를 시작하세요.'); }); w.appendChild(b); });
+      box.appendChild(w);
+    };
+    add('🔴 아직 못 가는 곳 — 먼저 걸어 주세요', bad, 'bad');
+    add('🟡 이어서는 갈 수 있어요 — 시간 되면 직접 걸어 주세요', mid, 'mid');
+    add('✅ 직접 기록됨', ok, 'ok');
+  }
+  ['pFrom', 'pTo'].forEach(id => $(id).addEventListener('change', renderGap));
 
   function setMode(m) {
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
@@ -641,7 +703,7 @@
       btn.disabled = false; btn.textContent = '이 길 저장';
       if (r.ok) {
         pendRemove(item.id);
-        pathCount = r.pathCount; $('pathCount').textContent = '기록된 길 ' + pathCount + '개';
+        pathCount = r.pathCount; $('pathCount').textContent = '기록된 길 ' + pathCount + '개'; loadGapPairs();
         pFinal = null; pPts = [];
         $('pResult').innerHTML = ''; $('cardPathSave').classList.add('hide');
         topMsg('ok', '서버에 저장됐어요 (기록된 길 ' + pathCount + '개). 다른 길도 이어서 걸어 주세요!');
