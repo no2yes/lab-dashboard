@@ -59,6 +59,9 @@ header p{margin:0;color:var(--sub);font-size:13px}
 .rc .tag.s{top:auto;bottom:12px;background:var(--sub)}
 .swbtns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .swbtns .btn{padding:11px 4px;font-size:14px}
+.rotbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.btn.rot{background:var(--text);color:var(--card);padding:13px 6px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn.rot .ri{font-size:22px;line-height:1}
 .swbtns.one{grid-template-columns:2fr 1fr}
 .btn.pair{background:var(--pri);color:#fff;border-color:var(--pri)}
 .swbtns .l{background:var(--left)} .swbtns .r{background:var(--right)}
@@ -118,11 +121,11 @@ pre.json{white-space:pre-wrap;word-break:break-all;font-size:11px;background:var
     <h2 id="s3title">③ 걸어 볼까요?</h2>
     <p class="hint" id="s3hint"></p>
     <div class="diagram"><svg id="svg3" viewBox="-30 -30 360 360"></svg></div>
-    <div class="btns" style="margin-top:8px">
-      <button class="btn line" id="rotL" aria-label="왼쪽으로 돌리기">⟲</button>
-      <button class="btn line" id="rotR" aria-label="오른쪽으로 돌리기">⟳</button>
-      <button class="btn ghost" id="rotAuto" style="flex:1;font-size:14px"></button>
+    <div class="rotbar">
+      <button class="btn rot" id="rotL" aria-label="왼쪽으로 90도 돌리기"><span class="ri">↺</span>왼쪽으로 돌리기</button>
+      <button class="btn rot" id="rotR" aria-label="오른쪽으로 90도 돌리기">오른쪽으로 돌리기<span class="ri">↻</span></button>
     </div>
+    <button class="btn ghost" id="rotAuto" style="width:100%;margin-top:8px;font-size:14px"></button>
     <div id="dirLabelBox" class="hide">
       <p class="small" style="margin:10px 0 0">내려서 어느 쪽으로 가요?</p>
       <div class="chips" id="dirChips"></div>
