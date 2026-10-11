@@ -160,7 +160,7 @@ pre.json{white-space:pre-wrap;word-break:break-all;font-size:11px;background:var
 const API_URL = '';
 
 // 시연용 샘플 미션 (실제로는 서버에서 미션 목록과 호실 목록을 받아옵니다)
-const MISSIONS = [
+let MISSIONS = [
   { id:'demo-3', label:'샘플관 3층', building:'샘플관', floor:3, rooms:[
     {no:'301',name:'치의학과 사무실'},{no:'302',name:'강의실'},{no:'303',name:'학과장실'},
     {no:'304',name:'연구실'},{no:'305',name:'세미나실'},{no:'306',name:'강의실'},
@@ -264,8 +264,18 @@ document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',(
 
 // ───────── 미션 선택 ─────────
 const sel=$('missionSel');
-MISSIONS.forEach((m,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent='📍 '+m.label; sel.appendChild(o); });
-sel.addEventListener('change',()=>{ mission=MISSIONS[+sel.value]; st=fresh(); buildShapes(); go(1); });
+function fillSel(){ sel.innerHTML=''; MISSIONS.forEach((m,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent='📍 '+m.label; sel.appendChild(o); }); }
+async function api(q){ const r=await fetch(API_URL+'?page=api&'+q); return r.json(); }
+async function pickMission(i){
+  mission=MISSIONS[i]; st=fresh();
+  if(API_URL && !mission.rooms){
+    try{ const j=await api('action=floormission&id='+encodeURIComponent(mission.id)); if(j.success) mission.rooms=j.rooms; }
+    catch(e){}
+    if(!mission.rooms){ mission.rooms=[]; $('modeNote').textContent='⚠️ 호실 목록을 불러오지 못했어요. 새로고침해 주세요.'; }
+  }
+  buildShapes(); go(1);
+}
+sel.addEventListener('change',()=>pickMission(+sel.value));
 
 // ───────── 1단계: 틀 ─────────
 function buildShapes(){
@@ -536,7 +546,18 @@ $('submit').addEventListener('click',async()=>{
 
 // ───────── 시작 ─────────
 $('modeNote').textContent = API_URL ? '' : '시연 모드 · 샘플 호실로 동작하고 서버에는 보내지 않아요';
-buildShapes(); go(1);
+(async function boot(){
+  if(API_URL){
+    try{
+      const j=await api('action=floormissions');
+      if(j.success && j.missions.length){ MISSIONS=j.missions; }
+      else { $('modeNote').textContent='열려 있는 미션이 아직 없어요.'; }
+    }catch(e){ $('modeNote').textContent='⚠️ 서버에 연결하지 못했어요.'; }
+    fillSel();
+    const want=new URLSearchParams(location.search).get('m'); const k=Math.max(0,MISSIONS.findIndex(m=>m.id===want));
+    sel.value=k; await pickMission(k);
+  } else { fillSel(); buildShapes(); go(1); }
+})();
 })();
 </script>
 </body>
