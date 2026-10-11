@@ -59,6 +59,8 @@ header p{margin:0;color:var(--sub);font-size:13px}
 .rc .tag.s{top:auto;bottom:12px;background:var(--sub)}
 .swbtns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .swbtns .btn{padding:11px 4px;font-size:14px}
+.swbtns.one{grid-template-columns:2fr 1fr}
+.btn.pair{background:var(--pri);color:#fff;border-color:var(--pri)}
 .swbtns .l{background:var(--left)} .swbtns .r{background:var(--right)}
 .legend{display:flex;gap:12px;justify-content:center;font-size:12px;color:var(--sub);margin-top:6px}
 .legend b{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
@@ -95,7 +97,9 @@ pre.json{white-space:pre-wrap;word-break:break-all;font-size:11px;background:var
     <h2>① 복도 모양을 골라요</h2>
     <p class="hint">엘리베이터 앞에서 층 전체를 떠올려 보고, 가장 비슷한 모양을 눌러요.</p>
     <div class="shapes" id="shapes"></div>
-    <div style="height:12px"></div>
+    <p class="small" style="margin:14px 0 6px">방은 복도 어디에 있나요?</p>
+    <div class="chips" id="sideMode"></div>
+    <div style="height:8px"></div>
     <button class="btn big" id="to2" disabled>다음 ▶</button>
   </section>
 
@@ -117,6 +121,8 @@ pre.json{white-space:pre-wrap;word-break:break-all;font-size:11px;background:var
     <div id="dirLabelBox" class="hide">
       <p class="small" style="margin:10px 0 0">내려서 어느 쪽으로 가요?</p>
       <div class="chips" id="dirChips"></div>
+      <p class="small hide" id="sideTxt" style="margin:4px 0 0">방은 걷는 방향 기준 어느 쪽에 있어요?</p>
+      <div class="chips hide" id="sideChips"></div>
     </div>
     <div id="walkBox" class="hide">
       <div class="stack" id="stack"></div>
@@ -124,7 +130,9 @@ pre.json{white-space:pre-wrap;word-break:break-all;font-size:11px;background:var
         <button class="btn l" id="bL">◀ 왼쪽 방</button>
         <button class="btn line" id="bS">모르겠어요</button>
         <button class="btn r" id="bR">오른쪽 방 ▶</button>
+        <button class="btn hide" id="bN">다음 방 ✓</button>
       </div>
+      <button class="btn line hide" id="bP" style="width:100%;margin-top:8px">↔ 앞 방의 맞은편이에요</button>
       <div class="legend"><span><b style="background:var(--left)"></b>걷는 방향 기준 왼쪽</span><span><b style="background:var(--right)"></b>오른쪽</span></div>
     </div>
     <div style="height:12px"></div>
@@ -183,7 +191,7 @@ const DIR_LABELS = ['왼쪽','앞쪽','오른쪽'];
 let mission = MISSIONS[0];
 let st;
 function fresh(){ return { step:1, shape:null, anchors:[], tool:'elev', sub:'pickStart',
-  walks:[], skipped:[], cur:null, queue:[] }; }
+  walks:[], skipped:[], cur:null, queue:[], sides:'both', pairNext:false }; }
 st = fresh();
 
 const $ = id => document.getElementById(id);
@@ -289,6 +297,11 @@ function buildShapes(){
     box.appendChild(b);
   });
   $('to2').disabled=!st.shape;
+  const sm=$('sideMode'); sm.innerHTML='';
+  [['both','양옆에 있어요'],['one','한쪽에만 있어요']].forEach(([v,t])=>{
+    const b=document.createElement('button'); b.type='button'; b.className='chip'+(st.sides===v?' on':''); b.textContent=t;
+    b.addEventListener('click',()=>{ st.sides=v; buildShapes(); }); sm.appendChild(b);
+  });
 }
 $('to2').addEventListener('click',()=>{ if(st.shape) go(2); });
 
@@ -336,7 +349,7 @@ function render3(){
   if(st.sub==='pickStart'){
     $('s3title').textContent='③ 어디서부터 걸을까요?';
     $('s3hint').textContent = st.queue.length ? '지금 서 있는 곳(엘리베이터·계단·출입구)을 눌러요.' : '조사할 방이 더 없어요.';
-    drawAnchors(svg,g,{tap:a=>{ st.cur={anchor:a,dir:0,dirLabel:null,items:[],step:0}; st.sub='pickDir'; render3(); }});
+    drawAnchors(svg,g,{tap:a=>{ st.cur={anchor:a,dir:0,dirLabel:null,fixed:null,items:[],step:0}; st.pairNext=false; st.sub='pickDir'; render3(); }});
     if(!st.queue.length){ $('endWalk').classList.remove('hide'); $('endWalk').textContent='결과 보기 ▶'; }
     else { $('endWalk').classList.remove('hide'); $('endWalk').textContent='여기까지만 제출할래요'; }
     return;
@@ -365,15 +378,31 @@ function render3(){
     drawAnchors(svg,g,{hl:a});
     drawDirArrow(svg,g);
     const box=$('dirChips'); box.innerHTML='';
-    DIR_LABELS.forEach(l=>{ const b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=l;
-      b.addEventListener('click',()=>{ st.cur.dirLabel=l; st.sub='walking'; computeStep(g); render3(); }); box.appendChild(b); });
+    const one = st.sides==='one';
+    const tryStart=()=>{ if(st.cur.dirLabel && (!one || st.cur.fixed)){ st.sub='walking'; computeStep(g); render3(); } };
+    DIR_LABELS.forEach(l=>{ const b=document.createElement('button'); b.type='button'; b.className='chip'+(st.cur.dirLabel===l?' on':''); b.textContent=l;
+      b.addEventListener('click',()=>{ st.cur.dirLabel=l; if(one) render3(); else tryStart(); }); box.appendChild(b); });
+    $('sideTxt').classList.toggle('hide',!one); $('sideChips').classList.toggle('hide',!one);
+    const sc=$('sideChips'); sc.innerHTML='';
+    if(one) [['L','왼쪽'],['R','오른쪽']].forEach(([v,t])=>{ const b=document.createElement('button'); b.type='button'; b.className='chip'+(st.cur.fixed===v?' on':''); b.textContent=t;
+      b.addEventListener('click',()=>{ st.cur.fixed=v; if(st.cur.dirLabel) tryStart(); else render3(); }); sc.appendChild(b); });
     $('dirLabelBox').classList.remove('hide');
     $('endWalk').textContent='취소'; $('endWalk').classList.remove('hide');
     return;
   }
   // walking
   $('s3title').textContent='걸으면서 방을 넘겨요';
-  $('s3hint').textContent='방이 왼쪽이면 ◀, 오른쪽이면 ▶ 로 슥 밀어요. 위로 밀면 ‘모르겠어요’.';
+  const one = !!st.cur.fixed;
+  $('s3hint').textContent = one ? '방을 지나칠 때마다 ‘다음 방’을 눌러요. (밀어도 돼요) 위로 밀면 ‘모르겠어요’.'
+                                : '방이 왼쪽이면 ◀, 오른쪽이면 ▶ 로 슥 밀어요. 위로 밀면 ‘모르겠어요’. 마주 보는 방은 ‘맞은편’을 먼저 눌러요.';
+  $('bL').classList.toggle('hide',one); $('bR').classList.toggle('hide',one); $('bN').classList.toggle('hide',!one);
+  $('bN').textContent='다음 방 ('+(st.cur.fixed==='L'?'왼쪽':'오른쪽')+') ✓';
+  document.querySelector('.swbtns').classList.toggle('one',one);
+  const last=st.cur.items[st.cur.items.length-1];
+  const canPair = !one && last && !last.pair;
+  $('bP').classList.toggle('hide',!canPair);
+  $('bP').classList.toggle('pair',!!st.pairNext);
+  $('bP').textContent = st.pairNext ? '↔ 맞은편으로 기록할게요 (눌러서 취소)' : '↔ 앞 방('+(last?last.no:'')+'호)의 맞은편이에요';
   drawAnchors(svg,g,{hl:a});
   drawDirArrow(svg,g);
   drawWalkMarkers(svg,g,st.cur,false);
@@ -394,10 +423,13 @@ function computeStep(g){
 }
 function drawWalkMarkers(svg,g,w,faded){
   const sg = w.step || 24;
+  let pos=0; const kc={L:0,R:0};
   w.items.forEach((it,i)=>{
-    const s = w.anchor.s + w.dir*sg*(i+1), p = pointAt(g,s);
+    if(!it.pair) pos++;
+    const k=kc[it.side]++, off=24+(k%2)*22;   // 같은 쪽 이름표가 겹치지 않게 번갈아 띄움
+    const s = w.anchor.s + w.dir*sg*pos, p = pointAt(g,s);
     const nx = p.ty*(w.dir), ny = -p.tx*(w.dir);   // 걷는 방향 기준 왼쪽 법선
-    const sgn = it.side==='L' ? 1 : -1, ox = p.x+nx*sgn*24*(w.dir>0?1:1), oy = p.y+ny*sgn*24;
+    const sgn = it.side==='L' ? 1 : -1, ox = p.x+nx*sgn*off, oy = p.y+ny*sgn*off;
     const col = it.side==='L' ? 'var(--left)' : 'var(--right)';
     const grp = sv('g',{opacity:faded?.55:1},svg);
     sv('line',{x1:p.x,y1:p.y,x2:ox,y2:oy,stroke:col,'stroke-width':2},grp);
@@ -456,18 +488,26 @@ function fly(card,x,y,side){
 function commit(side){
   if(st.sub!=='walking'||!st.queue.length) return;
   const r=st.queue.shift();
-  if(side==='S') st.skipped.push(r.no); else st.cur.items.push({no:r.no,name:r.name,side});
+  if(side!=='S' && st.cur.fixed) side=st.cur.fixed;
+  if(side==='S') st.skipped.push(r.no); else {
+    const last=st.cur.items[st.cur.items.length-1];
+    const pair = !!(st.pairNext && last && !last.pair && last.side!==side);
+    st.cur.items.push({no:r.no,name:r.name,side,pair});
+  }
+  st.pairNext=false;
   st.cur.log = (st.cur.log||[]).concat([{no:r.no,side}]);
   if(navigator.vibrate) try{navigator.vibrate(12)}catch(e){}
   render3();
 }
 $('bL').addEventListener('click',()=>{ const c=document.querySelector('#stack .rc:not(.back)'); if(st.queue.length&&c) fly(c,-1,0,'L'); });
 $('bR').addEventListener('click',()=>{ const c=document.querySelector('#stack .rc:not(.back)'); if(st.queue.length&&c) fly(c,1,0,'R'); });
+$('bN').addEventListener('click',()=>{ const c=document.querySelector('#stack .rc:not(.back)'); if(st.queue.length&&c&&st.cur.fixed) fly(c,st.cur.fixed==='L'?-1:1,0,st.cur.fixed); });
+$('bP').addEventListener('click',()=>{ st.pairNext=!st.pairNext; render3(); });
 $('bS').addEventListener('click',()=>{ const c=document.querySelector('#stack .rc:not(.back)'); if(st.queue.length&&c) fly(c,0,-1,'S'); });
 
 $('undo').addEventListener('click',()=>{
   if(st.sub==='walking' && st.cur && st.cur.log && st.cur.log.length){
-    const last=st.cur.log.pop();
+    const last=st.cur.log.pop(); st.pairNext=false;
     if(last.side==='S') st.skipped=st.skipped.filter(n=>n!==last.no); else st.cur.items=st.cur.items.filter(i=>i.no!==last.no);
     const room=mission.rooms.find(r=>r.no===last.no); st.queue.unshift(room); render3(); return;
   }
@@ -492,9 +532,10 @@ function ordinalSentences(){
   const out=[];
   st.walks.forEach(w=>{
     const cnt={L:0,R:0};
-    w.items.forEach(it=>{
+    w.items.forEach((it,i)=>{
       cnt[it.side]++;
-      out.push(`${anchorName(w.anchor)}에서 내려 <em>${w.dirLabel}</em>으로 가면, ${it.side==='L'?'왼':'오른'}편 <em>${cnt[it.side]}번째</em> → <b>${esc(it.no)}호</b> ${esc(it.name)}`);
+      const prev=w.items[i-1];
+      out.push(`${anchorName(w.anchor)}에서 내려 <em>${w.dirLabel}</em>으로 가면, ${it.side==='L'?'왼':'오른'}편 <em>${cnt[it.side]}번째</em> → <b>${esc(it.no)}호</b> ${esc(it.name)}` + (it.pair&&prev?` <span class="small">(${esc(prev.no)}호 맞은편)</span>`:''));
     });
   });
   return out;
@@ -523,7 +564,7 @@ function payload(){
     mission:mission.id, building:mission.building, floor:mission.floor, shape:st.shape,
     anchors:st.anchors.map(a=>({type:a.type,name:anchorName(a),s:Math.round(a.s)})),
     walks:st.walks.map(w=>({anchor:anchorName(w.anchor),dirLabel:w.dirLabel,
-      items:w.items.map(i=>({no:i.no,side:i.side}))})),
+      items:w.items.map(i=>({no:i.no,side:i.side,pair:i.pair?1:0}))})),
     skipped:st.skipped, nick:$('nick').value.trim(), ts:new Date().toISOString()
   };
 }
