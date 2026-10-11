@@ -232,6 +232,9 @@
   };
   const SIDE_LABEL = { N2: '측정할 지점' };           // 기본은 '측정할 인도'
   const SIDE_TAG = { N2: '2곳 측정' };                // 목록에 붙는 짧은 안내(기본 '인도 2곳')
+  // 출입구가 둘 이상인 건물: 정문/후문 칸에 실제 출입구 이름을 붙여 구분합니다 ('정문' 칸이 길 안내에 쓰입니다)
+  const BLD_ENT = { C10: { '정문': '미술 쪽 출입구', '후문': '음악 쪽 출입구' } };
+  function entLabel(code, v) { const e = BLD_ENT[code]; return e && e[v] ? e[v] : v; }
   let prevSideGate = false;
   function isTrail(code) { const b = buildings.find(x => x.code === code); return !!(b && b.trail); }
   function isSideGate(code) { return !!SIDE_GATES[code]; }
@@ -248,15 +251,21 @@
     const lab = rowEnt.querySelector('label');
     if (lab) {
       if (lab.dataset.orig === undefined) lab.dataset.orig = lab.innerHTML;
-      lab.innerHTML = side ? (SIDE_LABEL[code] || '측정할 인도') + ' <span style="color:var(--danger)">*</span>' : lab.dataset.orig;
+      lab.innerHTML = side ? (SIDE_LABEL[code] || '측정할 인도') + ' <span style="color:var(--danger)">*</span>'
+                 : (BLD_ENT[code] ? '측정할 출입구 <span style="color:var(--danger)">*</span>' : lab.dataset.orig);
     }
     el.seg.querySelectorAll('button').forEach(btn => {
       if (btn.dataset.orig === undefined) btn.dataset.orig = btn.textContent;
       const v = btn.dataset.v;
-      btn.classList.toggle('hide', side && v === '후문');
-      btn.textContent = side ? (v === '정문' ? '① ' + sideName(code, '정문') + ' (안내에 사용)' : v === '측면' ? '② ' + sideName(code, '측면') + ' (참고용)' : btn.dataset.orig) : btn.dataset.orig;
+      const en = BLD_ENT[code];
+      btn.classList.toggle('hide', (side && v === '후문') || (!!en && !side && !en[v]));
+      btn.textContent = !side && en && en[v] ? en[v] : side ? (v === '정문' ? '① ' + sideName(code, '정문') + ' (안내에 사용)' : v === '측면' ? '② ' + sideName(code, '측면') + ' (참고용)' : btn.dataset.orig) : btn.dataset.orig;
     });
     if (!side && prevSideGate) {   // 인도 ② 선택(=측면 칸)이 일반 건물로 그대로 넘어가 잘못 저장되는 것을 막음
+      entType = '정문';
+      el.seg.querySelectorAll('button').forEach(c => c.classList.toggle('on', c.dataset.v === '정문'));
+    }
+    if (BLD_ENT[code] && !side && !BLD_ENT[code][entType]) {
       entType = '정문';
       el.seg.querySelectorAll('button').forEach(c => c.classList.toggle('on', c.dataset.v === '정문'));
     }
@@ -271,7 +280,7 @@
       const done = b.count >= minSamples;
       // 건수 표시는 하지 않음(완료는 ✓로만 표시). 인도를 둘로 나눠 측정하는 출입구만 짧게 안내
       return '<option value="' + esc(b.code) + '">' + (done ? '✓ ' : '') + esc(b.code) + (b.name ? ' ' + esc(b.name) : '') +
-             (withCount && isSideGate(b.code) ? ' · ' + (SIDE_TAG[b.code] || '인도 2곳') : '') + '</option>';
+             (withCount && isSideGate(b.code) ? ' · ' + (SIDE_TAG[b.code] || '인도 2곳') : (withCount && BLD_ENT[b.code] ? ' · 출입구 ' + Object.keys(BLD_ENT[b.code]).length + '곳' : '')) + '</option>';
     }).join('');
   }
   function groupedOptionsHtml(withCount) {
@@ -301,7 +310,7 @@
     if (b && isSideGate(b.code)) { const tt = b.types || {}; el.typeProg.textContent = '① ' + sideName(b.code, '정문') + ' ' + (tt['정문'] || 0) + '건 · ② ' + sideName(b.code, '측면') + ' ' + (tt['측면'] || 0) + '건'; return; }
     if (!b || gate) { el.typeProg.textContent = ''; return; }
     const t = b.types || {};
-    el.typeProg.textContent = TYPES.map(k => k + ' ' + (t[k] || 0) + '건').join(' · ');
+    el.typeProg.textContent = TYPES.filter(k => !BLD_ENT[b.code] || BLD_ENT[b.code][k]).map(k => entLabel(b.code, k) + ' ' + (t[k] || 0) + '건').join(' · ');
   }
 
   function loadInfo() {
@@ -455,7 +464,7 @@
         measured = null;
         el.result.innerHTML = '';
         el.btnMeasure.textContent = '현재 위치 측정';
-        topMsg('ok', (isSideGate(code) ? sideName(code, et) : isGate(code) ? (isTrail(code) ? '등산로 지점' : '출입구') : et) + ' 위치를 저장했어요. 수고하셨습니다! 다른 출입구나 건물로 이동해서 계속 측정해 주세요.');
+        topMsg('ok', (isSideGate(code) ? sideName(code, et) : isGate(code) ? (isTrail(code) ? '등산로 지점' : '출입구') : entLabel(code, et)) + ' 위치를 저장했어요. 수고하셨습니다! 다른 출입구나 건물로 이동해서 계속 측정해 주세요.');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         topMsg('err', (res && res.message) || '저장하지 못했습니다. 다시 시도해 주세요.');
