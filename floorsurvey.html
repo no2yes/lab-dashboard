@@ -117,7 +117,12 @@ pre.json{white-space:pre-wrap;word-break:break-all;font-size:11px;background:var
   <section id="s3" class="card hide">
     <h2 id="s3title">③ 걸어 볼까요?</h2>
     <p class="hint" id="s3hint"></p>
-    <div class="diagram"><svg id="svg3" viewBox="0 0 300 300"></svg></div>
+    <div class="diagram"><svg id="svg3" viewBox="-30 -30 360 360"></svg></div>
+    <div class="btns" style="margin-top:8px">
+      <button class="btn line" id="rotL" aria-label="왼쪽으로 돌리기">⟲</button>
+      <button class="btn line" id="rotR" aria-label="오른쪽으로 돌리기">⟳</button>
+      <button class="btn ghost" id="rotAuto" style="flex:1;font-size:14px"></button>
+    </div>
     <div id="dirLabelBox" class="hide">
       <p class="small" style="margin:10px 0 0">내려서 어느 쪽으로 가요?</p>
       <div class="chips" id="dirChips"></div>
@@ -191,11 +196,12 @@ const DIR_LABELS = ['왼쪽','앞쪽','오른쪽'];
 let mission = MISSIONS[0];
 let st;
 function fresh(){ return { step:1, shape:null, anchors:[], tool:'elev', sub:'pickStart',
-  walks:[], skipped:[], cur:null, queue:[], sides:'both', pairNext:false }; }
+  walks:[], skipped:[], cur:null, queue:[], sides:'both', pairNext:false, manual:0, headUp:true }; }
 st = fresh();
 
 const $ = id => document.getElementById(id);
 const NS = 'http://www.w3.org/2000/svg';
+let ROT = 0;   // 3단계 그림 회전각(도)
 function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function sv(tag, attrs, parent){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
 function store(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){ return null; } }
@@ -251,7 +257,7 @@ function anchorName(a){
 function drawAnchors(svg, g, opts){
   st.anchors.forEach(a=>{
     const p=pointAt(g,a.s);
-    const grp=sv('g',{transform:`translate(${p.x},${p.y})`,style:opts&&opts.tap?'cursor:pointer':''},svg);
+    const grp=sv('g',{transform:`translate(${p.x},${p.y}) rotate(${-ROT})`,style:opts&&opts.tap?'cursor:pointer':''},svg);
     sv('circle',{r:opts&&opts.hl===a?19:16,fill:'var(--card)',stroke:opts&&opts.hl===a?'var(--pri)':'var(--sub)','stroke-width':opts&&opts.hl===a?3:1.5},grp);
     const t=sv('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':17},grp); t.textContent=TYPES[a.type].icon;
     if(opts&&opts.tap) grp.addEventListener('click',e=>{ e.stopPropagation(); opts.tap(a); });
@@ -334,7 +340,25 @@ function initQueue(){
   const done=new Set(); st.walks.forEach(w=>w.items.forEach(i=>done.add(i.no))); st.skipped.forEach(n=>done.add(n));
   st.queue = mission.rooms.filter(r=>!done.has(r.no));
 }
+function autoRot(){
+  if(!st.headUp || st.sub!=='walking' || !st.cur) return 0;
+  const g=geom(st.shape), w=st.cur; let pos=0; w.items.forEach(i=>{ if(!i.pair) pos++; });
+  const p=pointAt(g,w.anchor.s+w.dir*(w.step||24)*pos);
+  return -90-Math.atan2(p.ty*w.dir,p.tx*w.dir)*180/Math.PI;
+}
 function render3(){
+  ROT = st.manual + autoRot();
+  render3Inner();
+  const svg=$('svg3'), grp=document.createElementNS(NS,'g');
+  grp.setAttribute('transform',`rotate(${ROT} 150 150)`);
+  while(svg.firstChild) grp.appendChild(svg.firstChild);
+  svg.appendChild(grp);
+  $('rotAuto').textContent = '🧭 걷는 방향이 위로: '+(st.headUp?'켜짐':'꺼짐');
+}
+$('rotL').addEventListener('click',()=>{ st.manual-=90; render3(); });
+$('rotR').addEventListener('click',()=>{ st.manual+=90; render3(); });
+$('rotAuto').addEventListener('click',()=>{ st.headUp=!st.headUp; render3(); });
+function render3Inner(){
   const g=geom(st.shape), svg=$('svg3');
   drawBase(svg,g);
   svg.onclick=null;
@@ -433,8 +457,9 @@ function drawWalkMarkers(svg,g,w,faded){
     const col = it.side==='L' ? 'var(--left)' : 'var(--right)';
     const grp = sv('g',{opacity:faded?.55:1},svg);
     sv('line',{x1:p.x,y1:p.y,x2:ox,y2:oy,stroke:col,'stroke-width':2},grp);
-    sv('rect',{x:ox-19,y:oy-11,width:38,height:22,rx:7,fill:col},grp);
-    const t=sv('text',{x:ox,y:oy,'text-anchor':'middle','dominant-baseline':'central','font-size':12,'font-weight':700,fill:'#fff'},grp); t.textContent=it.no;
+    const lab=sv('g',{transform:`translate(${ox},${oy}) rotate(${-ROT})`},grp);
+    sv('rect',{x:-19,y:-11,width:38,height:22,rx:7,fill:col},lab);
+    const t=sv('text',{x:0,y:0,'text-anchor':'middle','dominant-baseline':'central','font-size':12,'font-weight':700,fill:'#fff'},lab); t.textContent=it.no;
   });
 }
 function updateProg(){
