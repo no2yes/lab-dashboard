@@ -66,6 +66,12 @@ header p{margin:0;color:var(--sub);font-size:13px}
 .swbtns.one{grid-template-columns:2fr 1fr}
 .btn.pair{background:var(--pri);color:#fff;border-color:var(--pri)}
 .swbtns .l{background:var(--left)} .swbtns .r{background:var(--right)}
+.rc.g{border-color:var(--ok)} .rc.y{border-color:var(--warn)} .rc.r{border-color:var(--danger)}
+.rc .cf{position:absolute;bottom:10px;left:0;right:0;text-align:center;font-size:12.5px;font-weight:700}
+.rc.g .cf{color:var(--ok)} .rc.y .cf{color:var(--warn)} .rc.r .cf{color:var(--danger)}
+.draftbar{background:var(--pri-soft);border-radius:12px;padding:10px 12px;margin:0 0 10px;font-size:13px;line-height:1.6}
+.draftbar .btn{padding:7px 10px;font-size:13px;margin-top:6px}
+.dinfo{background:var(--bg);border-radius:10px;padding:8px 10px;margin:0 0 10px;font-size:12.5px;line-height:1.6;color:var(--sub);white-space:pre-line}
 .legend{display:flex;gap:12px;justify-content:center;font-size:12px;color:var(--sub);margin-top:6px}
 .legend b{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 .small{font-size:12px;color:var(--sub)}
@@ -100,6 +106,7 @@ pre.json{white-space:pre-wrap;word-break:break-all;font-size:11px;background:var
   <section id="s1" class="card">
     <h2>① 복도 모양을 골라요</h2>
     <p class="hint">엘리베이터 앞에서 층 전체를 떠올려 보고, 가장 비슷한 모양을 눌러요.</p>
+    <div class="dinfo hide" id="dinfo1"></div>
     <div class="shapes" id="shapes"></div>
     <p class="small" style="margin:14px 0 6px">방은 복도 어디에 있나요?</p>
     <div class="chips" id="sideMode"></div>
@@ -111,6 +118,7 @@ pre.json{white-space:pre-wrap;word-break:break-all;font-size:11px;background:var
   <section id="s2" class="card hide">
     <h2>② 엘리베이터·계단 위치를 콕</h2>
     <p class="hint">아래에서 종류를 고르고, 복도 그림의 해당 위치를 눌러요. 다시 누르면 지워져요.</p>
+    <div class="dinfo hide" id="dinfo2"></div>
     <div class="tools" id="tools"></div>
     <div class="diagram"><svg id="svg2" viewBox="0 0 300 300"></svg></div>
     <div style="height:12px"></div>
@@ -121,6 +129,7 @@ pre.json{white-space:pre-wrap;word-break:break-all;font-size:11px;background:var
   <section id="s3" class="card hide">
     <h2 id="s3title">③ 걸어 볼까요?</h2>
     <p class="hint" id="s3hint"></p>
+    <div class="draftbar hide" id="draftBar"><span id="draftTxt"></span><br><button class="btn line" id="autoTgl" type="button"></button></div>
     <div class="diagram"><svg id="svg3" viewBox="-30 -30 360 360"></svg></div>
     <div class="rotbar">
       <button class="btn rot" id="rotL" aria-label="왼쪽으로 90도 돌리기"><span class="ri">↺</span>왼쪽으로 돌리기</button>
@@ -140,9 +149,11 @@ pre.json{white-space:pre-wrap;word-break:break-all;font-size:11px;background:var
         <button class="btn line" id="bS">모르겠어요</button>
         <button class="btn r" id="bR">오른쪽 방 ▶</button>
         <button class="btn hide" id="bN">다음 방 ✓</button>
+        <button class="btn ghost hide" id="bD" style="grid-column:1/-1">✔ 도면대로 맞아요</button>
       </div>
       <button class="btn line hide" id="bP" style="width:100%;margin-top:8px">↔ 앞 방의 맞은편이에요</button>
       <div class="legend"><span><b style="background:var(--left)"></b>걷는 방향 기준 왼쪽</span><span><b style="background:var(--right)"></b>오른쪽</span></div>
+      <div class="legend hide" id="confLegend"><span><b style="background:var(--ok)"></b>도면 확실</span><span><b style="background:var(--warn)"></b>확인 권장</span><span><b style="background:var(--danger)"></b>확인 필요</span></div>
     </div>
     <div style="height:12px"></div>
     <div class="btns">
@@ -179,9 +190,9 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnI
 // 시연용 샘플 미션 (실제로는 서버에서 미션 목록과 호실 목록을 받아옵니다)
 let MISSIONS = [
   { id:'demo-3', label:'샘플관 3층', building:'샘플관', floor:3, rooms:[
-    {no:'301',name:'치의학과 사무실'},{no:'302',name:'강의실'},{no:'303',name:'학과장실'},
-    {no:'304',name:'연구실'},{no:'305',name:'세미나실'},{no:'306',name:'강의실'},
-    {no:'307',name:'대학원 사무실'},{no:'308',name:'휴게실'}]},
+    {no:'301',name:'치의학과 사무실',side:'L',conf:'높음',from:'엘리베이터',dirLabel:'왼쪽'},{no:'302',name:'강의실',side:'L',conf:'높음',from:'엘리베이터',dirLabel:'왼쪽'},{no:'303',name:'학과장실',side:'R',conf:'중간',from:'엘리베이터',dirLabel:'왼쪽'},
+    {no:'304',name:'연구실',side:'L',conf:'낮음',from:'엘리베이터',dirLabel:'왼쪽'},{no:'305',name:'세미나실'},{no:'306',name:'강의실',side:'R',conf:'높음',from:'엘리베이터',dirLabel:'왼쪽'},
+    {no:'307',name:'대학원 사무실',side:'L',conf:'중간',from:'엘리베이터',dirLabel:'왼쪽'},{no:'308',name:'휴게실'}], info:{shape:'I',elev:'동쪽 끝 1곳',stair:'양 끝 2곳',door:'서쪽 끝',note:''}},
   { id:'demo-2', label:'샘플관 2층', building:'샘플관', floor:2, rooms:[
     {no:'201',name:'행정실'},{no:'202',name:'대형 강의실'},{no:'203',name:'강의실'},
     {no:'204',name:'학생회실'},{no:'205',name:'강의실'},{no:'206',name:'스터디룸'}]}
@@ -200,7 +211,7 @@ const DIR_LABELS = ['왼쪽','앞쪽','오른쪽'];
 let mission = MISSIONS[0];
 let st;
 function fresh(){ return { step:1, shape:null, anchors:[], tool:'elev', sub:'pickStart',
-  walks:[], skipped:[], cur:null, queue:[], sides:'both', pairNext:false, manual:0, headUp:true }; }
+  walks:[], skipped:[], cur:null, queue:[], sides:'both', pairNext:false, manual:0, headUp:true, autoOn:true }; }
 st = fresh();
 
 const $ = id => document.getElementById(id);
@@ -208,6 +219,17 @@ const NS = 'http://www.w3.org/2000/svg';
 let ROT = 0;   // 3단계 그림 회전각(도)
 function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function sv(tag, attrs, parent){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
+// 도면 초안 확신도: 높음=🟢(자동 인정) / 중간=🟡 / 낮음·미지정=🔴
+function hasDraft(m){ return !!(m.rooms && m.rooms.some(r=>r.conf||r.side)); }
+function rc(r){ if(!hasDraft(mission)) return ''; if(r.side && r.conf==='높음') return 'g'; if(r.side && r.conf==='중간') return 'y'; return 'r'; }
+function autoRooms(){ return (hasDraft(mission) && st.autoOn) ? mission.rooms.filter(r=>rc(r)==='g') : []; }
+function infoText(){
+  const i=mission.info; if(!i) return '';
+  const cut=t=>String(t||'').slice(0,140), L=[];
+  if(i.elev) L.push('🛗 승강기: '+cut(i.elev)); if(i.stair) L.push('🪜 계단: '+cut(i.stair)); if(i.door) L.push('🚪 출입구: '+cut(i.door)); if(i.note) L.push('📝 '+cut(i.note));
+  return L.length ? '도면에서 읽은 정보\n'+L.join('\n') : '';
+}
+function showInfo(){ ['dinfo1','dinfo2'].forEach(id=>{ const t=infoText(), e=$(id); e.textContent=t; e.classList.toggle('hide',!t); }); }
 function store(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){ return null; } }
 
 // ───────── 복도 기하 ─────────
@@ -287,7 +309,7 @@ async function api(q){ const r=await fetch(API_URL+'?page=api&'+q); return r.jso
 async function pickMission(i){
   mission=MISSIONS[i]; st=fresh();
   if(API_URL && !mission.rooms){
-    try{ const j=await api('action=floormission&id='+encodeURIComponent(mission.id)); if(j.success) mission.rooms=j.rooms; }
+    try{ const j=await api('action=floormission&id='+encodeURIComponent(mission.id)); if(j.success){ mission.rooms=j.rooms; mission.info=j.info||null; } }
     catch(e){}
     if(!mission.rooms){ mission.rooms=[]; $('modeNote').textContent='⚠️ 호실 목록을 불러오지 못했어요. 새로고침해 주세요.'; }
   }
@@ -297,6 +319,8 @@ sel.addEventListener('change',()=>pickMission(+sel.value));
 
 // ───────── 1단계: 틀 ─────────
 function buildShapes(){
+  if(!st.shape && mission.info && SHAPES[mission.info.shape]) st.shape=mission.info.shape;
+  showInfo();
   const box=$('shapes'); box.innerHTML='';
   Object.keys(SHAPES).forEach(k=>{
     const g=geom(k), b=document.createElement('button'); b.className='shape'+(st.shape===k?' on':''); b.type='button';
@@ -342,7 +366,7 @@ $('to3').addEventListener('click',()=>{ st.sub='pickStart'; st.cur=null; initQue
 // ───────── 3단계: 걷기 ─────────
 function initQueue(){
   const done=new Set(); st.walks.forEach(w=>w.items.forEach(i=>done.add(i.no))); st.skipped.forEach(n=>done.add(n));
-  st.queue = mission.rooms.filter(r=>!done.has(r.no));
+  const au=new Set(autoRooms().map(r=>r.no)); st.queue = mission.rooms.filter(r=>!done.has(r.no) && !au.has(r.no));
 }
 function autoRot(){
   if(!st.headUp || st.sub!=='walking' || !st.cur) return 0;
@@ -362,8 +386,20 @@ function render3(){
 $('rotL').addEventListener('click',()=>{ st.manual-=90; render3(); });
 $('rotR').addEventListener('click',()=>{ st.manual+=90; render3(); });
 $('rotAuto').addEventListener('click',()=>{ st.headUp=!st.headUp; render3(); });
+function renderDraftBar(){
+  const bar=$('draftBar'), on=hasDraft(mission); bar.classList.toggle('hide',!on); $('confLegend').classList.toggle('hide',!on);
+  if(!on) return;
+  const c={g:0,y:0,r:0}; mission.rooms.forEach(r=>c[rc(r)]++);
+  const need=mission.rooms.filter(r=>!(st.autoOn && rc(r)==='g')), cnt={};
+  need.forEach(r=>{ if(r.from&&r.dirLabel){ const k=r.from+'|'+r.dirLabel; cnt[k]=(cnt[k]||0)+1; } });
+  const best=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
+  $('draftTxt').innerHTML='🟢 확실 <b>'+c.g+'</b> · 🟡 권장 <b>'+c.y+'</b> · 🔴 필요 <b>'+c.r+'</b>'+(best?'<br>추천 출발: <b>'+esc(best.split('|')[0])+'</b>에서 <b>'+esc(best.split('|')[1])+'</b>으로 (도면 기준)':'');
+  $('autoTgl').textContent = st.autoOn ? '🟢 확실한 방은 건너뛰는 중 (눌러서 모두 확인)' : '모든 방 확인하는 중 (눌러서 🟢는 건너뛰기)';
+}
+$('autoTgl').addEventListener('click',()=>{ st.autoOn=!st.autoOn; initQueue(); render3(); });
 function render3Inner(){
   const g=geom(st.shape), svg=$('svg3');
+  renderDraftBar();
   drawBase(svg,g);
   svg.onclick=null;
   $('dirLabelBox').classList.add('hide'); $('walkBox').classList.add('hide');
@@ -431,6 +467,7 @@ function render3Inner(){
   $('bP').classList.toggle('hide',!canPair);
   $('bP').classList.toggle('pair',!!st.pairNext);
   $('bP').textContent = st.pairNext ? '↔ 맞은편으로 기록할게요 (눌러서 취소)' : '↔ 앞 방('+(last?last.no:'')+'호)의 맞은편이에요';
+  const top0=st.queue[0]; $('bD').classList.toggle('hide',!draftMatch(top0));
   drawAnchors(svg,g,{hl:a});
   drawDirArrow(svg,g);
   drawWalkMarkers(svg,g,st.cur,false);
@@ -468,7 +505,7 @@ function drawWalkMarkers(svg,g,w,faded){
 }
 function updateProg(){
   const total=mission.rooms.length;
-  let done=st.skipped.length; st.walks.forEach(w=>done+=w.items.length); if(st.cur&&st.sub==='walking'&&!st.walks.includes(st.cur)) done+=st.cur.items.length;
+  let done=st.skipped.length+autoRooms().length; st.walks.forEach(w=>done+=w.items.length); if(st.cur&&st.sub==='walking'&&!st.walks.includes(st.cur)) done+=st.cur.items.length;
   const known = Math.max(0,done-st.skipped.length);
   $('prog').style.width = Math.round(done/total*100)+'%';
   $('progTxt').textContent = `${total}개 중 ${done}개 확인 · 방향 표시 ${known}개`;
@@ -484,12 +521,20 @@ function renderStack(){
   if(st.queue[1]){ const b=makeCard(st.queue[1]); b.classList.add('back'); box.appendChild(b); }
   const top=makeCard(st.queue[0]); box.appendChild(top); bindSwipe(top);
 }
+function draftHint(r){
+  const k=rc(r); if(!k) return '';
+  const lab = k==='g'?'🟢 도면 확실':(k==='y'?'🟡 확인 권장':'🔴 확인 필요');
+  if(r.side && st.cur && r.from===anchorName(st.cur.anchor) && r.dirLabel===st.cur.dirLabel) return lab+' · 도면: '+(r.side==='L'?'왼쪽':'오른쪽')+' 방'+(r.pair?' (맞은편)':'');
+  return lab+(r.side?' · 도면과 걷는 방향이 달라 직접 확인':' · 도면에 위치 정보 없음');
+}
 function makeCard(r){
-  const d=document.createElement('div'); d.className='rc';
+  const d=document.createElement('div'); d.className='rc '+rc(r);
+  const h=draftHint(r);
   d.innerHTML=`<span class="tag l">◀ 왼쪽</span><span class="tag r">오른쪽 ▶</span><span class="tag s">모르겠어요</span>
-    <div class="no">${esc(r.no)}</div><div class="nm">${esc(r.name)}</div>`;
+    <div class="no">${esc(r.no)}</div><div class="nm">${esc(r.name)}</div>${h?'<div class="cf">'+h+'</div>':''}`;
   return d;
 }
+function draftMatch(r){ return !!(r && r.side && st.cur && r.from===anchorName(st.cur.anchor) && r.dirLabel===st.cur.dirLabel); }
 function bindSwipe(card){
   let sx=0,sy=0,drag=false,dx=0,dy=0;
   const tl=card.querySelector('.tag.l'), tr=card.querySelector('.tag.r'), ts=card.querySelector('.tag.s');
@@ -532,6 +577,7 @@ $('bL').addEventListener('click',()=>{ const c=document.querySelector('#stack .r
 $('bR').addEventListener('click',()=>{ const c=document.querySelector('#stack .rc:not(.back)'); if(st.queue.length&&c) fly(c,1,0,'R'); });
 $('bN').addEventListener('click',()=>{ const c=document.querySelector('#stack .rc:not(.back)'); if(st.queue.length&&c&&st.cur.fixed) fly(c,st.cur.fixed==='L'?-1:1,0,st.cur.fixed); });
 $('bP').addEventListener('click',()=>{ st.pairNext=!st.pairNext; render3(); });
+$('bD').addEventListener('click',()=>{ const r=st.queue[0], c=document.querySelector('#stack .rc:not(.back)'); if(!r||!c||!draftMatch(r)) return; st.pairNext=!!r.pair; fly(c,r.side==='L'?-1:1,0,r.side); });
 $('bS').addEventListener('click',()=>{ const c=document.querySelector('#stack .rc:not(.back)'); if(st.queue.length&&c) fly(c,0,-1,'S'); });
 
 $('undo').addEventListener('click',()=>{
@@ -571,13 +617,14 @@ function ordinalSentences(){
 }
 function render4(){
   const list=$('sent'); list.innerHTML='';
-  const s=ordinalSentences();
-  if(!s.length){ list.innerHTML='<li>아직 방향을 표시한 방이 없어요. ‘다시 걷기’를 눌러 주세요.</li>'; }
+  const s=ordinalSentences(), au=autoRooms();
+  if(!s.length && !au.length){ list.innerHTML='<li>아직 방향을 표시한 방이 없어요. ‘다시 걷기’를 눌러 주세요.</li>'; }
   s.forEach(t=>{ const li=document.createElement('li'); li.innerHTML=t; list.appendChild(li); });
   if(st.skipped.length){ const li=document.createElement('li'); li.className='small'; li.textContent='확인하지 못한 방: '+st.skipped.join(', ')+'호'; list.appendChild(li); }
   $('nick').value = store('danyeobwa_nick')||'';
-  $('done').classList.add('hide'); $('submit').disabled=!s.length;
-  if(s.length) confetti();
+  if(au.length){ const li=document.createElement('li'); li.className='small'; li.textContent='🟢 도면 그대로 인정한 방 '+au.length+'개: '+au.map(r=>r.no).join(', ')+'호'; list.appendChild(li); }
+  $('done').classList.add('hide'); $('submit').disabled=!(s.length||au.length);
+  if(s.length||au.length) confetti();
 }
 $('again').addEventListener('click',()=>{ st.walks=[]; st.skipped=[]; st.cur=null; st.sub='pickStart'; initQueue(); go(3); });
 
@@ -594,7 +641,8 @@ function payload(){
     anchors:st.anchors.map(a=>({type:a.type,name:anchorName(a),s:Math.round(a.s)})),
     walks:st.walks.map(w=>({anchor:anchorName(w.anchor),dirLabel:w.dirLabel,
       items:w.items.map(i=>({no:i.no,side:i.side,pair:i.pair?1:0}))})),
-    skipped:st.skipped, nick:$('nick').value.trim(), ts:new Date().toISOString()
+    skipped:st.skipped, auto:autoRooms().map(r=>r.no+'|'+r.side+'|'+(r.pair?1:0)),
+    nick:$('nick').value.trim(), ts:new Date().toISOString()
   };
 }
 $('submit').addEventListener('click',async()=>{
