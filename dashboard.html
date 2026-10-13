@@ -1233,6 +1233,33 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     });
   }
 
+  // ---------- 캠퍼스 안에서만 길안내 ----------
+  // 건물 좌표들을 감싸는 볼록 껍질 + 여유 거리 안이면 "학교 안"으로 봄 (건물 좌표가 갱신되면 범위도 따라감)
+  const CAMPUS_MARGIN_M = 150;
+  function isOnCampus(lat, lng, acc) {
+    const pts = Object.keys(BUILDING_COORDS).map(function (k) { return BUILDING_COORDS[k]; });
+    if (pts.length < 3) return true;                          // 좌표가 없으면 막지 않음
+    const lat0 = pts[0][0], lng0 = pts[0][1], kx = 111320 * Math.cos(lat0 * Math.PI / 180), ky = 110574;
+    const P = pts.map(function (p) { return [(p[1] - lng0) * kx, (p[0] - lat0) * ky]; });
+    P.sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+    const cross = function (o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); };
+    const lo = [], up = [];
+    P.forEach(function (p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); });
+    for (let i = P.length - 1; i >= 0; i--) { const p = P[i]; while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+    const hull = lo.slice(0, -1).concat(up.slice(0, -1));
+    const q = [(lng - lng0) * kx, (lat - lat0) * ky];
+    let inside = true, dmin = Infinity;
+    for (let i = 0; i < hull.length; i++) {
+      const a = hull[i], b = hull[(i + 1) % hull.length];
+      if (cross(a, b, q) < 0) inside = false;
+      const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+      let t = l2 ? ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / l2 : 0; t = Math.max(0, Math.min(1, t));
+      dmin = Math.min(dmin, Math.hypot(q[0] - (a[0] + t * dx), q[1] - (a[1] + t * dy)));
+    }
+    if (inside) return true;
+    return dmin - Math.min(acc || 0, 80) <= CAMPUS_MARGIN_M;   // 위치 오차만큼은 학교 안으로 봐줌
+  }
+
   function navOnPosition(pos) {
     const st = navSt;
     if (!st || !navMap || st.arrived) return;
@@ -1241,6 +1268,18 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     const prev = st.me;
     st.me = [c.latitude, c.longitude];
     st.acc = c.accuracy;
+    if (!isOnCampus(c.latitude, c.longitude, c.accuracy)) {
+      // 학교 밖: 길안내를 켜지 않고 건물 위치만 보여줌. 학교 안으로 들어오면 자동으로 시작됨
+      st.outside = true; st.route = null; st.start = null; st.offCount = 0;
+      st.line.setLatLngs([]); st.passed.setLatLngs([]);
+      st.meMarker.setOpacity(0); st.accCircle.setRadius(0);
+      if (st.follow) navSetFollow(false);
+      document.getElementById('navFollowBtn').classList.remove('show');
+      document.getElementById('navModalInfo').innerHTML = '<div class="nav-info-main">📍 학교 안에서만 길안내를 해요</div>' +
+        '<div class="nav-info-sub">지금은 캠퍼스 밖이라 건물 위치만 보여드려요. 캠퍼스에 들어서면 자동으로 안내가 시작돼요.</div>';
+      return;
+    }
+    if (st.outside) { st.outside = false; st.meMarker.setOpacity(1); }
     if (c.heading !== null && isFinite(c.heading) && (c.speed === null || c.speed > 0.4)) {
       const el = st.meMarker.getElement();
       const ar = el && el.querySelector('.nav-me-arrow');
