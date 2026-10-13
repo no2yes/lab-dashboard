@@ -211,7 +211,7 @@ const DIR_LABELS = ['왼쪽','앞쪽','오른쪽'];
 let mission = MISSIONS[0];
 let st;
 function fresh(){ return { step:1, shape:null, anchors:[], tool:'elev', sub:'pickStart',
-  walks:[], skipped:[], cur:null, queue:[], sides:'both', pairNext:false, manual:0, headUp:true, autoOn:true }; }
+  walks:[], skipped:[], cur:null, queue:[], sides:'both', pairNext:false, manual:0, headUp:true, autoLv:'gy' }; }
 st = fresh();
 
 const $ = id => document.getElementById(id);
@@ -222,7 +222,7 @@ function sv(tag, attrs, parent){ const e=document.createElementNS(NS,tag); for(c
 // 도면 초안 확신도: 높음=🟢(자동 인정) / 중간=🟡 / 낮음·미지정=🔴
 function hasDraft(m){ return !!(m.rooms && m.rooms.some(r=>r.conf||r.side)); }
 function rc(r){ if(!hasDraft(mission)) return ''; if(r.side && r.conf==='높음') return 'g'; if(r.side && r.conf==='중간') return 'y'; return 'r'; }
-function autoRooms(){ return (hasDraft(mission) && st.autoOn) ? mission.rooms.filter(r=>rc(r)==='g') : []; }
+function autoRooms(){ return (hasDraft(mission) && st.autoLv!=='none') ? mission.rooms.filter(r=>{ const k=rc(r); return k==='g' || (k==='y' && st.autoLv==='gy'); }) : []; }
 function infoText(){
   const i=mission.info; if(!i) return '';
   const cut=t=>String(t||'').slice(0,140), L=[];
@@ -390,13 +390,13 @@ function renderDraftBar(){
   const bar=$('draftBar'), on=hasDraft(mission); bar.classList.toggle('hide',!on); $('confLegend').classList.toggle('hide',!on);
   if(!on) return;
   const c={g:0,y:0,r:0}; mission.rooms.forEach(r=>c[rc(r)]++);
-  const need=mission.rooms.filter(r=>!(st.autoOn && rc(r)==='g')), cnt={};
+  const au0=new Set(autoRooms().map(r=>r.no)), need=mission.rooms.filter(r=>!au0.has(r.no)), cnt={};
   need.forEach(r=>{ if(r.from&&r.dirLabel){ const k=r.from+'|'+r.dirLabel; cnt[k]=(cnt[k]||0)+1; } });
   const best=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
   $('draftTxt').innerHTML='🟢 확실 <b>'+c.g+'</b> · 🟡 권장 <b>'+c.y+'</b> · 🔴 필요 <b>'+c.r+'</b>'+(best?'<br>추천 출발: <b>'+esc(best.split('|')[0])+'</b>에서 <b>'+esc(best.split('|')[1])+'</b>으로 (도면 기준)':'');
-  $('autoTgl').textContent = st.autoOn ? '🟢 확실한 방은 건너뛰는 중 (눌러서 모두 확인)' : '모든 방 확인하는 중 (눌러서 🟢는 건너뛰기)';
+  $('autoTgl').textContent = st.autoLv==='gy' ? '🟢🟡 도면대로 인정하고 🔴만 확인 중 (눌러서 변경)' : (st.autoLv==='g' ? '🟢만 건너뛰고 🟡🔴 확인 중 (눌러서 변경)' : '모든 방 확인 중 (눌러서 변경)');
 }
-$('autoTgl').addEventListener('click',()=>{ st.autoOn=!st.autoOn; initQueue(); render3(); });
+$('autoTgl').addEventListener('click',()=>{ st.autoLv = st.autoLv==='gy' ? 'g' : (st.autoLv==='g' ? 'none' : 'gy'); initQueue(); render3(); });
 function render3Inner(){
   const g=geom(st.shape), svg=$('svg3');
   renderDraftBar();
@@ -622,7 +622,7 @@ function render4(){
   s.forEach(t=>{ const li=document.createElement('li'); li.innerHTML=t; list.appendChild(li); });
   if(st.skipped.length){ const li=document.createElement('li'); li.className='small'; li.textContent='확인하지 못한 방: '+st.skipped.join(', ')+'호'; list.appendChild(li); }
   $('nick').value = store('danyeobwa_nick')||'';
-  if(au.length){ const li=document.createElement('li'); li.className='small'; li.textContent='🟢 도면 그대로 인정한 방 '+au.length+'개: '+au.map(r=>r.no).join(', ')+'호'; list.appendChild(li); }
+  if(au.length){ const li=document.createElement('li'); li.className='small'; li.textContent='🟢🟡 도면 그대로 인정한 방 '+au.length+'개: '+au.map(r=>r.no).join(', ')+'호'; list.appendChild(li); }
   $('done').classList.add('hide'); $('submit').disabled=!(s.length||au.length);
   if(s.length||au.length) confetti();
 }
