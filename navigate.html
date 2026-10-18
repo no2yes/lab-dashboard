@@ -79,11 +79,15 @@
 
 <div id="route"></div>
 
+<div class="tip" style="text-align:center;margin-top:22px;opacity:.6;" id="buildInfo"></div>
+
 <script>
 (function () {
   'use strict';
+  const BUILD = 'v4 · 2026-10-18 23:05 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
+  $('buildInfo').textContent = BUILD;
 
   function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function topMsg(type, text) { $('topMsg').innerHTML = text ? '<div class="msg ' + type + '">' + esc(text) + '</div>' : ''; }
@@ -177,12 +181,15 @@
       // 별도의 출발 지점 정보가 없으면 1층 정문을 출발점으로 삼아, 각 층을 레이어로 쌓고
       // 정문 → 계단/엘리베이터 → (여러 층 관통) → 목표 층 → 목적 호실 앞까지 하나의 선으로 그림
       const built = renderFloorStack(h, target, tLayout, ground, gLayout, sameBld);
+      const useWord = built.wantElev ? '엘리베이터' : '계단/엘리베이터';
       steps.push(
         '<div class="card fade"><div class="step"><b>1</b>1층 정문 → ' + esc(target.floor) + '층 ' + esc(h.no) + '호</div>' +
-        '<div class="tip" style="margin-bottom:4px;">※ 건물 출입구와 1층 정문을 잇는 정보는 아직 수집 중이라, 1층 정문부터 안내해 드려요.</div>' +
+        '<div class="tip" style="margin-bottom:4px;">※ 건물 출입구와 1층 정문을 잇는 정보는 아직 수집 중이라, 1층 정문부터 안내해 드려요.' +
+        (built.wantElev ? ' 4층 이상이라 엘리베이터로 안내해 드려요.' : '') + '</div>' +
         built.svg +
         '<div class="legend">🟦 지나가는 길 · 🟩 도착 호실' +
-        (built.matched ? '' : ' · <span style="color:var(--warn)">같은 계단/엘리베이터인지 확인된 정보가 없어 일반 이동으로 표시했어요.</span>') +
+        (built.usedFallbackStair ? ' · <span style="color:var(--warn)">이 건물은 엘리베이터 연결 정보가 없어 계단으로 안내했어요.</span>' :
+          (built.matched ? '' : ' · <span style="color:var(--warn)">같은 ' + useWord + '인지 확인된 정보가 없어 일반 이동으로 표시했어요.</span>')) +
         '</div></div>'
       );
     } else {
@@ -344,10 +351,25 @@
   function renderFloorStack(h, target, tLayout, ground, gLayout, sameBld) {
     const gStairs = (gLayout.anchors || []).filter(a => a.type === 'stair' || a.type === 'elev');
     const tStairs = (tLayout.anchors || []).filter(a => a.type === 'stair' || a.type === 'elev');
-    let matched = null;
-    gStairs.forEach(ga => { tStairs.forEach(ta => { if (!matched && sameName(ga.name, ta.name) && ga.type === ta.type) matched = ta; }); });
-    const gAnchorName = matched ? matched.name : (gStairs[0] ? gStairs[0].name : null);
-    const tAnchorName = matched ? matched.name : (tStairs[0] ? tStairs[0].name : null);
+
+    // 목표 층이 4층 이상이면 계단보다 엘리베이터를 우선 매칭(없으면 계단으로 자연스럽게 대체)
+    const wantElev = Number(target.floor) >= 4;
+    function matchBy(typeFilter) {
+      let m = null;
+      gStairs.filter(a => !typeFilter || a.type === typeFilter).forEach(ga => {
+        tStairs.filter(a => !typeFilter || a.type === typeFilter).forEach(ta => {
+          if (!m && sameName(ga.name, ta.name) && ga.type === ta.type) m = ta;
+        });
+      });
+      return m;
+    }
+    let matched = wantElev ? matchBy('elev') : null;
+    let usedFallbackStair = wantElev && !matched;   // 4층 이상인데 엘리베이터 연결 정보가 없어 계단으로 대체됨
+    if (!matched) matched = matchBy(null);
+
+    const gElev = gStairs.find(a => a.type === 'elev'), tElev = tStairs.find(a => a.type === 'elev');
+    const gAnchorName = matched ? matched.name : ((wantElev && gElev) ? gElev.name : (gStairs[0] ? gStairs[0].name : null));
+    const tAnchorName = matched ? matched.name : ((wantElev && tElev) ? tElev.name : (tStairs[0] ? tStairs[0].name : null));
 
     const BASE_W = 640, FULL_H = 230, THIN_H = 54, GAP = 10, PAD_X = 30;
     const entranceLayer = buildFloorLayer(gLayout, null, null, gAnchorName, BASE_W);
@@ -423,7 +445,7 @@
       }
     }
     svg += '</svg>';
-    return { svg: svg, matched: matched };
+    return { svg: svg, matched: matched, wantElev: wantElev, usedFallbackStair: usedFallbackStair };
   }
 
   loadMissions();
