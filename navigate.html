@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v16 · 2026-10-19 08:10 KST';
+  const BUILD = 'v17 · 2026-10-19 08:30 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -677,17 +677,28 @@
   // 경로(화면좌표 3점)를 만들어줌. destRoomNo가 속한 walk 안의 L/R 쪽 y값들의 중간을 복도
   // 중앙으로 삼음. rowTop은 buildIsoFloorLayer에 넘긴 값과 같아야 좌표가 어긋나지 않음.
   function corridorApproach(layout, frame, rowTop, startX, startY, destRoomNo) {
-    let destItem = null, sideYs = null;
+    let destItem = null, walkItems = null;
     (layout.walks || []).forEach(w => {
       (w.items || []).forEach(it => {
         if (String(it.no) === String(destRoomNo) && it.x != null && it.y != null) {
           destItem = it;
-          sideYs = (w.items || []).filter(x => x.y != null).map(x => Number(x.y));
+          walkItems = w.items;
         }
       });
     });
-    if (!destItem || !sideYs || !sideYs.length || startX == null || startY == null) return null;
-    const corridorY = (Math.min.apply(null, sideYs) + Math.max.apply(null, sideYs)) / 2;
+    if (!destItem || !walkItems || startX == null || startY == null) return null;
+    // 복도 중앙 = 마주보는 두 줄(side: L/R)의 평균 y끼리의 중간값. 전체 항목의 min/max로
+    // 잡으면 한쪽에 치우친 방 배치나 돌출된 방 하나 때문에 중앙이 한쪽 줄에 쏠려버려서,
+    // 마주보는 호실과 거의 붙어 보이는 문제가 있었음 — 양쪽 줄을 각각 평균 내서 그 사이를
+    // 복도 공간으로 잡으면 어느 쪽에도 너무 가깝지 않게 안정적으로 중앙이 나옴.
+    const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+    const withY = walkItems.filter(it => it.y != null);
+    const leftYs = withY.filter(it => it.side === 'L').map(it => Number(it.y));
+    const rightYs = withY.filter(it => it.side === 'R').map(it => Number(it.y));
+    let corridorY;
+    if (leftYs.length && rightYs.length) corridorY = (avg(leftYs) + avg(rightYs)) / 2;
+    else if (withY.length) corridorY = avg(withY.map(it => Number(it.y)));
+    else return null;
     const toScr = (mx, my) => ({ x: frame.projX(mx, my), y: rowTop + 16 + frame.projYLocal(mx, my) });
     return [toScr(startX, corridorY), toScr(Number(destItem.x), corridorY), toScr(Number(destItem.x), Number(destItem.y))];
   }
