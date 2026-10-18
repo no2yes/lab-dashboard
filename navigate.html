@@ -175,11 +175,12 @@
       needGround ? loadLayout(ground.id) : Promise.resolve(null)
     ]).then(([tLayout, gLayout]) => {
       if (!tLayout) { $('route').innerHTML = '<div class="card msg err">이 호실의 층 안내 자료가 아직 준비되지 않았어요.</div>'; return; }
-      renderRoute(h, target, tLayout, needGround ? ground : null, gLayout, sameBld);
+      renderRoute(h, target, tLayout, needGround ? ground : null, (gLayout && gLayout.source === 'submit') ? gLayout : null, sameBld);
     });
   }
 
   function renderRoute(h, target, tLayout, ground, gLayout, sameBld) {
+    if (tLayout.source === 'drawing') { renderDrawingOnly(h, target, tLayout); return; }
     const steps = [];
     let matchAnchorName = null;
 
@@ -231,6 +232,22 @@
 
     $('route').innerHTML = steps.join('');
     // 순서대로 살짝 나타나는 애니메이션
+    const cards = document.querySelectorAll('#route .fade');
+    cards.forEach((c, i) => setTimeout(() => c.classList.add('in'), i * 260));
+  }
+
+  // 아직 걷기 조사 제출이 없고 도면조사 참고정보만 있는 경우 — 구조화된 경로 대신 안내 문구만 보여줌
+  function renderDrawingOnly(h, target, tLayout) {
+    $('route').innerHTML =
+      '<div class="card fade"><div class="step"><b>1</b>건물 진입</div>' +
+      '<div>🏢 <b>' + esc(h.building) + '</b> 건물로 들어가세요.</div></div>' +
+      '<div class="card fade"><div class="step"><b>2</b>' + esc(target.floor) + '층 ' + esc(h.no) + '호 찾기</div>' +
+      '<div class="tip" style="margin-bottom:8px;">아직 실제로 걸으며 확인한 경로는 없지만, 도면 조사로 확인된 참고정보가 있어요:</div>' +
+      '<div style="font-size:13px;line-height:1.7;">' + esc(tLayout.note || '') + '</div>' +
+      '<div class="tip" style="margin-top:8px;color:var(--warn);">※ 도면만으로 확인한 정보라 실제와 다를 수 있어요. 정확한 경로는 현장 조사가 더 필요해요.</div></div>' +
+      '<div class="card finalcard fade"><div style="font-size:13px;color:var(--t2);">목적지</div>' +
+      '<div class="room-no">' + esc(h.building) + ' ' + esc(h.no) + '호' + (h.name ? '<br><span style="font-size:15px;color:var(--t2);">' + esc(h.name) + '</span>' : '') + '</div>' +
+      '<button class="btn ghost" style="margin-top:10px;" onclick="location.reload()">다른 곳 찾기</button></div>';
     const cards = document.querySelectorAll('#route .fade');
     cards.forEach((c, i) => setTimeout(() => c.classList.add('in'), i * 260));
   }
