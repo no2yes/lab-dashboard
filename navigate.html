@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v8 · 2026-10-19 00:30 KST';
+  const BUILD = 'v9 · 2026-10-19 00:35 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -673,7 +673,7 @@
     for (let f = lo; f <= hi; f++) rows.push({ floor: f, kind: f === 1 ? 'entrance' : (f === targetFloor ? 'target' : 'other') });
     rows.sort((a, b) => b.floor - a.floor);   // 높은 층이 위
 
-    const PLAN_ROW_H = frame.planH + 34, THIN_H = 40, GAP = 14;
+    const PLAN_ROW_H = frame.planH + 22, THIN_H = 26, GAP = 2;
     let totalH = 6;
     rows.forEach(r => {
       const layout = floorMap[r.floor];
