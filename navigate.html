@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v6 · 2026-10-18 23:40 KST';
+  const BUILD = 'v7 · 2026-10-19 00:20 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -189,7 +189,9 @@
       // 별도의 출발 지점 정보가 없으면 1층 정문을 출발점으로 삼아, 각 층을 레이어로 쌓고
       // 정문 → 계단/엘리베이터 → (여러 층 관통) → 목표 층 → 목적 호실 앞까지 하나의 선으로 그림.
       // 1층이 아직 조사되지 않았으면(gLayout 없음) 1층 자리는 빈 레이어로만 보여줌.
-      const built = renderFloorStack(h, target, tLayout, gLayout);
+      // 목적지 방의 실제 x,y 좌표까지 들어온 층은 평면도를 등각으로 쌓는 방식(buildIsoStack)을
+      // 쓰고, 아직 그 데이터가 없는 층은 기존 복도 도식(renderFloorStack)으로 자동 대체됨.
+      const built = canUseIsoStack(tLayout, h.no) ? buildIsoStack(h, target, tLayout, gLayout) : renderFloorStack(h, target, tLayout, gLayout);
       const useWord = built.wantElev ? '엘리베이터' : '계단/엘리베이터';
       steps.push(
         '<div class="card fade"><div class="step"><b>1</b>1층 정문 → ' + esc(target.floor) + '층 ' + esc(h.no) + '호</div>' +
@@ -210,9 +212,10 @@
         '<div class="tip" style="margin-top:6px;">※ 건물 출입구와 실내 경로를 잇는 정보는 아직 수집 중이에요. 건물 안에 들어오신 뒤부터 안내해 드려요.</div></div>'
       );
       const info = findRoomAnchor(tLayout, h.no);
+      const isoSvg = canUseIsoStack(tLayout, h.no) ? buildIsoSingleFloor(tLayout, h.no, null) : null;
       steps.push(
         '<div class="card fade"><div class="step"><b>2</b>' + esc(target.floor) + '층 ' + esc(h.no) + '호 찾기</div>' +
-        renderFloorSvg(tLayout, h.no, info, null) +
+        (isoSvg || renderFloorSvg(tLayout, h.no, info, null)) +
         '<div class="legend">🟦 지나가는 길 · 🟩 도착 호실' + (info ? '' : ' · <span style="color:var(--warn)">정확한 경로 정보가 부족해 층 전체 배치만 보여드려요.</span>') + '</div></div>'
       );
     }
@@ -513,6 +516,202 @@
     const panels = (panelG || panelT) ? '<div class="minirow">' + panelG + panelT + '</div>' : '';
 
     return { svg: panels + svg, matched: matched, wantElev: wantElev, usedFallbackStair: usedFallbackStair };
+  }
+
+  // ---------- 등각(isometric) 평면도 쌓기 ----------
+  // 복도를 1차원으로 펼친 기존 도식 대신, 건물 외곽선을 "대각선 위에서 내려다본" 각도로
+  // 투영해서 층마다 같은 각도·같은 좌표계로 겹쳐 쌓고, 1층 정문 → 계단/엘리베이터 → 목적지
+  // 방문 앞까지 안내선을 그림. 목적지 방의 실제 x,y 좌표가 없으면(아직 도면 채팅방에서
+  // 호실 좌표를 안 보내준 층) 이 방식을 쓰지 않고 기존 복도 도식으로 자동 대체됨.
+  const ISO_COS = Math.cos(Math.PI / 6), ISO_SIN = Math.sin(Math.PI / 6);   // 30도
+
+  function canUseIsoStack(layout, destRoomNo) {
+    if (!layout || !layout.outline || layout.outline.length < 3) return false;
+    let found = false;
+    (layout.walks || []).forEach(w => (w.items || []).forEach(it => {
+      if (String(it.no) === String(destRoomNo) && it.x != null && it.y != null) found = true;
+    }));
+    return found;
+  }
+
+  // outline 점들을 기준으로 전체 층에서 공유할 스케일/원점을 한 번만 계산 — 여러 층을 같은
+  // 좌표계·같은 각도로 투영해야 계단 위치가 층마다 같은 화면 x에 정렬됨(도면 채팅방이 같은
+  // 건물의 층들을 같은 원점으로 그려줬다는 전제 — 실제 데이터로 확인됨).
+  function computeIsoFrame(outlineSets, planW) {
+    const PAD = 36;
+    let pts = [];
+    outlineSets.forEach(o => { if (o) pts.push.apply(pts, o); });
+    const rix = pts.map(p => (Number(p[0]) - Number(p[1])) * ISO_COS);
+    const riy = pts.map(p => (Number(p[0]) + Number(p[1])) * ISO_SIN);
+    const minRIX = Math.min.apply(null, rix), maxRIX = Math.max.apply(null, rix);
+    const minRIY = Math.min.apply(null, riy), maxRIY = Math.max.apply(null, riy);
+    const spanRIX = Math.max(1, maxRIX - minRIX), spanRIY = Math.max(1, maxRIY - minRIY);
+    const scale = (planW - PAD * 2) / spanRIX;
+    const originX = PAD - minRIX * scale;
+    return {
+      planH: spanRIY * scale,
+      projX: (x, y) => originX + (Number(x) - Number(y)) * ISO_COS * scale,
+      projYLocal: (x, y) => ((Number(x) + Number(y)) * ISO_SIN - minRIY) * scale
+    };
+  }
+
+  // 층 하나의 평면도를 등각 투영으로 그림 — 외곽선 실루엣 + 계단/엘리베이터/화장실 실제 위치 +
+  // 좌표가 있는 방들(목적지는 초록, 나머지는 회색 점)을 그 자리 그대로 찍음
+  function buildIsoFloorLayer(layout, frame, rowTop, destRoomNo, highlightAnchorName) {
+    const outline = layout.outline;
+    if (!outline || outline.length < 3) return null;
+    const marginTop = 16;
+    const toScreen = (x, y) => ({ x: frame.projX(x, y), y: rowTop + marginTop + frame.projYLocal(x, y) });
+
+    let g = '';
+    g += '<polygon points="' + outline.map(p => { const s = toScreen(p[0], p[1]); return s.x + ',' + s.y; }).join(' ') +
+         '" fill="var(--field)" stroke="var(--line)" stroke-width="1.6"/>';
+
+    const anchorPt = {};
+    let doorPt = null;
+    (layout.anchors || []).forEach(a => {
+      if (a.x == null || a.y == null) return;
+      const p = toScreen(a.x, a.y);
+      const hl = highlightAnchorName && sameName(a.name, highlightAnchorName);
+      const color = hl ? 'var(--accent)' : (a.type === 'elev' ? 'var(--warn)' : 'var(--t2)');
+      g += anchorGlyph(a.type, p.x, p.y + 9, 16, color);
+      g += '<text x="' + p.x + '" y="' + (p.y - 11) + '" text-anchor="middle" font-size="9" fill="' + color +
+           '" font-weight="' + (hl ? '700' : '500') + '">' + esc(a.name || '') + '</text>';
+      anchorPt[a.name] = p;
+      if (a.type === 'door' && !doorPt) doorPt = p;
+    });
+
+    (layout.restrooms || []).forEach(r => {
+      if (r.x == null || r.y == null) return;
+      const p = toScreen(r.x, r.y);
+      g += '<text x="' + p.x + '" y="' + (p.y + 4) + '" text-anchor="middle" font-size="12">🚻</text>';
+    });
+
+    let destPt = null;
+    (layout.walks || []).forEach(w => (w.items || []).forEach(it => {
+      if (it.x == null || it.y == null) return;
+      const p = toScreen(it.x, it.y);
+      const isDest = destRoomNo && String(it.no) === String(destRoomNo);
+      g += '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + (isDest ? 5 : 2.6) + '" fill="' +
+           (isDest ? 'var(--ok)' : 'var(--t3)') + '" ' + (isDest ? '' : 'opacity="0.75"') + '/>';
+      g += '<text x="' + p.x + '" y="' + (p.y - (isDest ? 10 : 6)) + '" text-anchor="middle" font-size="' + (isDest ? 10 : 7.5) +
+           '" font-weight="' + (isDest ? '700' : '400') + '" fill="' + (isDest ? 'var(--ok)' : 'var(--t3)') + '">' + esc(it.no) + '</text>';
+      if (isDest) destPt = p;
+    }));
+
+    return { g: g, anchorPt: anchorPt, doorPt: doorPt, destPt: destPt, bottom: rowTop + marginTop + frame.planH };
+  }
+
+  // 같은 층 안내(출발점 없이 그 층 안에서만 이동) — 평면도 등각 투영판
+  function buildIsoSingleFloor(layout, destRoomNo, highlightAnchorName) {
+    const PLAN_W = 560;
+    const frame = computeIsoFrame([layout.outline], PLAN_W);
+    const layer = buildIsoFloorLayer(layout, frame, 6, destRoomNo, highlightAnchorName);
+    if (!layer) return null;
+    let svg = '<svg class="floorsvg" viewBox="0 0 ' + PLAN_W + ' ' + (layer.bottom + 10) + '" preserveAspectRatio="xMidYMid meet">' + layer.g;
+    const startPt = (highlightAnchorName && layer.anchorPt[highlightAnchorName]) || layer.doorPt;
+    if (startPt && layer.destPt) {
+      const d = 'M ' + startPt.x + ' ' + startPt.y + ' L ' + layer.destPt.x + ' ' + layer.destPt.y;
+      svg += '<path class="navline" d="' + d + '" pathLength="100"/>';
+      svg += '<circle class="navend-ring" cx="' + layer.destPt.x + '" cy="' + layer.destPt.y + '" r="5"/>';
+      svg += '<circle class="navend" cx="' + layer.destPt.x + '" cy="' + layer.destPt.y + '" r="5"/>';
+    }
+    svg += '</svg>';
+    return svg;
+  }
+
+  // 여러 층 쌓기 — 평면도 등각 투영판. 1층 정문(또는 조사 전 팻말) → 계단/엘리베이터 →
+  // (중간 층 관통, 얇은 판) → 목표 층 → 목적지 방 문 앞까지 하나로 이어진 안내선을 그림.
+  function buildIsoStack(h, target, tLayout, gLayout) {
+    const tStairs = (tLayout.anchors || []).filter(a => a.type === 'stair' || a.type === 'elev');
+    const gStairs = gLayout ? (gLayout.anchors || []).filter(a => a.type === 'stair' || a.type === 'elev') : [];
+    const wantElev = Number(target.floor) >= 4;
+    function matchBy(typeFilter) {
+      let m = null;
+      gStairs.filter(a => !typeFilter || a.type === typeFilter).forEach(ga => {
+        tStairs.filter(a => !typeFilter || a.type === typeFilter).forEach(ta => {
+          if (!m && sameName(ga.name, ta.name) && ga.type === ta.type) m = ta;
+        });
+      });
+      return m;
+    }
+    let matched = (gLayout && wantElev) ? matchBy('elev') : null;
+    let usedFallbackStair = !!gLayout && wantElev && !matched;
+    if (gLayout && !matched) matched = matchBy(null);
+    const tElev = tStairs.find(a => a.type === 'elev');
+    const tPreferred = (wantElev && tElev) ? tElev : (tStairs[0] || null);
+    const tAnchorName = matched ? matched.name : (tPreferred ? tPreferred.name : null);
+    const gAnchorName = matched ? matched.name : (gStairs[0] ? gStairs[0].name : null);
+
+    const PLAN_W = 560;
+    const hasGOutline = !!(gLayout && gLayout.outline && gLayout.outline.length >= 3);
+    const frame = computeIsoFrame(hasGOutline ? [tLayout.outline, gLayout.outline] : [tLayout.outline], PLAN_W);
+
+    const entranceFloor = 1, targetFloor = Number(target.floor);
+    const lo = Math.min(entranceFloor, targetFloor), hi = Math.max(entranceFloor, targetFloor);
+    const rows = [];
+    for (let f = lo; f <= hi; f++) rows.push({ floor: f, kind: f === entranceFloor ? 'entrance' : (f === targetFloor ? 'target' : 'blank') });
+    rows.sort((a, b) => b.floor - a.floor);   // 높은 층이 위
+
+    const PLAN_ROW_H = frame.planH + 34, THIN_H = 40, GAP = 14;
+    let totalH = 6;
+    rows.forEach(r => {
+      const full = r.kind === 'target' || (r.kind === 'entrance' && hasGOutline);
+      r.h = full ? PLAN_ROW_H : THIN_H;
+      r.y0 = totalH; totalH += r.h + GAP;
+    });
+    totalH -= GAP;
+
+    let inner = '';
+    let entrancePt = null, targetAnchorPt = null, destPt = null, riserX = PLAN_W / 2;
+    rows.forEach(r => {
+      if (r.kind === 'target') {
+        const layer = buildIsoFloorLayer(tLayout, frame, r.y0, h.no, tAnchorName);
+        inner += layer.g + '<text x="6" y="' + (r.y0 + 12) + '" font-size="11" font-weight="700" fill="var(--t2)">' + r.floor + '층</text>';
+        targetAnchorPt = (tAnchorName && layer.anchorPt[tAnchorName]) || layer.doorPt;
+        destPt = layer.destPt;
+        if (targetAnchorPt) riserX = targetAnchorPt.x;
+      } else if (r.kind === 'entrance' && hasGOutline) {
+        const layer = buildIsoFloorLayer(gLayout, frame, r.y0, null, gAnchorName);
+        inner += layer.g + '<text x="6" y="' + (r.y0 + 12) + '" font-size="11" font-weight="700" fill="var(--t2)">' + r.floor + '층</text>';
+        entrancePt = layer.doorPt || (gAnchorName && layer.anchorPt[gAnchorName]);
+      } else {
+        const by = r.y0 + r.h / 2;
+        inner += box3d(riserX - 80, by + 10, 170, 8, 8, 'var(--line)', 'var(--card)', 'var(--line)');
+        if (r.kind === 'entrance') {
+          inner += anchorGlyph('door', riserX, by + 4, 18, 'var(--t2)') +
+            '<text x="6" y="' + (by + 4) + '" font-size="11" fill="var(--t2)">1층 정문(조사 전)</text>';
+          entrancePt = { x: riserX, y: by };
+        } else {
+          inner += '<circle cx="' + riserX + '" cy="' + by + '" r="3.5" fill="var(--t3)"/>' +
+            '<text x="6" y="' + (by + 4) + '" font-size="11" fill="var(--t3)">' + r.floor + '층</text>';
+        }
+      }
+    });
+
+    let navD = '', navEndX = null, navEndY = null;
+    if (entrancePt && targetAnchorPt) {
+      navD = 'M ' + entrancePt.x + ' ' + entrancePt.y + ' L ' + targetAnchorPt.x + ' ' + entrancePt.y +
+             ' L ' + targetAnchorPt.x + ' ' + targetAnchorPt.y;
+      if (destPt) {
+        navD += ' L ' + destPt.x + ' ' + destPt.y;
+        navEndX = destPt.x; navEndY = destPt.y;
+      }
+    }
+
+    let svg = '<svg class="floorsvg stack" viewBox="0 0 ' + PLAN_W + ' ' + totalH + '" preserveAspectRatio="xMidYMid meet" style="height:' + Math.round(totalH * 0.8) + 'px;">' + inner;
+    if (navD) {
+      const drawDelay = 0.4, drawDur = Math.min(6, 2 + rows.length * 0.55);
+      const endDelay = (drawDur + drawDelay).toFixed(2);
+      svg += '<path class="navline" d="' + navD + '" pathLength="100" style="animation-duration:' + drawDur.toFixed(2) + 's;animation-delay:' + drawDelay + 's;"/>';
+      if (navEndX != null) {
+        svg += '<circle class="navend-ring" cx="' + navEndX + '" cy="' + navEndY + '" r="5" style="animation-delay:' + endDelay + 's;"/>';
+        svg += '<circle class="navend" cx="' + navEndX + '" cy="' + navEndY + '" r="5" style="animation-delay:' + endDelay + 's;"/>';
+      }
+    }
+    svg += '</svg>';
+
+    return { svg: svg, matched: matched, wantElev: wantElev, usedFallbackStair: usedFallbackStair };
   }
 
   loadMissions();
