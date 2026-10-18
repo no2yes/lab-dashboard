@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v10 · 2026-10-19 06:25 KST';
+  const BUILD = 'v11 · 2026-10-19 06:30 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -622,7 +622,7 @@
     const frame = computeIsoFrame([layout.outline], PLAN_W);
     const layer = buildIsoFloorLayer(layout, frame, 6, destRoomNo, highlightAnchorName);
     if (!layer) return null;
-    let svg = '<svg class="floorsvg" viewBox="0 0 ' + PLAN_W + ' ' + (layer.bottom + 10) + '" preserveAspectRatio="xMidYMid meet">' + layer.g;
+    let svg = '<svg class="floorsvg stack" viewBox="0 0 ' + PLAN_W + ' ' + (layer.bottom + 10) + '" preserveAspectRatio="xMidYMid meet">' + layer.g;
     const startPt = (highlightAnchorName && layer.anchorPt[highlightAnchorName]) || layer.doorPt;
     if (startPt && layer.destPt) {
       const d = 'M ' + startPt.x + ' ' + startPt.y + ' L ' + layer.destPt.x + ' ' + layer.destPt.y;
@@ -740,7 +740,7 @@
       }
     }
 
-    let svg = '<svg class="floorsvg stack" viewBox="0 0 ' + PLAN_W + ' ' + totalH + '" preserveAspectRatio="xMidYMid meet" style="height:' + Math.round(totalH * 0.8) + 'px;">' + inner;
+    let svg = '<svg class="floorsvg stack" viewBox="0 0 ' + PLAN_W + ' ' + totalH + '" preserveAspectRatio="xMidYMid meet">' + inner;
     if (navD) {
       const drawDelay = 0.4, drawDur = Math.min(6, 2 + floors.length * 0.55);
       const endDelay = (drawDur + drawDelay).toFixed(2);
