@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v24-debug · 2026-10-19 10:45 KST';
+  const BUILD = 'v25 · 2026-10-19 11:10 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -702,17 +702,55 @@
   // 아니라, x를 따라가며 그때그때 "마주보고 있는 가장 가까운 두 방(역·station)" 사이로
   // 다시 계산해서 — 계단 바로 앞 방들 사이에서 출발하고, 방 배열이 바뀌면 동선도 그 사이로
   // 위치를 옮겨가며 이동함. rowTop은 buildIsoFloorLayer에 넘긴 값과 같아야 좌표가 안 어긋남.
-  function corridorApproach(layout, frame, rowTop, startX, startY, destRoomNo) {
-    let destItem = null, walkItems = null;
+  function corridorApproach(layout, frame, rowTop, startX, startY, destRoomNo, startAnchorName) {
+    // 목적호실은 보통 "계단2 오른쪽"처럼 특정 앵커(계단/엘리베이터)의 walk 안에만 들어있고,
+    // 실제로 올라온 계단(startX,startY / startAnchorName)은 그와 다른 앵커일 수 있음(건물에
+    // 계단이 여럿이고 1층엔 그중 하나만 있어서 항상 같은 계단으로 오르기 때문). 그 경우
+    // 목적호실이 속한 walk만 보고 역(station)을 짜면, 올라온 계단 위치가 전혀 다른 구역이라
+    // 동선이 복도를 벗어나 방 한가운데를 가로지르는 이상한 모양이 됨. 그래서 먼저
+    // destRoomNo가 들어있는 모든 walk 후보를 모아, "실제로 올라온 앵커와 이름이 같은 walk"를
+    // 최우선으로 쓰고(이러면 다리 없이 바로 역 사이로 진입), 없으면 올라온 위치에서 가장
+    // 가까운 앵커의 walk를 골라 그 앵커까지 먼저 직선으로 이동(복도를 가로질러 건너가는
+    // 구간)한 뒤, 그 앵커 기준으로 역 사이를 지나가도록 함.
+    const candidates = [];
     (layout.walks || []).forEach(w => {
       (w.items || []).forEach(it => {
         if (String(it.no) === String(destRoomNo) && it.x != null && it.y != null) {
-          destItem = it;
-          walkItems = w.items;
+          candidates.push({ walk: w, item: it });
         }
       });
     });
-    if (!destItem || !walkItems || startX == null || startY == null) return null;
+    if (!candidates.length || startX == null || startY == null) return null;
+    const anchorOf = name => (layout.anchors || []).find(a => sameName(a.name, name));
+    const sameAsStart = startAnchorName
+      ? candidates.find(c => sameName(c.walk.anchor, startAnchorName))
+      : null;
+    let chosen = sameAsStart, chosenAnchorObj = sameAsStart ? anchorOf(sameAsStart.walk.anchor) : null;
+    if (!chosen) {
+      let bestD = Infinity;
+      candidates.forEach(c => {
+        const ao = anchorOf(c.walk.anchor);
+        const ax = ao && ao.x != null ? Number(ao.x) : null;
+        const ay = ao && ao.y != null ? Number(ao.y) : null;
+        const d = (ax != null && ay != null) ? Math.hypot(ax - startX, ay - startY) : Infinity;
+        if (d < bestD) { bestD = d; chosen = c; chosenAnchorObj = ao; }
+      });
+    }
+    if (!chosen) chosen = candidates[0];
+    const destItem = chosen.item;
+    const walkItems = chosen.walk.items;
+    // 복도를 건너가는 다리(bridge) 시작점 — 건물 규모에 비해 의미 있게 멀 때만(outline
+    // 가로폭의 일부를 최소 거리로 삼음) 그 앵커 위치까지 먼저 직선으로 이동한 뒤, 거기서부터
+    // 역 사이를 지나가게 함. door와 바로 옆 계단처럼 같은 자리나 다름없는 survey 오차는
+    // 다리 없이 바로 진입해서 불필요한 꺾임이 생기지 않게 함.
+    const localStartX = (chosenAnchorObj && chosenAnchorObj.x != null) ? Number(chosenAnchorObj.x) : startX;
+    const localStartY = (chosenAnchorObj && chosenAnchorObj.y != null) ? Number(chosenAnchorObj.y) : startY;
+    let bridgeMinDist = 40;
+    if (layout.outline && layout.outline.length >= 3) {
+      const xs = layout.outline.map(p => Number(p[0]));
+      bridgeMinDist = Math.max(40, (Math.max.apply(null, xs) - Math.min.apply(null, xs)) * 0.08);
+    }
+    const needBridge = Math.hypot(localStartX - startX, localStartY - startY) > bridgeMinDist;
     // buildIsoFloorLayer가 화면에 그릴 때 쓰는 것과 같은 보정(sideSpreadShift)을 여기서도
     // 적용해야, 경로의 마지막 도착점이 실제로 그려진(밀어낸) 호실 점과 정확히 맞물림.
     const shift = sideSpreadShift(walkItems, frame);
@@ -767,32 +805,29 @@
       });
     }
 
-    // startX 쪽 끝 역(계단 바로 앞 방들)부터 destX 쪽 끝 역(목적호실 앞)까지, x 순서대로
-    // 지나가며 그 사이 사이에서 복도 중앙이 옮겨가도록 점들을 이어붙임.
+    // localStart(목적호실 walk의 앵커) 쪽 끝 역부터 destX 쪽 끝 역까지, x 순서대로 지나가며
+    // 그 사이 사이에서 복도 중앙이 옮겨가도록 점들을 이어붙임.
     const destX = Number(destItem.x);
-    const forward = destX >= startX;
+    const forward = destX >= localStartX;
     const nearestIdx = x => {
       let bi = 0, bd = Infinity;
       stations.forEach((st, i) => { const d = Math.abs(st.x - x); if (d < bd) { bd = d; bi = i; } });
       return bi;
     };
-    let si = nearestIdx(startX), di = nearestIdx(destX);
+    let si = nearestIdx(localStartX), di = nearestIdx(destX);
     const seq = [];
     if (forward) { for (let i = si; i <= di; i++) seq.push(stations[i]); }
     else { for (let i = si; i >= di; i--) seq.push(stations[i]); }
     if (!seq.length) seq.push(stations[si]);
 
     const toScr = (mx, my) => ({ x: frame.projX(mx, my), y: rowTop + 16 + frame.projYLocal(mx, my) });
-    const pts = [toScr(startX, seq[0].y)];
+    const pts = [];
+    // 출발 계단이 목적호실 walk의 앵커와 다른 경우, 그 앵커까지 먼저 건너가는 구간을 넣음.
+    if (needBridge) pts.push(toScr(startX, startY), toScr(localStartX, localStartY));
+    pts.push(toScr(localStartX, seq[0].y));
     seq.forEach(st => pts.push(toScr(st.x, st.y)));
     pts.push(toScr(destX, seq[seq.length - 1].y));
     pts.push(toScr(destX, vyOf(destItem)));
-    // TEMP DEBUG(토니 확인용, 추후 제거): 역 몇 개 중 몇 개가 실제 짝(L/R 쌍)으로 잡혔는지,
-    // outline 중앙으로 때운 역이 몇 개인지 보여줌 — 문제 원인 파악용.
-    const pairedCount = stations.filter(st => st.items.length > 1).length;
-    pts._debug = 'st ' + stations.length + '(짝' + pairedCount + ') seq ' + seq.length +
-      ' outlineMid=' + (outlineMidY != null ? outlineMidY.toFixed(0) : 'x') +
-      ' L' + Ls0.length + '/R' + Rs0.length;
     return pts;
   }
 
@@ -804,17 +839,17 @@
     if (!layer) return null;
     let svg = '<svg class="floorsvg stack" viewBox="0 0 ' + PLAN_W + ' ' + (layer.bottom + 10) + '" preserveAspectRatio="xMidYMid meet">' + layer.g;
     const startPt = (highlightAnchorName && layer.anchorPt[highlightAnchorName]) || layer.doorPt;
-    let startModel = null;
+    let startModel = null, startAnchorName = null;
     if (highlightAnchorName) {
       const hit = (layout.anchors || []).find(a => sameName(a.name, highlightAnchorName));
-      if (hit && hit.x != null && hit.y != null) startModel = { x: Number(hit.x), y: Number(hit.y) };
+      if (hit && hit.x != null && hit.y != null) { startModel = { x: Number(hit.x), y: Number(hit.y) }; startAnchorName = hit.name; }
     }
     if (!startModel) {
       const door = (layout.anchors || []).find(a => a.type === 'door');
-      if (door && door.x != null && door.y != null) startModel = { x: Number(door.x), y: Number(door.y) };
+      if (door && door.x != null && door.y != null) { startModel = { x: Number(door.x), y: Number(door.y) }; startAnchorName = door.name; }
     }
     if (startPt && layer.destPt) {
-      const corridor = startModel ? corridorApproach(layout, frame, 6, startModel.x, startModel.y, destRoomNo) : null;
+      const corridor = startModel ? corridorApproach(layout, frame, 6, startModel.x, startModel.y, destRoomNo, startAnchorName) : null;
       const d = (corridor && corridor.length)
         ? 'M ' + startPt.x + ' ' + startPt.y + corridor.map(p => ' L ' + p.x + ' ' + p.y).join('')
         : 'M ' + startPt.x + ' ' + startPt.y + ' L ' + layer.destPt.x + ' ' + layer.destPt.y;
@@ -964,7 +999,7 @@
     // 안내선도 계단 구조물과 똑같은 경로로: 정문 → 1층 계단 앞 → (층마다 계단 비탈을 따라
     // 꺾이며 위로) → 목표 층 계단 앞 → 복도 중앙 → 복도를 따라 목적호실 앞 → 좌/우회전해서
     // 입실. 대각선으로 바로 꽂지 않고 실제로 걷는 동선처럼 보이게 함.
-    let navD = '', navEndX = null, navEndY = null, corridorDebugText = '';
+    let navD = '', navEndX = null, navEndY = null;
     if (entrancePt) {
       navD = 'M ' + entrancePt.x + ' ' + entrancePt.y;
       let prev = entrancePt;
@@ -985,9 +1020,8 @@
       }
       const destAnchor = pickAnchorObj(tLayout);
       const corridor = (destAnchor && destAnchor.x != null && destAnchor.y != null && targetRow)
-        ? corridorApproach(tLayout, frame, targetRow.y0, Number(destAnchor.x), Number(destAnchor.y), h.no)
+        ? corridorApproach(tLayout, frame, targetRow.y0, Number(destAnchor.x), Number(destAnchor.y), h.no, destAnchor.name)
         : null;
-      if (corridor && corridor._debug) corridorDebugText = corridor._debug;
       if (corridor && corridor.length) {
         navD += corridor.map(p => ' L ' + p.x + ' ' + p.y).join('');
         const lastP = corridor[corridor.length - 1];
@@ -1007,9 +1041,6 @@
         svg += '<circle class="navend-ring" cx="' + navEndX + '" cy="' + navEndY + '" r="5" style="animation-delay:' + endDelay + 's;"/>';
         svg += '<circle class="navend" cx="' + navEndX + '" cy="' + navEndY + '" r="5" style="animation-delay:' + endDelay + 's;"/>';
       }
-    }
-    if (corridorDebugText) {
-      svg += '<text x="6" y="' + (totalH - 6) + '" font-size="9" fill="#e55" font-family="monospace">[DEBUG] ' + corridorDebugText + '</text>';
     }
     svg += '</svg>';
 
