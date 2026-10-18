@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v11 · 2026-10-19 06:30 KST';
+  const BUILD = 'v12 · 2026-10-19 06:40 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -298,6 +298,27 @@
     const px = cx - 6;
     return '<line x1="' + px + '" y1="' + (baseY - h) + '" x2="' + px + '" y2="' + baseY + '" stroke="' + color + '" stroke-width="2.2"/>' +
            '<path d="M ' + px + ' ' + (baseY - h) + ' A ' + h + ' ' + h + ' 0 0 1 ' + (px + h) + ' ' + baseY + '" fill="none" stroke="' + color + '" stroke-width="1" stroke-dasharray="2,2" opacity="0.8"/>';
+  }
+
+  // 계단/엘리베이터는 층을 잇는 구조물이므로 평면도 위가 아니라, 등각으로 쌓은 층과 층
+  // "사이"(간격)에 입체적으로 그려서 실제로 타고 올라가는 느낌을 줌.
+  function buildVerticalConnector(x, yTop, yBottom, isElev) {
+    if (yBottom - yTop < 4) return '';
+    if (isElev) {
+      const w = 15, midY = (yTop + yBottom) / 2;
+      return '<rect x="' + (x - w / 2) + '" y="' + yTop + '" width="' + w + '" height="' + (yBottom - yTop) +
+             '" rx="3" fill="var(--field)" stroke="var(--t3)" stroke-width="1.1" stroke-dasharray="2.5,2"/>' +
+             '<path d="M ' + (x - 4) + ' ' + (midY - 2) + ' L ' + x + ' ' + (midY - 8) + ' L ' + (x + 4) + ' ' + (midY - 2) + ' Z" fill="var(--t3)"/>' +
+             '<path d="M ' + (x - 4) + ' ' + (midY + 2) + ' L ' + x + ' ' + (midY + 8) + ' L ' + (x + 4) + ' ' + (midY + 2) + ' Z" fill="var(--t3)"/>';
+    }
+    const steps = Math.max(3, Math.round((yBottom - yTop) / 16));
+    const stepH = (yBottom - yTop) / steps, stepW = 8;
+    let d = 'M ' + (x - stepW) + ' ' + yBottom;
+    for (let i = 0; i < steps; i++) {
+      const y = yBottom - (i + 1) * stepH;
+      d += ' L ' + (x - stepW) + ' ' + y + ' L ' + (x + stepW) + ' ' + y;
+    }
+    return '<path d="' + d + '" fill="none" stroke="var(--t3)" stroke-width="1.6" stroke-linejoin="round"/>';
   }
 
   // 층 하나를 입체 블록 복도(group)로 그림 — <svg> 래핑 없이 내용물과 주요 좌표만 돌려줘서
@@ -588,7 +609,15 @@
       const p = toScreen(a.x, a.y);
       const hl = highlightAnchorName && sameName(a.name, highlightAnchorName);
       const color = hl ? 'var(--accent)' : (a.type === 'elev' ? 'var(--warn)' : 'var(--t2)');
-      g += anchorGlyph(a.type, p.x, p.y + 9, 16, color);
+      if (a.type === 'stair' || a.type === 'elev') {
+        // 계단/엘리베이터는 층을 "연결하는 구조물"이라 평면도 위에 큰 아이콘으로 그리지 않고,
+        // 뚫린 자리(개구부)만 점선 네모로 표시함 — 실제 입체 연결 모습은 층과 층 사이
+        // 간격(buildVerticalConnector)에서 보여줌.
+        g += '<rect x="' + (p.x - 7) + '" y="' + (p.y - 7) + '" width="14" height="14" rx="2" fill="none" ' +
+             'stroke="' + color + '" stroke-width="' + (hl ? 1.6 : 1.1) + '" stroke-dasharray="2.5,2"/>';
+      } else {
+        g += anchorGlyph(a.type, p.x, p.y + 9, 16, color);
+      }
       g += '<text x="' + p.x + '" y="' + (p.y - 11) + '" text-anchor="middle" font-size="9" fill="' + color +
            '" font-weight="' + (hl ? '700' : '500') + '">' + esc(a.name || '') + '</text>';
       anchorPt[a.name] = p;
@@ -728,7 +757,13 @@
         }
       }
     });
-    const inner = shapesSvg + targetLayerG + labelsSvg;
+    // 계단/엘리베이터는 평면도 위가 아니라 층과 층 사이(실제로 타고 올라가는 구간)에
+    // 입체 구조물로 표시 — 안내선(navD)보다 먼저 그려서 빨간 선이 그 위에 선명하게 보이게 함.
+    let connectorSvg = '';
+    if (entrancePt && targetAnchorPt && entrancePt.y > targetAnchorPt.y) {
+      connectorSvg = buildVerticalConnector(targetAnchorPt.x, targetAnchorPt.y, entrancePt.y, wantElev && !usedFallbackStair);
+    }
+    const inner = shapesSvg + targetLayerG + labelsSvg + connectorSvg;
 
     let navD = '', navEndX = null, navEndY = null;
     if (entrancePt && targetAnchorPt) {
