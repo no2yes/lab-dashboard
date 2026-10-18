@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>다녀봐! 강대강캠 — 길찾기</title>
+<style>
+  :root {
+    --bg:#f6f4ef; --card:#ffffff; --text:#25272b; --t2:#5b6068; --t3:#8a8f98;
+    --line:#dcd8cf; --accent:#2f6fb5; --accent-soft:rgba(47,111,181,.12); --on-accent:#fff;
+    --ok:#2e8b57; --ok-soft:rgba(46,139,87,.12); --warn:#b9770e; --warn-soft:rgba(185,119,14,.13);
+    --danger:#c0392b; --danger-soft:rgba(192,57,43,.11); --field:#fbfaf7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#1d1f23; --card:#272a2f; --text:#e7e8ea; --t2:#aeb2b9; --t3:#7f858d;
+      --line:#3a3e45; --accent:#6aa6e6; --accent-soft:rgba(106,166,230,.16); --on-accent:#0f1a28;
+      --ok:#5fc08a; --ok-soft:rgba(95,192,138,.15); --warn:#e0a84a; --warn-soft:rgba(224,168,74,.16);
+      --danger:#ef8a7e; --danger-soft:rgba(239,138,126,.15); --field:#202327;
+    }
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; background:var(--bg); color:var(--text); }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif; line-height:1.5;
+         padding:16px 16px calc(24px + env(safe-area-inset-bottom)); max-width:620px; margin:0 auto; }
+  h1 { font-size:20px; margin:4px 0 2px; }
+  .sub { color:var(--t2); font-size:13px; margin-bottom:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+  label { display:block; font-size:12px; color:var(--t2); margin:0 0 4px; }
+  input[type=text] { width:100%; font-size:16px; padding:11px 12px; border:1px solid var(--line); border-radius:10px;
+                      background:var(--field); color:var(--text); font-family:inherit; }
+  input:focus { outline:2px solid var(--accent); outline-offset:1px; }
+  .results { margin-top:8px; display:flex; flex-direction:column; gap:4px; max-height:260px; overflow:auto; }
+  .ritem { border:1px solid var(--line); border-radius:10px; padding:9px 11px; cursor:pointer; background:var(--field); }
+  .ritem:hover, .ritem:active { border-color:var(--accent); background:var(--accent-soft); }
+  .ritem b { font-size:14px; } .ritem span { display:block; font-size:12px; color:var(--t2); margin-top:2px; }
+  .msg { font-size:14px; border-radius:10px; padding:11px 12px; margin-bottom:12px; }
+  .msg.err { background:var(--danger-soft); color:var(--danger); }
+  .msg.warn { background:var(--warn-soft); color:var(--warn); }
+  .step { font-weight:700; font-size:14px; margin:0 0 10px; display:flex; align-items:center; gap:8px; }
+  .step b { display:inline-flex; width:22px; height:22px; border-radius:50%; background:var(--accent); color:var(--on-accent);
+            align-items:center; justify-content:center; font-size:12px; flex:none; }
+  .hide { display:none !important; }
+  .fade { opacity:0; transform:translateY(6px); transition:opacity .4s, transform .4s; }
+  .fade.in { opacity:1; transform:none; }
+  .floorside { display:flex; flex-direction:column; align-items:center; gap:4px; margin:10px 0; }
+  .fdot { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--t3); }
+  .fdot .circle { width:14px; height:14px; border-radius:50%; background:var(--line); border:2px solid var(--line); flex:none; }
+  .fdot.on .circle { background:var(--accent); border-color:var(--accent); }
+  .fdot.on { color:var(--accent); font-weight:700; }
+  .fdot .circle.walker { position:relative; }
+  .arrowup { font-size:22px; color:var(--accent); animation: bob 1s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-4px); } }
+  .corridor { position:relative; margin:22px 4px 10px; height:150px; }
+  .baseline { position:absolute; left:0; right:0; top:75px; height:3px; background:var(--line); border-radius:2px; }
+  .anchor { position:absolute; top:62px; transform:translateX(-50%); text-align:center; font-size:11px; color:var(--t2); width:54px; }
+  .anchor .ico { font-size:20px; display:block; }
+  .anchor.match .ico { filter:drop-shadow(0 0 0 transparent); }
+  .anchor.match { color:var(--accent); font-weight:700; }
+  .room { position:absolute; transform:translateX(-50%); width:52px; text-align:center; font-size:11px;
+          border:1px solid var(--line); background:var(--field); border-radius:8px; padding:4px 2px; color:var(--t2); opacity:.55; }
+  .room.path { opacity:1; border-color:var(--accent); background:var(--accent-soft); color:var(--accent); font-weight:700; }
+  .room.dest { border-color:var(--ok); background:var(--ok-soft); color:var(--ok); animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{ box-shadow:0 0 0 0 var(--ok-soft); } 50%{ box-shadow:0 0 0 6px var(--ok-soft); } }
+  .room.L { top:8px; } .room.R { top:108px; }
+  .legend { font-size:12px; color:var(--t3); margin-top:4px; }
+  .btn { border:0; border-radius:10px; padding:10px 16px; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer;
+         background:var(--accent); color:var(--on-accent); }
+  .btn.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  .finalcard { text-align:center; padding:18px 14px; }
+  .finalcard .room-no { font-size:28px; font-weight:800; color:var(--ok); }
+  .tip { font-size:12.5px; color:var(--t3); }
+</style>
+</head>
+<body>
+
+<h1>🧭 다녀봐! 강대강캠</h1>
+<div class="sub">건물·호실을 검색하면 출입구부터 목적지까지 안내해 드려요. (현장조사 자료 기반 — 데이터가 더 모일수록 더 정확해져요)</div>
+
+<div id="topMsg"></div>
+
+<div class="card" id="searchCard">
+  <label for="q">건물 이름 또는 호실로 검색</label>
+  <input type="text" id="q" placeholder="예: 공학1호관, 301, 치학1호관 405">
+  <div class="results" id="results"></div>
+  <div class="tip" id="emptyTip" style="margin-top:8px;">아직 층 조사가 끝난 호실만 검색돼요. 2글자 이상 입력해 주세요.</div>
+</div>
+
+<div id="route"></div>
+
+<script>
+(function () {
+  'use strict';
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
+  const ICONS = { door: '🚪', elev: '🛗', stair: '🪜' };
+  const $ = id => document.getElementById(id);
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function topMsg(type, text) { $('topMsg').innerHTML = text ? '<div class="msg ' + type + '">' + esc(text) + '</div>' : ''; }
+  function api(params) {
+    const q = Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&');
+    return fetch(GAS_URL + '?page=api&' + q + '&_=' + Date.now()).then(r => r.json());
+  }
+
+  // ---------- 미션·호실 목록 ----------
+  let missions = [];   // [{id, building, floor, label, rooms:[{no,name}]}]
+  let index = [];      // [{no,name,missionId,building,floor,label}]
+
+  function loadMissions() {
+    return api({ action: 'floormissions' }).then(res => {
+      if (!res || !res.success) { topMsg('err', '층 조사 정보를 불러오지 못했습니다.'); return; }
+      missions = res.missions || [];
+      index = [];
+      missions.forEach(m => (m.rooms || []).forEach(r => {
+        index.push({ no: r.no, name: r.name, missionId: m.id, building: m.building, floor: m.floor, label: m.label });
+      }));
+      if (!index.length) topMsg('warn', '아직 층 조사가 완료되어 공개된 호실이 없어요. 층 조사가 더 진행되면 검색할 수 있어요.');
+    }).catch(() => { topMsg('err', '서버에 연결하지 못했습니다.'); });
+  }
+
+  function doSearch(qstr) {
+    const box = $('results'); box.innerHTML = '';
+    const tip = $('emptyTip');
+    const q = qstr.trim();
+    if (q.length < 2) { tip.classList.remove('hide'); return; }
+    tip.classList.add('hide');
+    const hits = index.filter(r =>
+      (r.no + ' ' + r.name + ' ' + r.building).toLowerCase().indexOf(q.toLowerCase()) >= 0
+    ).slice(0, 30);
+    if (!hits.length) { box.innerHTML = '<div class="tip">검색 결과가 없어요.</div>'; return; }
+    hits.forEach(h => {
+      const d = document.createElement('div');
+      d.className = 'ritem';
+      d.innerHTML = '<b>' + esc(h.building) + ' ' + esc(h.no) + '호' + (h.name ? ' · ' + esc(h.name) : '') + '</b>' +
+                    '<span>' + esc(h.label) + '</span>';
+      d.addEventListener('click', () => selectRoom(h));
+      box.appendChild(d);
+    });
+  }
+  $('q').addEventListener('input', e => doSearch(e.target.value));
+
+  // ---------- 층 레이아웃(최근 제출 그대로 사용 — 검수 전 v1) ----------
+  function loadLayout(missionId) {
+    return api({ action: 'floorlayout', id: missionId }).then(res => (res && res.success) ? res : null).catch(() => null);
+  }
+
+  function findRoomAnchor(layout, roomNo) {
+    // roomNo가 포함된 walk 과, 그 walk이 속한 anchor 객체, 그리고 walk 안에서의 순서(side 포함)를 찾음
+    let found = null;
+    (layout.walks || []).forEach(w => {
+      const idx = (w.items || []).findIndex(it => String(it.no) === String(roomNo));
+      if (idx >= 0) found = { walk: w, idx: idx };
+    });
+    if (!found) return null;
+    const anchor = (layout.anchors || []).find(a => a.name === found.walk.anchor) || (layout.anchors || [])[0] || null;
+    return { anchor: anchor, walk: found.walk, idx: found.idx };
+  }
+
+  function sameName(a, b) { return String(a || '').trim() && String(a || '').trim() === String(b || '').trim(); }
+
+  // ---------- 화면 구성 ----------
+  function selectRoom(h) {
+    $('results').innerHTML = ''; $('q').value = h.building + ' ' + h.no + '호';
+    topMsg('', '');
+    const sameBld = missions.filter(m => m.building === h.building);
+    const ground = sameBld.slice().sort((a, b) => Number(a.floor) - Number(b.floor))[0];
+    const target = missions.find(m => m.id === h.missionId);
+    if (!target) { topMsg('err', '미션 정보를 찾지 못했습니다.'); return; }
+
+    $('route').innerHTML = '<div class="card"><div class="tip">경로를 준비하는 중...</div></div>';
+
+    const needGround = ground && String(ground.id) !== String(target.id) && Number(ground.floor) !== Number(target.floor);
+    Promise.all([
+      loadLayout(target.id),
+      needGround ? loadLayout(ground.id) : Promise.resolve(null)
+    ]).then(([tLayout, gLayout]) => {
+      if (!tLayout) { $('route').innerHTML = '<div class="card msg err">이 호실의 층 안내 자료가 아직 준비되지 않았어요.</div>'; return; }
+      renderRoute(h, target, tLayout, needGround ? ground : null, gLayout, sameBld);
+    });
+  }
+
+  function renderRoute(h, target, tLayout, ground, gLayout, sameBld) {
+    const steps = [];
+    let matchAnchorName = null;
+
+    // 1) 건물 진입
+    steps.push(
+      '<div class="card fade"><div class="step"><b>1</b>건물 진입</div>' +
+      '<div>🏢 <b>' + esc(h.building) + '</b> 건물로 들어가세요.</div>' +
+      '<div class="tip" style="margin-top:6px;">※ 건물 출입구와 실내 경로를 잇는 정보는 아직 수집 중이에요. 건물 안에 들어오신 뒤부터 안내해 드려요.</div></div>'
+    );
+
+    // 2) 1층→목표층 (다른 층일 때만)
+    if (ground && gLayout) {
+      const gStairs = (gLayout.anchors || []).filter(a => a.type === 'stair' || a.type === 'elev');
+      const tStairs = (tLayout.anchors || []).filter(a => a.type === 'stair' || a.type === 'elev');
+      let matched = null;
+      gStairs.forEach(ga => { tStairs.forEach(ta => { if (!matched && sameName(ga.name, ta.name) && ga.type === ta.type) matched = ta; }); });
+      if (matched) matchAnchorName = matched.name;
+      const useAnchor = matched ? gStairs.find(a => sameName(a.name, matched.name)) : gStairs[0];
+
+      const floors = sameBld.map(m => Number(m.floor)).filter(f => !isNaN(f));
+      const minF = Math.min.apply(null, floors), maxF = Math.max.apply(null, floors);
+      let floorDots = '';
+      for (let f = maxF; f >= minF; f--) {
+        const on = f === Number(target.floor) || f === Number(ground.floor);
+        floorDots += '<div class="fdot' + (on ? ' on' : '') + '">' + f + '층 <span class="circle"></span></div>';
+      }
+      steps.push(
+        '<div class="card fade"><div class="step"><b>2</b>' + esc(ground.floor) + '층에서 ' + (useAnchor ? esc(ICONS[useAnchor.type] || '') + ' ' + esc(useAnchor.name || (useAnchor.type === 'elev' ? '엘리베이터' : '계단')) : '계단/엘리베이터') + ' 이용</div>' +
+        renderFloorSvg(gLayout, null, null, useAnchor ? useAnchor.name : null) +
+        '<div class="floorside">' + floorDots + '<div class="arrowup">' + (Number(target.floor) > Number(ground.floor) ? '⬆️' : '⬇️') + '</div></div>' +
+        '<div class="tip">' + esc(ground.floor) + '층 → ' + esc(target.floor) + '층' +
+        (matched ? '' : ' · <span style="color:var(--warn)">같은 계단/엘리베이터인지 확인된 정보가 없어 일반 이동으로 표시했어요.</span>') + '</div></div>'
+      );
+    }
+
+    // 3) 목표 층 안내
+    const info = findRoomAnchor(tLayout, h.no);
+    steps.push(
+      '<div class="card fade"><div class="step"><b>' + (ground && gLayout ? '3' : '2') + '</b>' + esc(target.floor) + '층 ' + esc(h.no) + '호 찾기</div>' +
+      renderFloorSvg(tLayout, h.no, info, matchAnchorName) +
+      '<div class="legend">🟦 지나가는 길 · 🟩 도착 호실' + (info ? '' : ' · <span style="color:var(--warn)">정확한 경로 정보가 부족해 층 전체 배치만 보여드려요.</span>') + '</div></div>'
+    );
+
+    steps.push(
+      '<div class="card finalcard fade"><div style="font-size:13px;color:var(--t2);">목적지</div>' +
+      '<div class="room-no">' + esc(h.building) + ' ' + esc(h.no) + '호' + (h.name ? '<br><span style="font-size:15px;color:var(--t2);">' + esc(h.name) + '</span>' : '') + '</div>' +
+      '<button class="btn ghost" style="margin-top:10px;" onclick="location.reload()">다른 곳 찾기</button></div>'
+    );
+
+    $('route').innerHTML = steps.join('');
+    // 순서대로 살짝 나타나는 애니메이션
+    const cards = document.querySelectorAll('#route .fade');
+    cards.forEach((c, i) => setTimeout(() => c.classList.add('in'), i * 260));
+  }
+
+  // 층 하나를 가로 복도 스키마틱으로 그림 (실제 I/L/U/O 모양이 아니라 s값 순서로 단순화한 평면도)
+  function renderFloorSvg(layout, destRoomNo, info, highlightAnchorName) {
+    const anchors = (layout.anchors || []).slice().sort((a, b) => a.s - b.s);
+    if (!anchors.length) return '<div class="tip">이 층의 배치 정보가 없어요.</div>';
+    const minS = anchors[0].s, maxS = anchors[anchors.length - 1].s || 1;
+    const span = Math.max(1, maxS - minS);
+    const pos = s => 6 + ((s - minS) / span) * 88;   // %
+
+    let html = '<div class="corridor">';
+    html += '<div class="baseline"></div>';
+    anchors.forEach(a => {
+      const hl = highlightAnchorName && sameName(a.name, highlightAnchorName);
+      html += '<div class="anchor' + (hl ? ' match' : '') + '" style="left:' + pos(a.s) + '%;">' +
+              '<span class="ico">' + (ICONS[a.type] || '📍') + '</span>' + esc(a.name || '') + '</div>';
+    });
+    (layout.walks || []).forEach(w => {
+      const anchor = anchors.find(a => sameName(a.name, w.anchor));
+      const baseS = anchor ? anchor.s : minS;
+      const onPath = info && info.walk === w;
+      (w.items || []).forEach((it, i) => {
+        const isDest = destRoomNo && String(it.no) === String(destRoomNo);
+        const cls = 'room ' + (it.side === 'R' ? 'R' : 'L') + (isDest ? ' dest' : (onPath ? ' path' : ''));
+        const s = baseS + (i + 1) * (span / 18) * (it.side === 'R' ? 1 : 1);
+        html += '<div class="' + cls + '" style="left:' + pos(s) + '%;">' + esc(it.no) + '</div>';
+      });
+    });
+    html += '</div>';
+    return html;
+  }
+
+  loadMissions();
+})();
+</script>
+</body>
+</html>
