@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v9 · 2026-10-19 00:35 KST';
+  const BUILD = 'v10 · 2026-10-19 06:25 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -669,54 +669,66 @@
     for (let f = lo; f <= hi; f++) { const l = floorMap[f]; if (l && l.outline && l.outline.length >= 3) outlineSets.push(l.outline); }
     const frame = computeIsoFrame(outlineSets.length ? outlineSets : [tLayout.outline], PLAN_W);
 
-    const rows = [];
-    for (let f = lo; f <= hi; f++) rows.push({ floor: f, kind: f === 1 ? 'entrance' : (f === targetFloor ? 'target' : 'other') });
-    rows.sort((a, b) => b.floor - a.floor);   // 높은 층이 위
+    // 각 층을 따로따로 늘어놓지 않고, 실제 건물처럼 층마다 조금씩만 어긋나게(FLOOR_STEP) 겹쳐
+    // 쌓는다 — 위층이 아래층 위에 그대로 포개져서 "건물 사진을 오려 붙인" 느낌이 나게 함.
+    const PLAN_ROW_H = frame.planH + 22, THIN_H = 26;
+    const FLOOR_STEP = Math.max(50, Math.min(130, Math.round(PLAN_ROW_H * 0.42)));
+    const TOP_PAD = 6;
 
-    const PLAN_ROW_H = frame.planH + 22, THIN_H = 26, GAP = 2;
-    let totalH = 6;
-    rows.forEach(r => {
-      const layout = floorMap[r.floor];
-      r.hasOutline = !!(layout && layout.outline && layout.outline.length >= 3);
-      r.h = r.hasOutline ? PLAN_ROW_H : THIN_H;
-      r.y0 = totalH; totalH += r.h + GAP;
-    });
-    totalH -= GAP;
+    const floors = [];
+    for (let f = lo; f <= hi; f++) {
+      const layout = floorMap[f];
+      const hasOutline = !!(layout && layout.outline && layout.outline.length >= 3);
+      floors.push({
+        floor: f, kind: f === 1 ? 'entrance' : (f === targetFloor ? 'target' : 'other'),
+        hasOutline: hasOutline, h: hasOutline ? PLAN_ROW_H : THIN_H,
+        y0: TOP_PAD + (hi - f) * FLOOR_STEP
+      });
+    }
+    let totalH = Math.max.apply(null, floors.map(r => r.y0 + r.h)) + 10;
 
-    let inner = '';
     let entrancePt = null, targetAnchorPt = null, destPt = null, riserX = PLAN_W / 2;
     // 목표 층을 먼저 찾아 riserX(계단/엘리베이터의 화면 x)를 계산해둬야, 아직 못 그린 다른
     // 층들의 얇은 판이나 통과선이 그 x를 기준으로 자리잡을 수 있음.
-    const targetRow = rows.find(r => r.kind === 'target');
+    const targetRow = floors.find(r => r.kind === 'target');
     if (targetRow) {
       const layer = buildIsoFloorLayer(tLayout, frame, targetRow.y0, h.no, tAnchorName);
       targetAnchorPt = (tAnchorName && layer.anchorPt[tAnchorName]) || layer.doorPt;
       if (targetAnchorPt) riserX = targetAnchorPt.x;
     }
 
-    rows.forEach(r => {
+    // 아래층부터 위층 순서로 그려서(겹침 순서) 위층이 자연스럽게 아래층 위에 포개지게 함.
+    // 라벨(층 이름)은 어느 층 모양에도 가려지지 않도록 전부 모아뒀다가 맨 마지막에 그리고,
+    // 목표 층은 위에 다른 층이 덮어쓸 수 있으니 모든 층을 그린 뒤 한 번 더 맨 위에 그려서
+    // 목적지 방 표시가 절대 가려지지 않게 함.
+    let shapesSvg = '', labelsSvg = '', targetLayerG = '';
+    floors.forEach(r => {
       if (r.kind === 'target') {
         const layer = buildIsoFloorLayer(tLayout, frame, r.y0, h.no, tAnchorName);
-        inner += layer.g + '<text x="6" y="' + (r.y0 + 12) + '" font-size="11" font-weight="700" fill="var(--t2)">' + r.floor + '층</text>';
+        shapesSvg += layer.g;
+        targetLayerG = layer.g;
         destPt = layer.destPt;
+        labelsSvg += '<text x="6" y="' + (r.y0 + 12) + '" font-size="11" font-weight="700" fill="var(--t2)">' + r.floor + '층</text>';
       } else if (r.hasOutline) {
         const highlight = r.kind === 'entrance' ? gAnchorName : null;
         const layer = buildIsoFloorLayer(floorMap[r.floor], frame, r.y0, null, highlight);
-        inner += layer.g + '<text x="6" y="' + (r.y0 + 12) + '" font-size="11" font-weight="700" fill="var(--t2)">' + r.floor + '층</text>';
+        shapesSvg += layer.g;
+        labelsSvg += '<text x="6" y="' + (r.y0 + 12) + '" font-size="11" font-weight="700" fill="var(--t2)">' + r.floor + '층</text>';
         if (r.kind === 'entrance') entrancePt = layer.doorPt || (gAnchorName && layer.anchorPt[gAnchorName]);
       } else {
         const by = r.y0 + r.h / 2;
-        inner += box3d(riserX - 80, by + 10, 170, 8, 8, 'var(--line)', 'var(--card)', 'var(--line)');
+        shapesSvg += box3d(riserX - 80, by + 10, 170, 8, 8, 'var(--line)', 'var(--card)', 'var(--line)');
         if (r.kind === 'entrance') {
-          inner += anchorGlyph('door', riserX, by + 4, 18, 'var(--t2)') +
+          labelsSvg += anchorGlyph('door', riserX, by + 4, 18, 'var(--t2)') +
             '<text x="6" y="' + (by + 4) + '" font-size="11" fill="var(--t2)">1층 정문(조사 전)</text>';
           entrancePt = { x: riserX, y: by };
         } else {
-          inner += '<circle cx="' + riserX + '" cy="' + by + '" r="3.5" fill="var(--t3)"/>' +
+          labelsSvg += '<circle cx="' + riserX + '" cy="' + by + '" r="3.5" fill="var(--t3)"/>' +
             '<text x="6" y="' + (by + 4) + '" font-size="11" fill="var(--t3)">' + r.floor + '층(미조사)</text>';
         }
       }
     });
+    const inner = shapesSvg + targetLayerG + labelsSvg;
 
     let navD = '', navEndX = null, navEndY = null;
     if (entrancePt && targetAnchorPt) {
@@ -730,7 +742,7 @@
 
     let svg = '<svg class="floorsvg stack" viewBox="0 0 ' + PLAN_W + ' ' + totalH + '" preserveAspectRatio="xMidYMid meet" style="height:' + Math.round(totalH * 0.8) + 'px;">' + inner;
     if (navD) {
-      const drawDelay = 0.4, drawDur = Math.min(6, 2 + rows.length * 0.55);
+      const drawDelay = 0.4, drawDur = Math.min(6, 2 + floors.length * 0.55);
       const endDelay = (drawDur + drawDelay).toFixed(2);
       svg += '<path class="navline" d="' + navD + '" pathLength="100" style="animation-duration:' + drawDur.toFixed(2) + 's;animation-delay:' + drawDelay + 's;"/>';
       if (navEndX != null) {
