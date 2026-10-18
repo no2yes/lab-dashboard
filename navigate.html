@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v20 · 2026-10-19 09:20 KST';
+  const BUILD = 'v21 · 2026-10-19 09:35 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -732,11 +732,20 @@
       outlineSpan = maxY - minY;
     }
 
-    let corridorY;
+    // trustCenter: 마주보는 두 줄(L/R) 데이터가 둘 다 있고 그 간격도 충분히 넓게 측정된
+    // 경우 — 이때는 두 줄의 정확히 "사이"(평균의 중간)가 이미 믿을 만한 복도 중앙이므로,
+    // 아래의 개별 호실 최소간격 보정을 건너뛰어서 특정 호실 하나에 끌려가 중앙에서 벗어나는
+    // 일이 없게 함(그 보정은 원래 한쪽 줄만 있거나 외곽선 중앙을 쓸 때의 안전망임).
+    let corridorY, trustCenter = false;
     if (leftYs.length && rightYs.length) {
       const dataMidY = (avg(leftYs) + avg(rightYs)) / 2;
       const rowGap = Math.abs(avg(rightYs) - avg(leftYs));
-      corridorY = (outlineMidY != null && outlineSpan && rowGap < outlineSpan * 0.12) ? outlineMidY : dataMidY;
+      if (outlineMidY != null && outlineSpan && rowGap < outlineSpan * 0.12) {
+        corridorY = outlineMidY;
+      } else {
+        corridorY = dataMidY;
+        trustCenter = true;
+      }
     } else if (outlineMidY != null) {
       corridorY = outlineMidY;
     } else if (withY.length) {
@@ -751,7 +760,7 @@
     // 바로 위/아래 가장 가까운 두 호실 사이로 밀어 넣어서, 그 호실들과는 최소 간격을 보장하고
     // 더 먼 호실들에는 영향이 없게 함.
     const scaleY = Math.abs(frame.projYLocal(0, 2) - frame.projYLocal(0, 0)) / 2; // 모델 Δy=1당 화면 변화량
-    if (scaleY > 0) {
+    if (!trustCenter && scaleY > 0) {
       const MIN_GAP = 16; // svg 사용자 단위 기준 최소 간격
       const minModelGap = MIN_GAP / scaleY;
       let lowerY = -Infinity, upperY = Infinity;
