@@ -241,15 +241,11 @@
   let serverHasPath = true;   // 서버(GAS)가 길 기록을 지원하는 새 버전인지
   function isGate(code) { const b = buildings.find(x => x.code === code); return !!(b && b.gate); }
   // 차로가 있는 출입구(정문, 치과병원 방향)는 도로 양쪽 인도를 따로 측정: ①은 '정문' 칸(안내에 사용), ②는 '측면' 칸(참고용으로만 저장)
-  const SIDE_GATES = {
-    N1: ['버스정류장 방향 인도', '반대쪽 인도'],      // 정문
-    G3: ['교동택지 쪽 인도', '반대쪽 인도'],          // 치과병원 방향 출입로
-    N2: ['체육관 쪽', '도로 쪽']                      // 대운동장 (건물이지만 같은 방식으로 두 지점 측정)
-  };
-  const SIDE_LABEL = { N2: '측정할 지점' };           // 기본은 '측정할 인도'
-  const SIDE_TAG = { N2: '2곳 측정' };                // 목록에 붙는 짧은 안내(기본 '인도 2곳')
-  // 출입구가 둘 이상인 건물: 정문/후문 칸에 실제 출입구 이름을 붙여 구분합니다 ('정문' 칸이 길 안내에 쓰입니다)
-  const BLD_ENT = { C10: { '정문': '미술 쪽 출입구', '후문': '음악 쪽 출입구' } };
+  // 특수 출입구 설정(인도 2곳 측정, 출입구 이름 구분 등)은 '조사대상' 시트의 '특수설정' 열(JSON)에서 받아와 loadInfo()가 채움
+  let SIDE_GATES = {};
+  let SIDE_LABEL = {};
+  let SIDE_TAG = {};
+  let BLD_ENT = {};
   function entLabel(code, v) { const e = BLD_ENT[code]; return e && e[v] ? e[v] : v; }
   let prevSideGate = false;
   function isTrail(code) { const b = buildings.find(x => x.code === code); return !!(b && b.trail); }
@@ -335,6 +331,15 @@
     api({ op: 'info' }).then(res => {
       if (!res || !res.success) { topMsg('err', (res && res.message) || '불러오지 못했습니다.'); el.bld.innerHTML = '<option value="">불러오기 실패</option>'; return; }
       buildings = (res.buildings || []).map(b => { if (!b.name && b.gateName) b.name = b.gateName; return b; });   // 조사대상 시트에 이름이 있으면 그걸 우선 쓰고, 없을 때만 설명으로 대체
+      SIDE_GATES = {}; SIDE_LABEL = {}; SIDE_TAG = {}; BLD_ENT = {};
+      buildings.forEach(b => {
+        const sp = b.special;
+        if (!sp) return;
+        if (sp.side) SIDE_GATES[b.code] = sp.side;
+        if (sp.sideLabel) SIDE_LABEL[b.code] = sp.sideLabel;
+        if (sp.sideTag) SIDE_TAG[b.code] = sp.sideTag;
+        if (sp.ent) BLD_ENT[b.code] = sp.ent;
+      });
       if (res.maxAcc) maxAcc = res.maxAcc;
       if (res.minSamples) minSamples = res.minSamples;
       surveyor = res.surveyor || '';
