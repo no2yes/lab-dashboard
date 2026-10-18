@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v13 · 2026-10-19 07:10 KST';
+  const BUILD = 'v15 · 2026-10-19 07:50 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -311,17 +311,29 @@
              '<path d="M ' + (x - 4) + ' ' + (midY - 2) + ' L ' + x + ' ' + (midY - 8) + ' L ' + (x + 4) + ' ' + (midY - 2) + ' Z" fill="var(--t3)"/>' +
              '<path d="M ' + (x - 4) + ' ' + (midY + 2) + ' L ' + x + ' ' + (midY + 8) + ' L ' + (x + 4) + ' ' + (midY + 2) + ' Z" fill="var(--t3)"/>';
     }
-    // 계단은 평평한 지그재그 선 대신, 디딤판 하나하나를 작은 입체 블록으로 그려서 실제
-    // 계단을 올려다본 듯한 느낌을 줌(다른 곳에 쓰는 box3d와 같은 입체 표현 방식).
+    // 계단은 한 층 전체를 관통하는 사다리처럼 보이면 안 되니, 층마다 "중간 계단참에서
+    // 방향을 바꿔 꺾여 올라가는" 실제 계단실 모양(스위치백)으로 나눠 그림 — 디딤판은
+    // box3d 입체 블록, 가운데엔 평평한 계단참(landing) 판을 둬서 두 방향 사이를 구분함.
     const rise = yBottom - yTop;
-    const steps = Math.max(4, Math.min(14, Math.round(rise / 15)));
-    const stepH = rise / steps, stepW = 15, depth = 4;
-    let s = '';
-    for (let i = 0; i < steps; i++) {
-      const by = yBottom - i * stepH;                 // 이 디딤판의 밑변 y
-      const cx = x - (steps / 2 - i) * 2.4;            // 올라갈수록 살짝씩 틀어서 계단을 오르는 느낌
-      s += box3d(cx, by, stepW, Math.max(3, stepH * 0.88), depth, 'var(--field)', 'var(--card)', 'var(--t3)');
+    const landingH = Math.max(6, Math.min(14, rise * 0.16));
+    const flightH = Math.max(6, (rise - landingH) / 2);
+    const stepsPer = Math.max(2, Math.min(7, Math.round(flightH / 15)));
+    const stepW = 14, depth = 4;
+    function flight(fromY, toY, dir) {
+      const n = stepsPer, h = (fromY - toY) / n;
+      let f = '';
+      for (let i = 0; i < n; i++) {
+        const by = fromY - i * h;
+        const cx = x + dir * (3 + i * 2.1);
+        f += box3d(cx, by, stepW, Math.max(3, h * 0.88), depth, 'var(--field)', 'var(--card)', 'var(--t3)');
+      }
+      return f;
     }
+    const midY = yBottom - flightH;
+    let s = flight(yBottom, midY, -1);
+    s += '<rect x="' + (x - 14) + '" y="' + (midY - landingH) + '" width="28" height="' + landingH +
+         '" rx="1.5" fill="var(--field)" stroke="var(--t3)" stroke-width="0.8"/>';
+    s += flight(midY - landingH, yTop, 1);
     return s;
   }
 
@@ -721,12 +733,28 @@
     let totalH = Math.max.apply(null, floors.map(r => r.y0 + r.h)) + 10;
 
     let entrancePt = null, targetAnchorPt = null, destPt = null, riserX = PLAN_W / 2;
+    const floorRiserPt = {}; // 층 번호 -> 그 층 계단/엘리베이터의 화면 좌표(층간 연결 기준점)
+    const preferElev = wantElev && !usedFallbackStair;
+    // 층 하나의 레이어에서 목표 층과 같은 이름(없으면 같은 종류)의 계단/엘리베이터 위치를
+    // 찾아줌 — "계단1"처럼 같은 건물의 각 층이 같은 이름으로 이어진다는 전제(실제 데이터로
+    // 확인됨)로, 모든 층에서 같은 계단을 따라가도록 함.
+    function floorRiser(layoutF, anchorPt) {
+      if (!layoutF) return null;
+      const anchors = layoutF.anchors || [];
+      if (tAnchorName) {
+        const hit = anchors.find(a => sameName(a.name, tAnchorName));
+        if (hit && anchorPt[hit.name]) return anchorPt[hit.name];
+      }
+      const stairs = anchors.filter(a => a.type === 'stair' || a.type === 'elev');
+      const pick = preferElev ? (stairs.find(a => a.type === 'elev') || stairs[0]) : (stairs.find(a => a.type === 'stair') || stairs[0]);
+      return (pick && anchorPt[pick.name]) || null;
+    }
     // 목표 층을 먼저 찾아 riserX(계단/엘리베이터의 화면 x)를 계산해둬야, 아직 못 그린 다른
     // 층들의 얇은 판이나 통과선이 그 x를 기준으로 자리잡을 수 있음.
     const targetRow = floors.find(r => r.kind === 'target');
     if (targetRow) {
       const layer = buildIsoFloorLayer(tLayout, frame, targetRow.y0, h.no, tAnchorName);
-      targetAnchorPt = (tAnchorName && layer.anchorPt[tAnchorName]) || layer.doorPt;
+      targetAnchorPt = floorRiser(tLayout, layer.anchorPt) || layer.doorPt;
       if (targetAnchorPt) riserX = targetAnchorPt.x;
     }
 
@@ -741,16 +769,19 @@
         shapesSvg += layer.g;
         targetLayerG = layer.g;
         destPt = layer.destPt;
+        floorRiserPt[r.floor] = floorRiser(tLayout, layer.anchorPt) || layer.doorPt || targetAnchorPt;
         labelsSvg += '<text x="6" y="' + (r.y0 + 12) + '" font-size="11" font-weight="700" fill="var(--t2)">' + r.floor + '층</text>';
       } else if (r.hasOutline) {
         const highlight = r.kind === 'entrance' ? gAnchorName : null;
         const layer = buildIsoFloorLayer(floorMap[r.floor], frame, r.y0, null, highlight);
         shapesSvg += layer.g;
+        floorRiserPt[r.floor] = floorRiser(floorMap[r.floor], layer.anchorPt);
         labelsSvg += '<text x="6" y="' + (r.y0 + 12) + '" font-size="11" font-weight="700" fill="var(--t2)">' + r.floor + '층</text>';
         if (r.kind === 'entrance') entrancePt = layer.doorPt || (gAnchorName && layer.anchorPt[gAnchorName]);
       } else {
         const by = r.y0 + r.h / 2;
         shapesSvg += box3d(riserX - 80, by + 10, 170, 8, 8, 'var(--line)', 'var(--card)', 'var(--line)');
+        floorRiserPt[r.floor] = { x: riserX, y: by };
         if (r.kind === 'entrance') {
           labelsSvg += anchorGlyph('door', riserX, by + 4, 18, 'var(--t2)') +
             '<text x="6" y="' + (by + 4) + '" font-size="11" fill="var(--t2)">1층 정문(조사 전)</text>';
@@ -761,18 +792,33 @@
         }
       }
     });
-    // 계단/엘리베이터는 평면도 위가 아니라 층과 층 사이(실제로 타고 올라가는 구간)에
-    // 입체 구조물로 표시 — 안내선(navD)보다 먼저 그려서 빨간 선이 그 위에 선명하게 보이게 함.
+    if (!entrancePt && floorRiserPt[lo]) entrancePt = floorRiserPt[lo];
+
+    // 계단/엘리베이터는 평면도 위가 아니라 "층과 층 사이"마다 따로 입체 구조물로 표시함 —
+    // 1층부터 목표 층까지 한 번에 긴 통로를 세우지 않고, 층 경계마다 끊어서 한 번씩 오르는
+    // 진짜 계단처럼 여러 단으로 보이게 함. 안내선(navD)보다 먼저 그려서 빨간 선이 그 위에
+    // 선명하게 보이게 함.
     let connectorSvg = '';
-    if (entrancePt && targetAnchorPt && entrancePt.y > targetAnchorPt.y) {
-      connectorSvg = buildVerticalConnector(targetAnchorPt.x, targetAnchorPt.y, entrancePt.y, wantElev && !usedFallbackStair);
+    for (let f = lo; f < targetFloor; f++) {
+      const pBot = floorRiserPt[f], pTop = floorRiserPt[f + 1];
+      if (pBot && pTop && pTop.y < pBot.y) {
+        connectorSvg += buildVerticalConnector((pBot.x + pTop.x) / 2, pTop.y, pBot.y, preferElev);
+      }
     }
     const inner = shapesSvg + targetLayerG + labelsSvg + connectorSvg;
 
+    // 안내선도 계단 구조물과 같은 경로로: 정문 → 1층 계단 앞 → (층마다 한 번씩 꺾이며 위로) →
+    // 목표 층 계단 앞 → 목적지 방. 층마다 꺾이는 모양이라 "계단을 따라 올라가는" 동선처럼 보임.
     let navD = '', navEndX = null, navEndY = null;
-    if (entrancePt && targetAnchorPt) {
-      navD = 'M ' + entrancePt.x + ' ' + entrancePt.y + ' L ' + targetAnchorPt.x + ' ' + entrancePt.y +
-             ' L ' + targetAnchorPt.x + ' ' + targetAnchorPt.y;
+    if (entrancePt) {
+      navD = 'M ' + entrancePt.x + ' ' + entrancePt.y;
+      let prev = entrancePt;
+      for (let f = lo; f <= targetFloor; f++) {
+        const p = floorRiserPt[f];
+        if (!p) continue;
+        navD += ' L ' + p.x + ' ' + prev.y + ' L ' + p.x + ' ' + p.y;
+        prev = p;
+      }
       if (destPt) {
         navD += ' L ' + destPt.x + ' ' + destPt.y;
         navEndX = destPt.x; navEndY = destPt.y;
