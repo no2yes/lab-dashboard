@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v23 · 2026-10-19 10:30 KST';
+  const BUILD = 'v24-debug · 2026-10-19 10:45 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -787,6 +787,12 @@
     seq.forEach(st => pts.push(toScr(st.x, st.y)));
     pts.push(toScr(destX, seq[seq.length - 1].y));
     pts.push(toScr(destX, vyOf(destItem)));
+    // TEMP DEBUG(토니 확인용, 추후 제거): 역 몇 개 중 몇 개가 실제 짝(L/R 쌍)으로 잡혔는지,
+    // outline 중앙으로 때운 역이 몇 개인지 보여줌 — 문제 원인 파악용.
+    const pairedCount = stations.filter(st => st.items.length > 1).length;
+    pts._debug = 'st ' + stations.length + '(짝' + pairedCount + ') seq ' + seq.length +
+      ' outlineMid=' + (outlineMidY != null ? outlineMidY.toFixed(0) : 'x') +
+      ' L' + Ls0.length + '/R' + Rs0.length;
     return pts;
   }
 
@@ -958,7 +964,7 @@
     // 안내선도 계단 구조물과 똑같은 경로로: 정문 → 1층 계단 앞 → (층마다 계단 비탈을 따라
     // 꺾이며 위로) → 목표 층 계단 앞 → 복도 중앙 → 복도를 따라 목적호실 앞 → 좌/우회전해서
     // 입실. 대각선으로 바로 꽂지 않고 실제로 걷는 동선처럼 보이게 함.
-    let navD = '', navEndX = null, navEndY = null;
+    let navD = '', navEndX = null, navEndY = null, corridorDebugText = '';
     if (entrancePt) {
       navD = 'M ' + entrancePt.x + ' ' + entrancePt.y;
       let prev = entrancePt;
@@ -981,6 +987,7 @@
       const corridor = (destAnchor && destAnchor.x != null && destAnchor.y != null && targetRow)
         ? corridorApproach(tLayout, frame, targetRow.y0, Number(destAnchor.x), Number(destAnchor.y), h.no)
         : null;
+      if (corridor && corridor._debug) corridorDebugText = corridor._debug;
       if (corridor && corridor.length) {
         navD += corridor.map(p => ' L ' + p.x + ' ' + p.y).join('');
         const lastP = corridor[corridor.length - 1];
@@ -1000,6 +1007,9 @@
         svg += '<circle class="navend-ring" cx="' + navEndX + '" cy="' + navEndY + '" r="5" style="animation-delay:' + endDelay + 's;"/>';
         svg += '<circle class="navend" cx="' + navEndX + '" cy="' + navEndY + '" r="5" style="animation-delay:' + endDelay + 's;"/>';
       }
+    }
+    if (corridorDebugText) {
+      svg += '<text x="6" y="' + (totalH - 6) + '" font-size="9" fill="#e55" font-family="monospace">[DEBUG] ' + corridorDebugText + '</text>';
     }
     svg += '</svg>';
 
