@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v7 · 2026-10-19 00:20 KST';
+  const BUILD = 'v8 · 2026-10-19 00:30 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -177,11 +177,25 @@
     ]).then(([tLayout, gLayoutRaw]) => {
       if (!tLayout) { $('route').innerHTML = '<div class="card msg err">이 호실의 층 안내 자료가 아직 준비되지 않았어요.</div>'; return; }
       const gLayout = (gLayoutRaw && gLayoutRaw.source === 'submit') ? gLayoutRaw : null;
-      renderRoute(h, target, tLayout, needGround, gLayout, sameBld);
+      if (needGround && canUseIsoStack(tLayout, h.no)) {
+        // 등각 평면도 쌓기를 쓸 수 있으면, 건물 전체 층(1층~꼭대기층)의 외곽선도 함께 받아와서
+        // 목적지가 아닌 층도 실제 건물 모양 그대로 겹겹이 쌓아 보여줌(방 상세는 생략).
+        const others = sameBld.filter(m => m.id !== target.id && !(groundMission && m.id === groundMission.id));
+        Promise.all(others.map(m => loadLayout(m.id).then(l => ({ floor: Number(m.floor), layout: (l && l.source === 'submit') ? l : null }))))
+          .then(extra => {
+            const floorMap = {};
+            extra.forEach(e => { if (e.layout) floorMap[e.floor] = e.layout; });
+            floorMap[1] = gLayout || floorMap[1] || null;
+            floorMap[Number(target.floor)] = tLayout;
+            renderRoute(h, target, tLayout, needGround, gLayout, sameBld, floorMap);
+          });
+      } else {
+        renderRoute(h, target, tLayout, needGround, gLayout, sameBld, null);
+      }
     });
   }
 
-  function renderRoute(h, target, tLayout, needGround, gLayout, sameBld) {
+  function renderRoute(h, target, tLayout, needGround, gLayout, sameBld, floorMap) {
     if (tLayout.source === 'drawing') { renderDrawingOnly(h, target, tLayout); return; }
     const steps = [];
 
@@ -191,7 +205,7 @@
       // 1층이 아직 조사되지 않았으면(gLayout 없음) 1층 자리는 빈 레이어로만 보여줌.
       // 목적지 방의 실제 x,y 좌표까지 들어온 층은 평면도를 등각으로 쌓는 방식(buildIsoStack)을
       // 쓰고, 아직 그 데이터가 없는 층은 기존 복도 도식(renderFloorStack)으로 자동 대체됨.
-      const built = canUseIsoStack(tLayout, h.no) ? buildIsoStack(h, target, tLayout, gLayout) : renderFloorStack(h, target, tLayout, gLayout);
+      const built = (floorMap && canUseIsoStack(tLayout, h.no)) ? buildIsoStack(h, target, tLayout, gLayout, sameBld, floorMap) : renderFloorStack(h, target, tLayout, gLayout);
       const useWord = built.wantElev ? '엘리베이터' : '계단/엘리베이터';
       steps.push(
         '<div class="card fade"><div class="step"><b>1</b>1층 정문 → ' + esc(target.floor) + '층 ' + esc(h.no) + '호</div>' +
@@ -621,8 +635,11 @@
   }
 
   // 여러 층 쌓기 — 평면도 등각 투영판. 1층 정문(또는 조사 전 팻말) → 계단/엘리베이터 →
-  // (중간 층 관통, 얇은 판) → 목표 층 → 목적지 방 문 앞까지 하나로 이어진 안내선을 그림.
-  function buildIsoStack(h, target, tLayout, gLayout) {
+  // (중간 층 관통) → 목표 층 → 목적지 방 문 앞까지 하나로 이어진 안내선을 그림.
+  // 건물 전체의 꼭대기층까지 모든 층을 쌓아서 보여주되, 외곽선 데이터가 있는 층은 실제
+  // 건물 모양 그대로(목적지가 아니면 방 상세 없이 윤곽+계단/엘리베이터/화장실만), 아직
+  // 외곽선이 없는 층은 얇은 통과용 판으로 표시해서 전체가 "건물처럼" 보이게 함.
+  function buildIsoStack(h, target, tLayout, gLayout, sameBld, floorMap) {
     const tStairs = (tLayout.anchors || []).filter(a => a.type === 'stair' || a.type === 'elev');
     const gStairs = gLayout ? (gLayout.anchors || []).filter(a => a.type === 'stair' || a.type === 'elev') : [];
     const wantElev = Number(target.floor) >= 4;
@@ -644,37 +661,49 @@
     const gAnchorName = matched ? matched.name : (gStairs[0] ? gStairs[0].name : null);
 
     const PLAN_W = 560;
-    const hasGOutline = !!(gLayout && gLayout.outline && gLayout.outline.length >= 3);
-    const frame = computeIsoFrame(hasGOutline ? [tLayout.outline, gLayout.outline] : [tLayout.outline], PLAN_W);
+    const targetFloor = Number(target.floor);
+    const topFloor = Math.max(targetFloor, ...sameBld.map(m => Number(m.floor) || 1));
+    const lo = 1, hi = topFloor;
 
-    const entranceFloor = 1, targetFloor = Number(target.floor);
-    const lo = Math.min(entranceFloor, targetFloor), hi = Math.max(entranceFloor, targetFloor);
+    const outlineSets = [];
+    for (let f = lo; f <= hi; f++) { const l = floorMap[f]; if (l && l.outline && l.outline.length >= 3) outlineSets.push(l.outline); }
+    const frame = computeIsoFrame(outlineSets.length ? outlineSets : [tLayout.outline], PLAN_W);
+
     const rows = [];
-    for (let f = lo; f <= hi; f++) rows.push({ floor: f, kind: f === entranceFloor ? 'entrance' : (f === targetFloor ? 'target' : 'blank') });
+    for (let f = lo; f <= hi; f++) rows.push({ floor: f, kind: f === 1 ? 'entrance' : (f === targetFloor ? 'target' : 'other') });
     rows.sort((a, b) => b.floor - a.floor);   // 높은 층이 위
 
     const PLAN_ROW_H = frame.planH + 34, THIN_H = 40, GAP = 14;
     let totalH = 6;
     rows.forEach(r => {
-      const full = r.kind === 'target' || (r.kind === 'entrance' && hasGOutline);
-      r.h = full ? PLAN_ROW_H : THIN_H;
+      const layout = floorMap[r.floor];
+      r.hasOutline = !!(layout && layout.outline && layout.outline.length >= 3);
+      r.h = r.hasOutline ? PLAN_ROW_H : THIN_H;
       r.y0 = totalH; totalH += r.h + GAP;
     });
     totalH -= GAP;
 
     let inner = '';
     let entrancePt = null, targetAnchorPt = null, destPt = null, riserX = PLAN_W / 2;
+    // 목표 층을 먼저 찾아 riserX(계단/엘리베이터의 화면 x)를 계산해둬야, 아직 못 그린 다른
+    // 층들의 얇은 판이나 통과선이 그 x를 기준으로 자리잡을 수 있음.
+    const targetRow = rows.find(r => r.kind === 'target');
+    if (targetRow) {
+      const layer = buildIsoFloorLayer(tLayout, frame, targetRow.y0, h.no, tAnchorName);
+      targetAnchorPt = (tAnchorName && layer.anchorPt[tAnchorName]) || layer.doorPt;
+      if (targetAnchorPt) riserX = targetAnchorPt.x;
+    }
+
     rows.forEach(r => {
       if (r.kind === 'target') {
         const layer = buildIsoFloorLayer(tLayout, frame, r.y0, h.no, tAnchorName);
         inner += layer.g + '<text x="6" y="' + (r.y0 + 12) + '" font-size="11" font-weight="700" fill="var(--t2)">' + r.floor + '층</text>';
-        targetAnchorPt = (tAnchorName && layer.anchorPt[tAnchorName]) || layer.doorPt;
         destPt = layer.destPt;
-        if (targetAnchorPt) riserX = targetAnchorPt.x;
-      } else if (r.kind === 'entrance' && hasGOutline) {
-        const layer = buildIsoFloorLayer(gLayout, frame, r.y0, null, gAnchorName);
+      } else if (r.hasOutline) {
+        const highlight = r.kind === 'entrance' ? gAnchorName : null;
+        const layer = buildIsoFloorLayer(floorMap[r.floor], frame, r.y0, null, highlight);
         inner += layer.g + '<text x="6" y="' + (r.y0 + 12) + '" font-size="11" font-weight="700" fill="var(--t2)">' + r.floor + '층</text>';
-        entrancePt = layer.doorPt || (gAnchorName && layer.anchorPt[gAnchorName]);
+        if (r.kind === 'entrance') entrancePt = layer.doorPt || (gAnchorName && layer.anchorPt[gAnchorName]);
       } else {
         const by = r.y0 + r.h / 2;
         inner += box3d(riserX - 80, by + 10, 170, 8, 8, 'var(--line)', 'var(--card)', 'var(--line)');
@@ -684,7 +713,7 @@
           entrancePt = { x: riserX, y: by };
         } else {
           inner += '<circle cx="' + riserX + '" cy="' + by + '" r="3.5" fill="var(--t3)"/>' +
-            '<text x="6" y="' + (by + 4) + '" font-size="11" fill="var(--t3)">' + r.floor + '층</text>';
+            '<text x="6" y="' + (by + 4) + '" font-size="11" fill="var(--t3)">' + r.floor + '층(미조사)</text>';
         }
       }
     });
