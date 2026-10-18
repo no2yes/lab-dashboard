@@ -84,7 +84,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v4 · 2026-10-18 23:05 KST';
+  const BUILD = 'v5 · 2026-10-18 23:14 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -157,34 +157,41 @@
     $('results').innerHTML = ''; $('q').value = h.building + ' ' + h.no + '호';
     topMsg('', '');
     const sameBld = missions.filter(m => m.building === h.building);
-    const ground = sameBld.slice().sort((a, b) => Number(a.floor) - Number(b.floor))[0];
+    // 별도 출발 지점 정보가 없으면 언제나 "1층 정문"을 출발점으로 삼는다 — 그 건물 1층이
+    // 아직 조사되지 않았더라도(= groundMission 없음) 목표 층이 1층이 아니면 여러 층을 거쳐
+    // 올라가는 것으로 안내하고, 1층 자리는 빈 레이어로만 표시한다.
+    const groundMission = sameBld.find(m => Number(m.floor) === 1);
     const target = missions.find(m => m.id === h.missionId);
     if (!target) { topMsg('err', '미션 정보를 찾지 못했습니다.'); return; }
 
     $('route').innerHTML = '<div class="card"><div class="tip">경로를 준비하는 중...</div></div>';
 
-    const needGround = ground && String(ground.id) !== String(target.id) && Number(ground.floor) !== Number(target.floor);
+    const needGround = Number(target.floor) !== 1;
     Promise.all([
       loadLayout(target.id),
-      needGround ? loadLayout(ground.id) : Promise.resolve(null)
-    ]).then(([tLayout, gLayout]) => {
+      (needGround && groundMission) ? loadLayout(groundMission.id) : Promise.resolve(null)
+    ]).then(([tLayout, gLayoutRaw]) => {
       if (!tLayout) { $('route').innerHTML = '<div class="card msg err">이 호실의 층 안내 자료가 아직 준비되지 않았어요.</div>'; return; }
-      renderRoute(h, target, tLayout, needGround ? ground : null, (gLayout && gLayout.source === 'submit') ? gLayout : null, sameBld);
+      const gLayout = (gLayoutRaw && gLayoutRaw.source === 'submit') ? gLayoutRaw : null;
+      renderRoute(h, target, tLayout, needGround, gLayout, sameBld);
     });
   }
 
-  function renderRoute(h, target, tLayout, ground, gLayout, sameBld) {
+  function renderRoute(h, target, tLayout, needGround, gLayout, sameBld) {
     if (tLayout.source === 'drawing') { renderDrawingOnly(h, target, tLayout); return; }
     const steps = [];
 
-    if (ground && gLayout) {
+    if (needGround) {
       // 별도의 출발 지점 정보가 없으면 1층 정문을 출발점으로 삼아, 각 층을 레이어로 쌓고
-      // 정문 → 계단/엘리베이터 → (여러 층 관통) → 목표 층 → 목적 호실 앞까지 하나의 선으로 그림
-      const built = renderFloorStack(h, target, tLayout, ground, gLayout, sameBld);
+      // 정문 → 계단/엘리베이터 → (여러 층 관통) → 목표 층 → 목적 호실 앞까지 하나의 선으로 그림.
+      // 1층이 아직 조사되지 않았으면(gLayout 없음) 1층 자리는 빈 레이어로만 보여줌.
+      const built = renderFloorStack(h, target, tLayout, gLayout);
       const useWord = built.wantElev ? '엘리베이터' : '계단/엘리베이터';
       steps.push(
         '<div class="card fade"><div class="step"><b>1</b>1층 정문 → ' + esc(target.floor) + '층 ' + esc(h.no) + '호</div>' +
-        '<div class="tip" style="margin-bottom:4px;">※ 건물 출입구와 1층 정문을 잇는 정보는 아직 수집 중이라, 1층 정문부터 안내해 드려요.' +
+        '<div class="tip" style="margin-bottom:4px;">' +
+        (gLayout ? '※ 건물 출입구와 1층 정문을 잇는 정보는 아직 수집 중이라, 1층 정문부터 안내해 드려요.' :
+          '※ 이 건물 1층은 아직 조사 전이라, 1층 정문부터 출발하는 것으로만 안내해 드려요(정확한 1층 경로는 추후 보완돼요).') +
         (built.wantElev ? ' 4층 이상이라 엘리베이터로 안내해 드려요.' : '') + '</div>' +
         built.svg +
         '<div class="legend">🟦 지나가는 길 · 🟩 도착 호실' +
@@ -348,9 +355,11 @@
   // 입구층·목표층은 서로 복도 모양(출입구/계단 위치)이 전혀 달라서, 계단 위치를 맞추려고 한쪽을 옆으로
   // 밀면 반대쪽이 캔버스 밖으로 밀려날 수 있다 — 그래서 두 층을 먼저 그려본 뒤 필요한 만큼 캔버스를
   // 넓혀서 둘 다 안에 들어오게 계산한다(2-pass).
-  function renderFloorStack(h, target, tLayout, ground, gLayout, sameBld) {
-    const gStairs = (gLayout.anchors || []).filter(a => a.type === 'stair' || a.type === 'elev');
+  // gLayout이 없으면(1층이 아직 조사되지 않음) 1층 자리는 실제 복도 없이 "1층 정문" 팻말만 있는
+  // 빈 레이어로 그리고, 목표 층 자체의 출입구/계단/엘리베이터를 기준으로 안내선을 그림.
+  function renderFloorStack(h, target, tLayout, gLayout) {
     const tStairs = (tLayout.anchors || []).filter(a => a.type === 'stair' || a.type === 'elev');
+    const gStairs = gLayout ? (gLayout.anchors || []).filter(a => a.type === 'stair' || a.type === 'elev') : [];
 
     // 목표 층이 4층 이상이면 계단보다 엘리베이터를 우선 매칭(없으면 계단으로 자연스럽게 대체)
     const wantElev = Number(target.floor) >= 4;
@@ -363,51 +372,60 @@
       });
       return m;
     }
-    let matched = wantElev ? matchBy('elev') : null;
-    let usedFallbackStair = wantElev && !matched;   // 4층 이상인데 엘리베이터 연결 정보가 없어 계단으로 대체됨
-    if (!matched) matched = matchBy(null);
+    let matched = (gLayout && wantElev) ? matchBy('elev') : null;
+    let usedFallbackStair = !!gLayout && wantElev && !matched;   // 4층 이상인데 엘리베이터 연결 정보가 없어 계단으로 대체됨
+    if (gLayout && !matched) matched = matchBy(null);
 
-    const gElev = gStairs.find(a => a.type === 'elev'), tElev = tStairs.find(a => a.type === 'elev');
-    const gAnchorName = matched ? matched.name : ((wantElev && gElev) ? gElev.name : (gStairs[0] ? gStairs[0].name : null));
-    const tAnchorName = matched ? matched.name : ((wantElev && tElev) ? tElev.name : (tStairs[0] ? tStairs[0].name : null));
+    const tElev = tStairs.find(a => a.type === 'elev');
+    const tPreferred = (wantElev && tElev) ? tElev : (tStairs[0] || null);
+    const tAnchorName = matched ? matched.name : (tPreferred ? tPreferred.name : null);
 
     const BASE_W = 640, FULL_H = 230, THIN_H = 54, GAP = 10, PAD_X = 30;
-    const entranceLayer = buildFloorLayer(gLayout, null, null, gAnchorName, BASE_W);
     const targetLayer = buildFloorLayer(tLayout, h.no, findRoomAnchor(tLayout, h.no), tAnchorName, BASE_W);
-    if (!entranceLayer || !targetLayer) return { svg: '<div class="tip">층 배치 정보가 부족해요.</div>', matched: null };
-
-    const esx = (gAnchorName && entranceLayer.anchorX[gAnchorName] != null) ? entranceLayer.anchorX[gAnchorName] : entranceLayer.doorX;
+    if (!targetLayer) return { svg: '<div class="tip">층 배치 정보가 부족해요.</div>', matched: null, wantElev: wantElev, usedFallbackStair: false };
     const tsx = (tAnchorName && targetLayer.anchorX[tAnchorName] != null) ? targetLayer.anchorX[tAnchorName] : targetLayer.doorX;
 
-    // target 행은 제자리에 두고, entrance 행만 계단 위치가 일치하도록 좌우로 민 뒤, 두 행이 전부
-    // 들어오도록 캔버스 폭(W)과 공통 왼쪽 여백(leftShift)을 계산한다.
-    const dxEntranceRaw = tsx - esx;
-    const spanMinX = Math.min(0, dxEntranceRaw), spanMaxX = Math.max(BASE_W, BASE_W + dxEntranceRaw);
-    const leftShift = PAD_X - spanMinX;
-    const W = (spanMaxX - spanMinX) + PAD_X * 2;
-    const dxEntrance = dxEntranceRaw + leftShift, dxTarget = leftShift;
-    const riserX = tsx + dxTarget;
+    let entranceLayer = null, dxEntrance = 0, dxTarget = PAD_X, W = BASE_W + PAD_X * 2, riserX = tsx + PAD_X;
+    if (gLayout) {
+      const gAnchorName = matched ? matched.name : (gStairs[0] ? gStairs[0].name : null);
+      entranceLayer = buildFloorLayer(gLayout, null, null, gAnchorName, BASE_W);
+      if (entranceLayer) {
+        const esx = (gAnchorName && entranceLayer.anchorX[gAnchorName] != null) ? entranceLayer.anchorX[gAnchorName] : entranceLayer.doorX;
+        // target 행은 제자리에 두고, entrance 행만 계단 위치가 일치하도록 좌우로 민 뒤, 두 행이 전부
+        // 들어오도록 캔버스 폭(W)과 공통 왼쪽 여백(leftShift)을 계산한다.
+        const dxEntranceRaw = tsx - esx;
+        const spanMinX = Math.min(0, dxEntranceRaw), spanMaxX = Math.max(BASE_W, BASE_W + dxEntranceRaw);
+        const leftShift = PAD_X - spanMinX;
+        W = (spanMaxX - spanMinX) + PAD_X * 2;
+        dxEntrance = dxEntranceRaw + leftShift; dxTarget = leftShift;
+        riserX = tsx + dxTarget;
+      }
+    }
 
-    const floors = sameBld.map(m => Number(m.floor)).filter(f => !isNaN(f));
-    const entranceFloor = floors.indexOf(1) >= 0 ? 1 : Number(ground.floor);
-    const targetFloor = Number(target.floor);
+    const entranceFloor = 1, targetFloor = Number(target.floor);
     const lo = Math.min(entranceFloor, targetFloor), hi = Math.max(entranceFloor, targetFloor);
     const rows = [];
     for (let f = lo; f <= hi; f++) rows.push({ floor: f, kind: f === entranceFloor ? 'entrance' : (f === targetFloor ? 'target' : 'blank') });
     rows.sort((a, b) => b.floor - a.floor);   // 높은 층이 위, 낮은 층이 아래로 보이게
 
     let totalH = 0;
-    rows.forEach(r => { r.rh = r.kind === 'blank' ? THIN_H : FULL_H; r.y0 = totalH; totalH += r.rh + GAP; });
+    rows.forEach(r => { r.rh = (r.kind === 'blank' || (r.kind === 'entrance' && !entranceLayer)) ? THIN_H : FULL_H; r.y0 = totalH; totalH += r.rh + GAP; });
     totalH -= GAP;
 
     let inner = '';
     let entranceGlobal = null, targetGlobal = null;
     rows.forEach(r => {
-      if (r.kind === 'blank') {
+      if (r.kind === 'blank' || (r.kind === 'entrance' && !entranceLayer)) {
         const by = r.y0 + r.rh - 16;
-        inner += box3d(riserX - 90, by + 6, 180, 8, 8, 'var(--line)', 'var(--card)', 'var(--line)') +
-          '<circle cx="' + riserX + '" cy="' + by + '" r="3.5" fill="var(--t3)"/>' +
-          '<text x="10" y="' + (by + 4) + '" font-size="11" fill="var(--t3)">' + r.floor + '층</text>';
+        inner += box3d(Math.max(100, riserX) - 90, by + 6, Math.min(180, W - 40), 8, 8, 'var(--line)', 'var(--card)', 'var(--line)');
+        if (r.kind === 'entrance') {
+          inner += anchorGlyph('door', riserX, by, 18, 'var(--t2)') +
+            '<text x="10" y="' + (by + 4) + '" font-size="11" fill="var(--t2)">1층 정문(조사 전)</text>';
+          entranceGlobal = { doorX: riserX, y: by };
+        } else {
+          inner += '<circle cx="' + riserX + '" cy="' + by + '" r="3.5" fill="var(--t3)"/>' +
+            '<text x="10" y="' + (by + 4) + '" font-size="11" fill="var(--t3)">' + r.floor + '층</text>';
+        }
         return;
       }
       const layer = r.kind === 'entrance' ? entranceLayer : targetLayer;
