@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v15 · 2026-10-19 07:50 KST';
+  const BUILD = 'v16 · 2026-10-19 08:10 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -302,14 +302,17 @@
 
   // 계단/엘리베이터는 층을 잇는 구조물이므로 평면도 위가 아니라, 등각으로 쌓은 층과 층
   // "사이"(간격)에 입체적으로 그려서 실제로 타고 올라가는 느낌을 줌.
+  // SVG(g)와 함께, 안내선이 이 구조물의 경사를 따라가도록 중심선 좌표(path, 아래→위
+  // 순서)도 같이 돌려줌 — 계단이면 꺾이는 중심선, 엘리베이터면 그냥 수직선.
   function buildVerticalConnector(x, yTop, yBottom, isElev) {
-    if (yBottom - yTop < 4) return '';
+    if (yBottom - yTop < 4) return { g: '', path: [{ x: x, y: yBottom }, { x: x, y: yTop }] };
     if (isElev) {
       const w = 15, midY = (yTop + yBottom) / 2;
-      return '<rect x="' + (x - w / 2) + '" y="' + yTop + '" width="' + w + '" height="' + (yBottom - yTop) +
+      const g = '<rect x="' + (x - w / 2) + '" y="' + yTop + '" width="' + w + '" height="' + (yBottom - yTop) +
              '" rx="3" fill="var(--field)" stroke="var(--t3)" stroke-width="1.1" stroke-dasharray="2.5,2"/>' +
              '<path d="M ' + (x - 4) + ' ' + (midY - 2) + ' L ' + x + ' ' + (midY - 8) + ' L ' + (x + 4) + ' ' + (midY - 2) + ' Z" fill="var(--t3)"/>' +
              '<path d="M ' + (x - 4) + ' ' + (midY + 2) + ' L ' + x + ' ' + (midY + 8) + ' L ' + (x + 4) + ' ' + (midY + 2) + ' Z" fill="var(--t3)"/>';
+      return { g: g, path: [{ x: x, y: yBottom }, { x: x, y: yTop }] };
     }
     // 계단은 한 층 전체를 관통하는 사다리처럼 보이면 안 되니, 층마다 "중간 계단참에서
     // 방향을 바꿔 꺾여 올라가는" 실제 계단실 모양(스위치백)으로 나눠 그림 — 디딤판은
@@ -319,6 +322,7 @@
     const flightH = Math.max(6, (rise - landingH) / 2);
     const stepsPer = Math.max(2, Math.min(7, Math.round(flightH / 15)));
     const stepW = 14, depth = 4;
+    const offsetA = Math.min(16, 4 + stepsPer * 2); // 안내선이 디딤판 비탈을 따라가도록 블록과 같은 폭 사용
     function flight(fromY, toY, dir) {
       const n = stepsPer, h = (fromY - toY) / n;
       let f = '';
@@ -330,11 +334,18 @@
       return f;
     }
     const midY = yBottom - flightH;
+    const landingTopY = midY - landingH;
     let s = flight(yBottom, midY, -1);
-    s += '<rect x="' + (x - 14) + '" y="' + (midY - landingH) + '" width="28" height="' + landingH +
+    s += '<rect x="' + (x - 14) + '" y="' + landingTopY + '" width="28" height="' + landingH +
          '" rx="1.5" fill="var(--field)" stroke="var(--t3)" stroke-width="0.8"/>';
-    s += flight(midY - landingH, yTop, 1);
-    return s;
+    s += flight(landingTopY, yTop, 1);
+    const path = [
+      { x: x, y: yBottom },
+      { x: x - offsetA, y: midY },        // 1구간 계단 비탈을 따라 오름
+      { x: x + offsetA, y: landingTopY }, // 계단참을 가로질러 반대쪽 디딤판으로
+      { x: x, y: yTop }                   // 2구간 계단 비탈을 따라 오름
+    ];
+    return { g: s, path: path };
   }
 
   // 층 하나를 입체 블록 복도(group)로 그림 — <svg> 래핑 없이 내용물과 주요 좌표만 돌려줘서
@@ -661,6 +672,26 @@
     return { g: g, anchorPt: anchorPt, doorPt: doorPt, destPt: destPt, bottom: rowTop + marginTop + frame.planH };
   }
 
+  // 출발점(실제 모델 좌표 startX,startY)에서 목적 호실까지 대각선으로 바로 꽂지 않고,
+  // "복도 중앙으로 이동 → 복도를 따라 목적호실 앞까지 → 좌/우회전해서 입실" 3단계로 꺾이는
+  // 경로(화면좌표 3점)를 만들어줌. destRoomNo가 속한 walk 안의 L/R 쪽 y값들의 중간을 복도
+  // 중앙으로 삼음. rowTop은 buildIsoFloorLayer에 넘긴 값과 같아야 좌표가 어긋나지 않음.
+  function corridorApproach(layout, frame, rowTop, startX, startY, destRoomNo) {
+    let destItem = null, sideYs = null;
+    (layout.walks || []).forEach(w => {
+      (w.items || []).forEach(it => {
+        if (String(it.no) === String(destRoomNo) && it.x != null && it.y != null) {
+          destItem = it;
+          sideYs = (w.items || []).filter(x => x.y != null).map(x => Number(x.y));
+        }
+      });
+    });
+    if (!destItem || !sideYs || !sideYs.length || startX == null || startY == null) return null;
+    const corridorY = (Math.min.apply(null, sideYs) + Math.max.apply(null, sideYs)) / 2;
+    const toScr = (mx, my) => ({ x: frame.projX(mx, my), y: rowTop + 16 + frame.projYLocal(mx, my) });
+    return [toScr(startX, corridorY), toScr(Number(destItem.x), corridorY), toScr(Number(destItem.x), Number(destItem.y))];
+  }
+
   // 같은 층 안내(출발점 없이 그 층 안에서만 이동) — 평면도 등각 투영판
   function buildIsoSingleFloor(layout, destRoomNo, highlightAnchorName) {
     const PLAN_W = 560;
@@ -669,8 +700,21 @@
     if (!layer) return null;
     let svg = '<svg class="floorsvg stack" viewBox="0 0 ' + PLAN_W + ' ' + (layer.bottom + 10) + '" preserveAspectRatio="xMidYMid meet">' + layer.g;
     const startPt = (highlightAnchorName && layer.anchorPt[highlightAnchorName]) || layer.doorPt;
+    let startModel = null;
+    if (highlightAnchorName) {
+      const hit = (layout.anchors || []).find(a => sameName(a.name, highlightAnchorName));
+      if (hit && hit.x != null && hit.y != null) startModel = { x: Number(hit.x), y: Number(hit.y) };
+    }
+    if (!startModel) {
+      const door = (layout.anchors || []).find(a => a.type === 'door');
+      if (door && door.x != null && door.y != null) startModel = { x: Number(door.x), y: Number(door.y) };
+    }
     if (startPt && layer.destPt) {
-      const d = 'M ' + startPt.x + ' ' + startPt.y + ' L ' + layer.destPt.x + ' ' + layer.destPt.y;
+      const corridor = startModel ? corridorApproach(layout, frame, 6, startModel.x, startModel.y, destRoomNo) : null;
+      const d = corridor
+        ? 'M ' + startPt.x + ' ' + startPt.y + ' L ' + corridor[0].x + ' ' + corridor[0].y +
+          ' L ' + corridor[1].x + ' ' + corridor[1].y + ' L ' + corridor[2].x + ' ' + corridor[2].y
+        : 'M ' + startPt.x + ' ' + startPt.y + ' L ' + layer.destPt.x + ' ' + layer.destPt.y;
       svg += '<path class="navline" d="' + d + '" pathLength="100"/>';
       svg += '<circle class="navend-ring" cx="' + layer.destPt.x + '" cy="' + layer.destPt.y + '" r="5"/>';
       svg += '<circle class="navend" cx="' + layer.destPt.x + '" cy="' + layer.destPt.y + '" r="5"/>';
@@ -735,18 +779,21 @@
     let entrancePt = null, targetAnchorPt = null, destPt = null, riserX = PLAN_W / 2;
     const floorRiserPt = {}; // 층 번호 -> 그 층 계단/엘리베이터의 화면 좌표(층간 연결 기준점)
     const preferElev = wantElev && !usedFallbackStair;
-    // 층 하나의 레이어에서 목표 층과 같은 이름(없으면 같은 종류)의 계단/엘리베이터 위치를
-    // 찾아줌 — "계단1"처럼 같은 건물의 각 층이 같은 이름으로 이어진다는 전제(실제 데이터로
-    // 확인됨)로, 모든 층에서 같은 계단을 따라가도록 함.
-    function floorRiser(layoutF, anchorPt) {
+    // 층 하나에서 목표 층과 같은 이름(없으면 같은 종류)의 계단/엘리베이터 앵커를 찾아줌 —
+    // "계단1"처럼 같은 건물의 각 층이 같은 이름으로 이어진다는 전제(실제 데이터로 확인됨)로,
+    // 모든 층에서 같은 계단을 따라가도록 함.
+    function pickAnchorObj(layoutF) {
       if (!layoutF) return null;
       const anchors = layoutF.anchors || [];
       if (tAnchorName) {
         const hit = anchors.find(a => sameName(a.name, tAnchorName));
-        if (hit && anchorPt[hit.name]) return anchorPt[hit.name];
+        if (hit) return hit;
       }
       const stairs = anchors.filter(a => a.type === 'stair' || a.type === 'elev');
-      const pick = preferElev ? (stairs.find(a => a.type === 'elev') || stairs[0]) : (stairs.find(a => a.type === 'stair') || stairs[0]);
+      return (preferElev ? (stairs.find(a => a.type === 'elev') || stairs[0]) : (stairs.find(a => a.type === 'stair') || stairs[0])) || null;
+    }
+    function floorRiser(layoutF, anchorPt) {
+      const pick = pickAnchorObj(layoutF);
       return (pick && anchorPt[pick.name]) || null;
     }
     // 목표 층을 먼저 찾아 riserX(계단/엘리베이터의 화면 x)를 계산해둬야, 아직 못 그린 다른
@@ -797,29 +844,51 @@
     // 계단/엘리베이터는 평면도 위가 아니라 "층과 층 사이"마다 따로 입체 구조물로 표시함 —
     // 1층부터 목표 층까지 한 번에 긴 통로를 세우지 않고, 층 경계마다 끊어서 한 번씩 오르는
     // 진짜 계단처럼 여러 단으로 보이게 함. 안내선(navD)보다 먼저 그려서 빨간 선이 그 위에
-    // 선명하게 보이게 함.
+    // 선명하게 보이게 함. 각 구간의 중심선 좌표(connectorPaths)는 안내선이 그 비탈을 그대로
+    // 따라가도록 따로 보관해둠.
     let connectorSvg = '';
+    const connectorPaths = {}; // f -> f층~(f+1)층 구간의 중심선 좌표(아래→위)
     for (let f = lo; f < targetFloor; f++) {
       const pBot = floorRiserPt[f], pTop = floorRiserPt[f + 1];
       if (pBot && pTop && pTop.y < pBot.y) {
-        connectorSvg += buildVerticalConnector((pBot.x + pTop.x) / 2, pTop.y, pBot.y, preferElev);
+        const built = buildVerticalConnector((pBot.x + pTop.x) / 2, pTop.y, pBot.y, preferElev);
+        connectorSvg += built.g;
+        connectorPaths[f] = built.path;
       }
     }
     const inner = shapesSvg + targetLayerG + labelsSvg + connectorSvg;
 
-    // 안내선도 계단 구조물과 같은 경로로: 정문 → 1층 계단 앞 → (층마다 한 번씩 꺾이며 위로) →
-    // 목표 층 계단 앞 → 목적지 방. 층마다 꺾이는 모양이라 "계단을 따라 올라가는" 동선처럼 보임.
+    // 안내선도 계단 구조물과 똑같은 경로로: 정문 → 1층 계단 앞 → (층마다 계단 비탈을 따라
+    // 꺾이며 위로) → 목표 층 계단 앞 → 복도 중앙 → 복도를 따라 목적호실 앞 → 좌/우회전해서
+    // 입실. 대각선으로 바로 꽂지 않고 실제로 걷는 동선처럼 보이게 함.
     let navD = '', navEndX = null, navEndY = null;
     if (entrancePt) {
       navD = 'M ' + entrancePt.x + ' ' + entrancePt.y;
       let prev = entrancePt;
-      for (let f = lo; f <= targetFloor; f++) {
-        const p = floorRiserPt[f];
-        if (!p) continue;
-        navD += ' L ' + p.x + ' ' + prev.y + ' L ' + p.x + ' ' + p.y;
-        prev = p;
+      const first = floorRiserPt[lo];
+      if (first) {
+        navD += ' L ' + first.x + ' ' + prev.y + ' L ' + first.x + ' ' + first.y;
+        prev = first;
       }
-      if (destPt) {
+      for (let f = lo; f < targetFloor; f++) {
+        const path = connectorPaths[f];
+        if (path && path.length) {
+          path.forEach(pt => { navD += ' L ' + pt.x + ' ' + pt.y; });
+          prev = path[path.length - 1];
+        } else {
+          const p = floorRiserPt[f + 1];
+          if (p) { navD += ' L ' + p.x + ' ' + prev.y + ' L ' + p.x + ' ' + p.y; prev = p; }
+        }
+      }
+      const destAnchor = pickAnchorObj(tLayout);
+      const corridor = (destAnchor && destAnchor.x != null && destAnchor.y != null && targetRow)
+        ? corridorApproach(tLayout, frame, targetRow.y0, Number(destAnchor.x), Number(destAnchor.y), h.no)
+        : null;
+      if (corridor) {
+        navD += ' L ' + corridor[0].x + ' ' + corridor[0].y + ' L ' + corridor[1].x + ' ' + corridor[1].y +
+                ' L ' + corridor[2].x + ' ' + corridor[2].y;
+        navEndX = corridor[2].x; navEndY = corridor[2].y;
+      } else if (destPt) {
         navD += ' L ' + destPt.x + ' ' + destPt.y;
         navEndX = destPt.x; navEndY = destPt.y;
       }
