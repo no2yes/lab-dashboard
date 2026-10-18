@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v12 · 2026-10-19 06:40 KST';
+  const BUILD = 'v13 · 2026-10-19 07:10 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -311,14 +311,18 @@
              '<path d="M ' + (x - 4) + ' ' + (midY - 2) + ' L ' + x + ' ' + (midY - 8) + ' L ' + (x + 4) + ' ' + (midY - 2) + ' Z" fill="var(--t3)"/>' +
              '<path d="M ' + (x - 4) + ' ' + (midY + 2) + ' L ' + x + ' ' + (midY + 8) + ' L ' + (x + 4) + ' ' + (midY + 2) + ' Z" fill="var(--t3)"/>';
     }
-    const steps = Math.max(3, Math.round((yBottom - yTop) / 16));
-    const stepH = (yBottom - yTop) / steps, stepW = 8;
-    let d = 'M ' + (x - stepW) + ' ' + yBottom;
+    // 계단은 평평한 지그재그 선 대신, 디딤판 하나하나를 작은 입체 블록으로 그려서 실제
+    // 계단을 올려다본 듯한 느낌을 줌(다른 곳에 쓰는 box3d와 같은 입체 표현 방식).
+    const rise = yBottom - yTop;
+    const steps = Math.max(4, Math.min(14, Math.round(rise / 15)));
+    const stepH = rise / steps, stepW = 15, depth = 4;
+    let s = '';
     for (let i = 0; i < steps; i++) {
-      const y = yBottom - (i + 1) * stepH;
-      d += ' L ' + (x - stepW) + ' ' + y + ' L ' + (x + stepW) + ' ' + y;
+      const by = yBottom - i * stepH;                 // 이 디딤판의 밑변 y
+      const cx = x - (steps / 2 - i) * 2.4;            // 올라갈수록 살짝씩 틀어서 계단을 오르는 느낌
+      s += box3d(cx, by, stepW, Math.max(3, stepH * 0.88), depth, 'var(--field)', 'var(--card)', 'var(--t3)');
     }
-    return '<path d="' + d + '" fill="none" stroke="var(--t3)" stroke-width="1.6" stroke-linejoin="round"/>';
+    return s;
   }
 
   // 층 하나를 입체 블록 복도(group)로 그림 — <svg> 래핑 없이 내용물과 주요 좌표만 돌려줘서
