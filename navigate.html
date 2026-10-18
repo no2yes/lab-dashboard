@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v22 · 2026-10-19 10:05 KST';
+  const BUILD = 'v23 · 2026-10-19 10:30 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -713,7 +713,6 @@
       });
     });
     if (!destItem || !walkItems || startX == null || startY == null) return null;
-    const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
     // buildIsoFloorLayer가 화면에 그릴 때 쓰는 것과 같은 보정(sideSpreadShift)을 여기서도
     // 적용해야, 경로의 마지막 도착점이 실제로 그려진(밀어낸) 호실 점과 정확히 맞물림.
     const shift = sideSpreadShift(walkItems, frame);
@@ -727,45 +726,44 @@
       outlineMidY = (Math.min.apply(null, ys) + Math.max.apply(null, ys)) / 2;
     }
 
-    // x가 가까운 방들끼리 "역(station)"으로 묶음 — 보통 마주보는 두 방(L/R)이 거의 같은 x에
-    // 있다는 전제로, 그 역에서의 복도 중앙(마주보는 두 방의 중간)을 각각 계산함. 역이 한쪽
-    // 방만 있으면 건물 외곽선 중앙을, 그것도 없으면 그 방 자신의 y를 그대로 씀.
-    const sorted = withXY.slice().sort((a, b) => Number(a.x) - Number(b.x));
-    const xs = sorted.map(it => Number(it.x));
-    const xSpan = xs[xs.length - 1] - xs[0] || 1;
-    const tol = Math.max(1, (xSpan / Math.max(1, xs.length - 1)) * 0.6);
+    // "역(station)"은 x 근처로 뭉뚱그려 묶는 게 아니라, 마주보는 L/R 방을 짝(pair)으로 직접
+    // 찾아서 그 사이 지점으로 삼음 — 그래야 동선이 목적호실 쪽 평균치가 아니라 매 짝마다 그
+    // "사이"를 지나가게 됨. 서로가 서로에게 x상 가장 가까운 상대일 때만(상호 최근접) 짝으로
+    // 인정하고, 짝을 못 찾은 방(맞은편에 아무도 없는 방)은 혼자 역이 되어 건물 외곽선 중앙
+    // (또는 그마저 없으면 자기 y)을 기준으로 삼음.
+    const Ls0 = withXY.filter(it => it.side === 'L');
+    const Rs0 = withXY.filter(it => it.side === 'R');
+    const nearestOther = (it, others) => {
+      let best = null, bd = Infinity;
+      others.forEach(o => { const d = Math.abs(Number(o.x) - Number(it.x)); if (d < bd) { bd = d; best = o; } });
+      return best;
+    };
     const stations = [];
-    sorted.forEach(it => {
-      const x = Number(it.x);
-      const st = stations.length ? stations[stations.length - 1] : null;
-      if (st && Math.abs(x - st.x) <= tol) {
-        st.items.push(it);
-        st.x = (st.x * (st.items.length - 1) + x) / st.items.length;
-      } else {
-        stations.push({ x: x, items: [it] });
-      }
+    const pairedSet = new Set();
+    Ls0.forEach(l => {
+      const r = nearestOther(l, Rs0);
+      if (!r) return;
+      const backL = nearestOther(r, Ls0); // 상호 최근접인지 확인
+      if (backL !== l) return;
+      stations.push({ x: (Number(l.x) + Number(r.x)) / 2, y: (vyOf(l) + vyOf(r)) / 2, items: [l, r] });
+      pairedSet.add(l); pairedSet.add(r);
     });
-    stations.forEach(st => {
-      const Ls = st.items.filter(it => it.side === 'L').map(it => Number(it.y));
-      const Rs = st.items.filter(it => it.side === 'R').map(it => Number(it.y));
-      if (Ls.length && Rs.length) st.y = (avg(Ls) + avg(Rs)) / 2;
-      else if (outlineMidY != null) st.y = outlineMidY;
-      else st.y = avg(st.items.map(it => Number(it.y)));
+    withXY.forEach(it => {
+      if (pairedSet.has(it)) return;
+      const y = outlineMidY != null ? outlineMidY : vyOf(it);
+      stations.push({ x: Number(it.x), y: y, items: [it] });
     });
+    stations.sort((a, b) => a.x - b.x);
 
-    // 화면상 너무 좁게 잡힌 역은 가까운 호실과 최소 간격을 두도록 보정(한쪽 방만 있는 역 등).
+    // 화면상 너무 좁게 잡힌 역은 가까운 호실과 최소 간격을 두도록 보정(짝을 못 찾은 역 등).
     const scaleY = Math.abs(frame.projYLocal(0, 2) - frame.projYLocal(0, 0)) / 2;
     if (scaleY > 0) {
       const MIN_GAP = 16, minModelGap = MIN_GAP / scaleY;
       stations.forEach(st => {
-        const Ls = st.items.filter(it => it.side === 'L').map(it => Number(it.y));
-        const Rs = st.items.filter(it => it.side === 'R').map(it => Number(it.y));
-        if (Ls.length && Rs.length) return; // 양쪽 다 있으면 이미 그 사이 — 보정 불필요
-        st.items.forEach(it => {
-          const y = Number(it.y);
-          const gap = Math.abs(st.y - y) * scaleY;
-          if (gap < MIN_GAP) st.y = st.y >= y ? y + minModelGap : y - minModelGap;
-        });
+        if (st.items.length > 1) return; // 짝이 있으면 이미 그 사이 — 보정 불필요
+        const y = vyOf(st.items[0]);
+        const gap = Math.abs(st.y - y) * scaleY;
+        if (gap < MIN_GAP) st.y = st.y >= y ? y + minModelGap : y - minModelGap;
       });
     }
 
