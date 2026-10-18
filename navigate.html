@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v19 · 2026-10-19 09:05 KST';
+  const BUILD = 'v20 · 2026-10-19 09:20 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -619,6 +619,26 @@
 
   // 층 하나의 평면도를 등각 투영으로 그림 — 외곽선 실루엣 + 계단/엘리베이터/화장실 실제 위치 +
   // 좌표가 있는 방들(목적지는 초록, 나머지는 회색 점)을 그 자리 그대로 찍음
+  // 같은 walk 안에서 마주보는 두 줄(side: L/R)의 화면상 간격이 너무 좁으면, 각 줄 전체를
+  // 중앙에서 반대 방향으로 똑같이 밀어서 최소 간격을 만들어줌 — 실제 좌표를 바꾸는 게 아니라
+  // "그릴 때"만 보정하는 것이라, 두 줄 평균의 중간(복도 중앙)은 그대로 유지됨.
+  function sideSpreadShift(items, frame) {
+    const withY = (items || []).filter(it => it.y != null);
+    const leftYs = withY.filter(it => it.side === 'L').map(it => Number(it.y));
+    const rightYs = withY.filter(it => it.side === 'R').map(it => Number(it.y));
+    if (!leftYs.length || !rightYs.length) return {};
+    const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+    const leftAvg = avg(leftYs), rightAvg = avg(rightYs);
+    const scaleY = Math.abs(frame.projYLocal(0, 2) - frame.projYLocal(0, 0)) / 2;
+    if (!(scaleY > 0)) return {};
+    const MIN_GAP = 22; // 마주보는 두 줄 사이 최소 화면 간격(svg 단위)
+    const curGapPx = Math.abs(rightAvg - leftAvg) * scaleY;
+    if (curGapPx >= MIN_GAP) return {};
+    const needModel = (MIN_GAP - curGapPx) / scaleY / 2; // 양쪽에서 절반씩 밀어냄
+    const dir = rightAvg >= leftAvg ? 1 : -1;
+    return { L: -dir * needModel, R: dir * needModel };
+  }
+
   function buildIsoFloorLayer(layout, frame, rowTop, destRoomNo, highlightAnchorName) {
     const outline = layout.outline;
     if (!outline || outline.length < 3) return null;
@@ -658,16 +678,20 @@
     });
 
     let destPt = null;
-    (layout.walks || []).forEach(w => (w.items || []).forEach(it => {
-      if (it.x == null || it.y == null) return;
-      const p = toScreen(it.x, it.y);
-      const isDest = destRoomNo && String(it.no) === String(destRoomNo);
-      g += '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + (isDest ? 5 : 2.6) + '" fill="' +
-           (isDest ? 'var(--ok)' : 'var(--t3)') + '" ' + (isDest ? '' : 'opacity="0.75"') + '/>';
-      g += '<text x="' + p.x + '" y="' + (p.y - (isDest ? 10 : 6)) + '" text-anchor="middle" font-size="' + (isDest ? 10 : 7.5) +
-           '" font-weight="' + (isDest ? '700' : '400') + '" fill="' + (isDest ? 'var(--ok)' : 'var(--t3)') + '">' + esc(it.no) + '</text>';
-      if (isDest) destPt = p;
-    }));
+    (layout.walks || []).forEach(w => {
+      const shift = sideSpreadShift(w.items, frame);
+      (w.items || []).forEach(it => {
+        if (it.x == null || it.y == null) return;
+        const vy = Number(it.y) + (shift[it.side] || 0);
+        const p = toScreen(it.x, vy);
+        const isDest = destRoomNo && String(it.no) === String(destRoomNo);
+        g += '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + (isDest ? 5 : 2.6) + '" fill="' +
+             (isDest ? 'var(--ok)' : 'var(--t3)') + '" ' + (isDest ? '' : 'opacity="0.75"') + '/>';
+        g += '<text x="' + p.x + '" y="' + (p.y - (isDest ? 10 : 6)) + '" text-anchor="middle" font-size="' + (isDest ? 10 : 7.5) +
+             '" font-weight="' + (isDest ? '700' : '400') + '" fill="' + (isDest ? 'var(--ok)' : 'var(--t3)') + '">' + esc(it.no) + '</text>';
+        if (isDest) destPt = p;
+      });
+    });
 
     return { g: g, anchorPt: anchorPt, doorPt: doorPt, destPt: destPt, bottom: rowTop + marginTop + frame.planH };
   }
@@ -688,6 +712,10 @@
     });
     if (!destItem || !walkItems || startX == null || startY == null) return null;
     const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+    // buildIsoFloorLayer가 화면에 그릴 때 쓰는 것과 같은 보정(sideSpreadShift)을 여기서도
+    // 적용해야, 경로의 마지막 도착점이 실제로 그려진(밀어낸) 호실 점과 정확히 맞물림.
+    const shift = sideSpreadShift(walkItems, frame);
+    const vyOf = it => Number(it.y) + (shift[it.side] || 0);
     const withY = walkItems.filter(it => it.y != null);
     const leftYs = withY.filter(it => it.side === 'L').map(it => Number(it.y));
     const rightYs = withY.filter(it => it.side === 'R').map(it => Number(it.y));
@@ -728,7 +756,7 @@
       const minModelGap = MIN_GAP / scaleY;
       let lowerY = -Infinity, upperY = Infinity;
       withY.forEach(it => {
-        const y = Number(it.y);
+        const y = vyOf(it);
         if (y <= corridorY && y > lowerY) lowerY = y;
         if (y >= corridorY && y < upperY) upperY = y;
       });
@@ -744,7 +772,7 @@
     }
 
     const toScr = (mx, my) => ({ x: frame.projX(mx, my), y: rowTop + 16 + frame.projYLocal(mx, my) });
-    return [toScr(startX, corridorY), toScr(Number(destItem.x), corridorY), toScr(Number(destItem.x), Number(destItem.y))];
+    return [toScr(startX, corridorY), toScr(Number(destItem.x), corridorY), toScr(Number(destItem.x), vyOf(destItem))];
   }
 
   // 같은 층 안내(출발점 없이 그 층 안에서만 이동) — 평면도 등각 투영판
