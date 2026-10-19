@@ -88,7 +88,7 @@
 <script>
 (function () {
   'use strict';
-  const BUILD = 'v25 · 2026-10-19 11:10 KST';
+  const BUILD = 'v26 · 2026-10-19 14:35 KST';
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const $ = id => document.getElementById(id);
   $('buildInfo').textContent = BUILD;
@@ -740,7 +740,7 @@
     const destItem = chosen.item;
     const walkItems = chosen.walk.items;
     // 복도를 건너가는 다리(bridge) 시작점 — 건물 규모에 비해 의미 있게 멀 때만(outline
-    // 가로폭의 일부를 최소 거리로 삼음) 그 앵커 위치까지 먼저 직선으로 이동한 뒤, 거기서부터
+    // 가로폭의 일부를 최소 거리로 삼음) 그 앵커 위치까지 먼저 이동한 뒤, 거기서부터
     // 역 사이를 지나가게 함. door와 바로 옆 계단처럼 같은 자리나 다름없는 survey 오차는
     // 다리 없이 바로 진입해서 불필요한 꺾임이 생기지 않게 함.
     const localStartX = (chosenAnchorObj && chosenAnchorObj.x != null) ? Number(chosenAnchorObj.x) : startX;
@@ -751,6 +751,20 @@
       bridgeMinDist = Math.max(40, (Math.max.apply(null, xs) - Math.min.apply(null, xs)) * 0.08);
     }
     const needBridge = Math.hypot(localStartX - startX, localStartY - startY) > bridgeMinDist;
+    // 다리 구간은 예전엔 직선으로 추측했지만, 도면/실측으로 두 앵커 사이를 실제로 걸은
+    // connectors 데이터(꺾이는 지점 좌표 포함)가 있으면 그걸 그대로 따라가도록 함.
+    // from/to 방향이 반대로 기록돼 있으면 뒤집어서 startAnchorName 쪽부터 시작하게 맞춤.
+    let bridgePts = null;
+    if (needBridge && startAnchorName && chosenAnchorObj && chosenAnchorObj.name) {
+      const conn = (layout.connectors || []).find(c =>
+        (sameName(c.from, startAnchorName) && sameName(c.to, chosenAnchorObj.name)) ||
+        (sameName(c.to, startAnchorName) && sameName(c.from, chosenAnchorObj.name))
+      );
+      if (conn && conn.points && conn.points.length) {
+        const pts2 = conn.points.filter(p => p.x != null && p.y != null).map(p => ({ x: Number(p.x), y: Number(p.y) }));
+        if (pts2.length) bridgePts = sameName(conn.from, startAnchorName) ? pts2 : pts2.slice().reverse();
+      }
+    }
     // buildIsoFloorLayer가 화면에 그릴 때 쓰는 것과 같은 보정(sideSpreadShift)을 여기서도
     // 적용해야, 경로의 마지막 도착점이 실제로 그려진(밀어낸) 호실 점과 정확히 맞물림.
     const shift = sideSpreadShift(walkItems, frame);
@@ -823,7 +837,10 @@
     const toScr = (mx, my) => ({ x: frame.projX(mx, my), y: rowTop + 16 + frame.projYLocal(mx, my) });
     const pts = [];
     // 출발 계단이 목적호실 walk의 앵커와 다른 경우, 그 앵커까지 먼저 건너가는 구간을 넣음.
-    if (needBridge) pts.push(toScr(startX, startY), toScr(localStartX, localStartY));
+    if (needBridge) {
+      if (bridgePts) bridgePts.forEach(p => pts.push(toScr(p.x, p.y)));
+      else pts.push(toScr(startX, startY), toScr(localStartX, localStartY));
+    }
     pts.push(toScr(localStartX, seq[0].y));
     seq.forEach(st => pts.push(toScr(st.x, st.y)));
     pts.push(toScr(destX, seq[seq.length - 1].y));
