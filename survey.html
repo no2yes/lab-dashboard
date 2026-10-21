@@ -569,7 +569,10 @@
     return pts.map((p, i) => {
       if (i === 0 || i === pts.length - 1) return p;
       const a = pts[i - 1], c = pts[i + 1];
-      return { lat: (a.lat + p.lat + c.lat) / 3, lng: (a.lng + p.lng + c.lng) / 3 };
+      const o = { lat: (a.lat + p.lat + c.lat) / 3, lng: (a.lng + p.lng + c.lng) / 3 };
+      const alts = [a.alt, p.alt, c.alt].filter(v => v != null);
+      o.alt = alts.length ? (alts.reduce((s, v) => s + v, 0) / alts.length) : null;
+      return o;
     });
   }
   // Douglas-Peucker (미터 단위 근사 좌표)
@@ -594,13 +597,27 @@
     }
     return pts.filter((_, i) => keep[i]);
   }
-  // "위도*1e5,경도*1e5;증분,증분;..."
+  // "위도*1e5,경도*1e5[,고도m];증분,증분[,증분];..." — 고도가 전부 없으면 기존 2값 형식 그대로 유지
+  function nearestAlt_(pts, i) {
+    for (let k = i; k >= 0; k--) if (pts[k].alt != null) return pts[k].alt;
+    for (let k = i; k < pts.length; k++) if (pts[k].alt != null) return pts[k].alt;
+    return null;
+  }
   function encodePath(pts) {
+    const hasAlt = pts.some(p => p.alt != null);
     let la = Math.round(pts[0].lat * 1e5), ln = Math.round(pts[0].lng * 1e5);
-    const out = [la + ',' + ln];
+    let altPrev = hasAlt ? Math.round(nearestAlt_(pts, 0)) : null;
+    const out = [hasAlt ? (la + ',' + ln + ',' + altPrev) : (la + ',' + ln)];
     for (let i = 1; i < pts.length; i++) {
       const a = Math.round(pts[i].lat * 1e5), b = Math.round(pts[i].lng * 1e5);
-      out.push((a - la) + ',' + (b - ln)); la = a; ln = b;
+      if (hasAlt) {
+        const altCur = Math.round(nearestAlt_(pts, i));
+        out.push((a - la) + ',' + (b - ln) + ',' + (altCur - altPrev));
+        altPrev = altCur;
+      } else {
+        out.push((a - la) + ',' + (b - ln));
+      }
+      la = a; ln = b;
     }
     return out.join(';');
   }
@@ -627,9 +644,10 @@
     if (c.accuracy > P_MAX_ACC) { $('pLive').textContent = '신호가 약해요 (오차 ±' + Math.round(c.accuracy) + 'm). 잠시 기다려 주세요.'; return; }
     const last = pPts[pPts.length - 1];
     if (!last || distM(last.lat, last.lng, c.latitude, c.longitude) >= Math.max(P_MIN_STEP, c.accuracy * 0.6)) {
-      pPts.push({ lat: c.latitude, lng: c.longitude, acc: c.accuracy });
+      pPts.push({ lat: c.latitude, lng: c.longitude, acc: c.accuracy, alt: (c.altitude != null ? c.altitude : null) });
     }
-    $('pLive').innerHTML = '<span class="big">' + Math.round(pathLen(pPts)) + 'm</span> 걸었어요 · 점 ' + pPts.length + '개 · 오차 ±' + Math.round(c.accuracy) + 'm';
+    const altTxt = (c.altitude != null) ? (' · 고도 ' + Math.round(c.altitude) + 'm') : ' · 고도 신호 없음';
+    $('pLive').innerHTML = '<span class="big">' + Math.round(pathLen(pPts)) + 'm</span> 걸었어요 · 점 ' + pPts.length + '개 · 오차 ±' + Math.round(c.accuracy) + 'm' + altTxt;
   }
 
   function endPath(silent) {
@@ -651,10 +669,19 @@
       tol += 1.5;
     }
     const len = pathLen(simp);
+    let up = 0, down = 0, hadAlt = false;
+    for (let i = 1; i < pPts.length; i++) {
+      const a0 = pPts[i - 1].alt, a1 = pPts[i].alt;
+      if (a0 == null || a1 == null) continue;
+      hadAlt = true;
+      const d = a1 - a0;
+      if (d > 0) up += d; else down -= d;
+    }
     pFinal = { id: 'p' + Date.now(), enc: enc, len: Math.round(len), pts: simp.length };
     pendUpsert({ id: pFinal.id, enc: enc, len: pFinal.len, pts: pFinal.pts, from: $('pFrom').value, to: $('pTo').value });
     $('pLive').textContent = '';
-    $('pResult').innerHTML = '<div class="result good"><span class="coord">' + Math.round(len) + 'm · 점 ' + simp.length + '개</span>' +
+    const altTxt = hadAlt ? (' · ⬆️' + Math.round(up) + 'm ⬇️' + Math.round(down) + 'm') : ' · 고도 정보 없음';
+    $('pResult').innerHTML = '<div class="result good"><span class="coord">' + Math.round(len) + 'm · 점 ' + simp.length + '개' + altTxt + '</span>' +
       '기록이 끝났어요. 아래에서 저장해 주세요.</div>';
     $('cardPathSave').classList.remove('hide');
   }
