@@ -180,6 +180,13 @@
   </div>
   <div class="card hide" id="cardPathSave">
     <div class="step"><b>3</b>저장</div>
+    <div class="row">
+      <label for="wUp">애플워치 상승/하강(m) <span style="color:var(--t3)">(선택, 입력하면 이 값으로 저장돼요)</span></label>
+      <div style="display:flex;gap:8px;">
+        <input type="number" id="wUp" min="0" step="1" placeholder="상승 m" style="flex:1;">
+        <input type="number" id="wDown" min="0" step="1" placeholder="하강 m" style="flex:1;">
+      </div>
+    </div>
     <button class="btn ok" id="btnPathSave">이 길 저장</button>
     <button class="btn ghost" id="btnPathDiscard" style="margin-top:8px;">버리고 다시 기록</button>
   </div>
@@ -202,7 +209,7 @@
 
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const TOKEN = new URLSearchParams(location.search).get('t') || '';
-  const BUILD = 'v1 · 2026-10-21 10:18 KST';
+  const BUILD = 'v2 · 2026-10-21 11:27 KST';
   const buildInfoEl = document.getElementById('buildInfo');
   if (buildInfoEl) buildInfoEl.textContent = BUILD;
 
@@ -517,7 +524,11 @@
     $('pendingInfo').textContent = a.length + '개의 길이 이 폰에 보관되어 있어요 (총 ' + a.reduce((s, x) => s + (x.len || 0), 0) + 'm). 서버에 저장되면 자동으로 지워져요.';
   }
   function sendPath(item) {
-    return api({ op: 'pathsubmit', from: item.from || '', to: item.to || '', path: item.enc, len: item.len, pts: item.pts })
+    const params = { op: 'pathsubmit', from: item.from || '', to: item.to || '', path: item.enc, len: item.len, pts: item.pts };
+    if (item.wUp !== undefined && item.wUp !== '' && item.wDown !== undefined && item.wDown !== '') {
+      params.wUp = item.wUp; params.wDown = item.wDown;
+    }
+    return api(params)
       .then(res => {
         if (res && res.success && res.pathCount !== undefined) return { ok: true, pathCount: res.pathCount };
         if (res && res.success) return { ok: false, message: '서버가 아직 길 저장을 지원하는 새 버전이 아니에요. 저장되지 않았습니다.' };
@@ -663,6 +674,7 @@
     topMsg('', '');
     pPts = []; pFinal = null; pBusy = true;
     $('pResult').innerHTML = ''; $('cardPathSave').classList.add('hide');
+    $('wUp').value = ''; $('wDown').value = '';
     $('btnPath').textContent = '기록 끝내기'; $('btnPath').classList.add('stop');
     $('pLive').textContent = '위치 신호를 찾는 중...';
     wakeOn();
@@ -723,11 +735,14 @@
   $('btnPathDiscard').addEventListener('click', function () {
     if (pFinal) pendRemove(pFinal.id);
     pFinal = null; pPts = []; $('pResult').innerHTML = ''; $('cardPathSave').classList.add('hide');
+    $('wUp').value = ''; $('wDown').value = '';
   });
   $('btnPathSave').addEventListener('click', function () {
     if (!pFinal || pBusy) return;
     const btn = $('btnPathSave'); btn.disabled = true; btn.textContent = '저장 중...';
     const item = { id: pFinal.id, enc: pFinal.enc, len: pFinal.len, pts: pFinal.pts, from: $('pFrom').value, to: $('pTo').value };
+    const wUpVal = $('wUp').value.trim(), wDownVal = $('wDown').value.trim();
+    if (wUpVal !== '' && wDownVal !== '') { item.wUp = wUpVal; item.wDown = wDownVal; }
     pendUpsert(item);   // 출발·도착을 확정해 폰에 보관
     sendPath(item).then(r => {
       btn.disabled = false; btn.textContent = '이 길 저장';
@@ -736,6 +751,7 @@
         pathCount = r.pathCount; $('pathCount').textContent = '기록된 길 ' + pathCount + '개'; loadGapPairs();
         pFinal = null; pPts = [];
         $('pResult').innerHTML = ''; $('cardPathSave').classList.add('hide');
+        $('wUp').value = ''; $('wDown').value = '';
         topMsg('ok', '서버에 저장됐어요 (기록된 길 ' + pathCount + '개). 다른 길도 이어서 걸어 주세요!');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
