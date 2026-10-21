@@ -102,6 +102,11 @@
     <select id="bld"><option value="">불러오는 중...</option></select>
     <div class="progress" id="bldProgress"></div>
   </div>
+  <div class="row hide" id="rowNewBld">
+    <label for="newBldName">새 지점 이름 <span style="color:var(--danger)">*</span></label>
+    <input type="text" id="newBldName" maxlength="30" placeholder="예: 해람아트스페이스">
+    <div class="progress" id="newBldHint" style="text-align:left">건물이 아니지만 위치를 알려야 하는 곳(조형물, 쉼터, 안내 지점 등)을 새로 추가해요. 저장하면 목록에 바로 생겨요.</div>
+  </div>
   <div class="row" id="rowEnt">
     <label>측정할 출입구 <span style="color:var(--danger)">*</span></label>
     <div class="seg" id="seg">
@@ -243,14 +248,16 @@
   // 출입구가 여러 곳인 건물은 각 출입구를 '조사대상' 시트에 별도 코드로 등록해 주세요 (예: P2, P3...).
   // 코드마다 '정문' 칸 1곳만 안내(지도)용 좌표로 쓰이므로, 출입구별로 따로 안내하려면 코드도 따로 둬야 합니다.
   function isTrail(code) { const b = buildings.find(x => x.code === code); return !!(b && b.trail); }
+  function isNewPoint(code) { return code === '__new__'; }
   function curEntType() {
     const c = el.bld.value;
-    return isGate(c) ? '정문' : entType;   // 게이트·등산로 등 한 지점짜리 코드는 '정문' 칸에 모읍니다
+    return (isGate(c) || isNewPoint(c)) ? '정문' : entType;   // 게이트·등산로·새 지점 등 한 지점짜리 코드는 '정문' 칸에 모읍니다
   }
   function applyEntUi() {
-    const code = el.bld.value, gate = isGate(code);
+    const code = el.bld.value, gate = isGate(code) || isNewPoint(code);
     const rowEnt = document.getElementById('rowEnt'); if (!rowEnt) return;
     rowEnt.classList.toggle('hide', gate);
+    const rowNew = document.getElementById('rowNewBld'); if (rowNew) rowNew.classList.toggle('hide', !isNewPoint(code));
   }
   function optionsHtml(list) {
     return list.map(b => {
@@ -260,10 +267,12 @@
   }
   function groupedOptionsHtml() {
     const gates = buildings.filter(b => b.gate && !b.trail), trails = buildings.filter(b => b.trail), blds = buildings.filter(b => !b.gate);
-    if (!gates.length && !trails.length) return optionsHtml(blds);
+    const newOpt = '<optgroup label="➕ 기타"><option value="__new__">➕ 새 지점 추가 (건물 아닌 곳)</option></optgroup>';
+    if (!gates.length && !trails.length) return optionsHtml(blds) + newOpt;
     return '<optgroup label="🏢 건물">' + optionsHtml(blds) + '</optgroup>' +
            (gates.length ? '<optgroup label="🚪 학교 출입구">' + optionsHtml(gates) + '</optgroup>' : '') +
-           (trails.length ? '<optgroup label="🥾 등산로">' + optionsHtml(trails) + '</optgroup>' : '');
+           (trails.length ? '<optgroup label="🥾 등산로">' + optionsHtml(trails) + '</optgroup>' : '') +
+           newOpt;
   }
   function renderBuildings(keepValue) {
     const cur = keepValue !== undefined ? keepValue : el.bld.value;
@@ -308,12 +317,19 @@
 
   // ---------- 입력 상태 ----------
   function refreshButtons() {
-    const ok = !!surveyor && !!el.bld.value && !!TOKEN;
+    const code = el.bld.value;
+    const newOk = !isNewPoint(code) || !!document.getElementById('newBldName').value.trim();
+    const ok = !!surveyor && !!code && !!TOKEN && newOk;
     el.btnMeasure.disabled = !ok || busy;
     el.btnSave.disabled = !(ok && measured && !busy);
     const pb = document.getElementById('btnPath'); if (pb) pb.disabled = !(surveyor && TOKEN);
   }
-  el.bld.addEventListener('change', function () { lsSet('survey_last_bld', el.bld.value); resetMeasure(); updateTypeProgress(); refreshButtons(); });
+  el.bld.addEventListener('change', function () {
+    if (!isNewPoint(el.bld.value)) lsSet('survey_last_bld', el.bld.value);
+    if (!isNewPoint(el.bld.value)) document.getElementById('newBldName').value = '';
+    resetMeasure(); updateTypeProgress(); refreshButtons();
+  });
+  document.getElementById('newBldName').addEventListener('input', refreshButtons);
   el.seg.addEventListener('click', function (e) {
     const b = e.target.closest('button'); if (!b) return;
     const custom = document.getElementById('customEnt');
@@ -429,27 +445,39 @@
     busy = true; refreshButtons();
     el.btnSave.textContent = '저장 중...';
     const code = el.bld.value;
-    api({
+    const isNew = isNewPoint(code);
+    const newName = isNew ? document.getElementById('newBldName').value.trim() : '';
+    const params = {
       op: 'submit',
       bld: code, note: el.note.value.trim(),
       etype: curEntType(),
       lat: measured.lat.toFixed(7), lng: measured.lng.toFixed(7),
       acc: measured.acc.toFixed(1), n: measured.n
-    }).then(res => {
+    };
+    if (isNew) params.newName = newName;
+    api(params).then(res => {
       busy = false; el.btnSave.textContent = '이 위치 저장';
       if (res && res.success) {
-        const b = buildings.find(x => x.code === code);
+        const savedCode = isNew && res.code ? res.code : code;
         const et = curEntType();
-        if (b) {
-          b.types = b.types || {};
-          b.types[et] = res.count !== undefined ? res.count : ((b.types[et] || 0) + 1);
-          if (et === '정문') b.count = b.types[et];
+        if (isNew && res.code) {
+          buildings.push({ code: res.code, name: res.name || newName, count: 1, types: { [et]: 1 }, gate: false, trail: false });
+        } else {
+          const b = buildings.find(x => x.code === savedCode);
+          if (b) {
+            b.types = b.types || {};
+            b.types[et] = res.count !== undefined ? res.count : ((b.types[et] || 0) + 1);
+            if (et === '정문') b.count = b.types[et];
+          }
         }
-        renderBuildings(code);
+        lsSet('survey_last_bld', savedCode);
+        document.getElementById('newBldName').value = '';
+        renderBuildings(savedCode);
         measured = null;
         el.result.innerHTML = '';
         el.btnMeasure.textContent = '현재 위치 측정';
-        topMsg('ok', (isGate(code) ? (isTrail(code) ? '등산로 지점' : '출입구') : et) + ' 위치를 저장했어요. 수고하셨습니다! 다른 출입구나 건물로 이동해서 계속 측정해 주세요.');
+        const label = isNew ? ('새 지점(' + (res.name || newName) + ')') : (isGate(code) ? (isTrail(code) ? '등산로 지점' : '출입구') : et);
+        topMsg('ok', label + ' 위치를 저장했어요. 수고하셨습니다! 다른 출입구나 건물로 이동해서 계속 측정해 주세요.');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         topMsg('err', (res && res.message) || '저장하지 못했습니다. 다시 시도해 주세요.');
