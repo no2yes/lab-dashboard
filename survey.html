@@ -194,12 +194,17 @@
   </div>
 </div>
 
+<div class="tip" style="text-align:center;margin-top:22px;opacity:.6;" id="buildInfo"></div>
+
 <script>
 (function () {
   'use strict';
 
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
   const TOKEN = new URLSearchParams(location.search).get('t') || '';
+  const BUILD = 'v1 · 2026-10-21 10:18 KST';
+  const buildInfoEl = document.getElementById('buildInfo');
+  if (buildInfoEl) buildInfoEl.textContent = BUILD;
 
   const MAX_MS = 25000;     // 측정 최대 시간
   const TARGET_GOOD = 8;    // 이만큼 좋은 값이 모이면 조기 종료
