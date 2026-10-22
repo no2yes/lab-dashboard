@@ -108,7 +108,7 @@
   <div id="mapRotate"><div id="map"></div></div>
 </div>
 <div id="headingDot">🔼</div>
-<div id="verTag">v1.3</div>
+<div id="verTag">v1.4</div>
 
 <div id="topBar">
   <div id="appBrand">다녀봐!<br>강대강캠!<span class="subtitle">태동여지도</span></div>
@@ -531,7 +531,12 @@
       const dup = dedup.some(function(d) { return Math.abs(d.total - r.total) < 1 && d.points.length === r.points.length; });
       if (!dup) dedup.push(r);
     });
-    const top = dedup.slice(0, maxCount);
+    // 최단 경로보다 너무 많이 돌아가는 후보는 애초에 보여주지 않음 — 안 그러면 거의 안 쓰일
+    // 멀리 돌아가는 조합까지 "추천 경로"로 같이 떠서, 겹치는 구간에서 그게 위로 덮여 보이며
+    // 마치 "엉뚱하게 돌아가는 길"을 추천하는 것처럼 보이는 문제가 있었음.
+    const MAX_DETOUR_RATIO = 1.4;
+    const bestTotal = dedup.length ? dedup[0].total : 0;
+    const top = dedup.filter(function(r) { return r.total <= bestTotal * MAX_DETOUR_RATIO + 1; }).slice(0, maxCount);
 
     let connector = null;
     if (offNetwork) {
@@ -598,7 +603,11 @@
     const label = result.offNetwork ? ' (조사구간 복귀 포함)' : '';
     const bounds = [];
 
-    result.routes.forEach(function(r, i) {
+    // 지도에는 "가장 짧은(추천) 경로"가 맨 위에 보이도록 — 거리가 먼 후보부터 그려서
+    // 가장 가까운 경로(목록 맨 위, 경로 1)가 겹치는 구간에서도 항상 다른 색 위에 올라오게 함.
+    // (목록 버튼은 짧은 순서 그대로 보여주되, 지도 그리는 순서만 반대로 함)
+    for (let i = result.routes.length - 1; i >= 0; i--) {
+      const r = result.routes[i];
       const color = ROUTE_COLORS[i % ROUTE_COLORS.length];
       const llPoints = r.points.map(function(p){ return [p[0], p[1]]; });
       bounds.push.apply(bounds, llPoints);
@@ -614,10 +623,11 @@
       const btn = document.createElement('button');
       btn.className = 'routeOpt';
       btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:' + color +
-        ';margin-right:8px;vertical-align:middle;"></span>경로 ' + (i + 1) + label + ' — 약 <b>' + Math.round(r.total) + 'm</b>';
+        ';margin-right:8px;vertical-align:middle;"></span>경로 ' + (i + 1) + label + ' — 약 <b>' + Math.round(r.total) + 'm</b>' +
+        (i === 0 ? ' <b style="color:#8ab4f8;">(가장 가까움)</b>' : '');
       btn.onclick = pick;
-      box.appendChild(btn);
-    });
+      box.insertBefore(btn, box.firstChild);
+    }
 
     if (result.connector) {
       bounds.push.apply(bounds, result.connector);
