@@ -43,6 +43,10 @@
     transform: translate(-50%, -140%);
     font-size: 26px;
   }
+  #verTag {
+    position: absolute; top: 6px; right: 8px; z-index: 1000; pointer-events: none;
+    font-size: 11px; color: #84827e; background: rgba(27,29,33,0.6); padding: 2px 7px; border-radius: 8px;
+  }
 </style>
 </head>
 <body>
@@ -56,6 +60,7 @@
   <div id="mapRotate"><div id="map"></div></div>
 </div>
 <div id="headingDot">🔼</div>
+<div id="verTag">v1.0</div>
 
 <div id="panel">
   <div class="row">
@@ -141,7 +146,7 @@
 
   let map, destCode = '', meMarker = null, watchId = null, destMarker = null;
   let edges = [], adjacency = {}, pathLinesLayer = null;
-  let remainingLine = null, traveledLine = null, traveledTrace = [];
+  let remainingLine = null, traveledLine = null, traveledTrace = [], connectorLine = null;
   let compassOn = false;
 
   function initMap() {
@@ -232,6 +237,7 @@
   function clearRouteLines() {
     if (remainingLine) { map.removeLayer(remainingLine); remainingLine = null; }
     if (traveledLine) { map.removeLayer(traveledLine); traveledLine = null; }
+    if (connectorLine) { map.removeLayer(connectorLine); connectorLine = null; }
     traveledTrace = [];
   }
 
@@ -322,10 +328,13 @@
 
   // 현재 위치 → 목적지까지, 조사된 길만 이어서 만든 전체 좌표 목록을 매번 새로 계산 (갈림길에서 다른 조사된 길을 타면 자동으로 다시 계산됨)
   // loc은 nearestPointOnNetwork()의 결과(없으면 새로 계산) — 마커 스냅과 같은 지점을 재사용해서 일관되게 보이도록 함
+  // 산책로 조사구간(입구·출구) 밖으로 벗어났을 때도 포기하지 않고, 가장 가까운 조사구간까지는
+  // 짧은 직선(연결선, 점선으로 구분)으로 돌아가는 것으로 보고, 그 다음부터는 조사된 길만 따라 최단거리로 안내
   function computeRoute(lat, lng, dest, loc) {
     if (!edges.length) return { noData: true };
     if (loc === undefined) loc = nearestPointOnNetwork(lat, lng);
-    if (!loc || loc.dist > ON_PATH_MAX_M) return { offPath: true, nearestDist: loc ? loc.dist : null };
+    if (!loc) return { noRoute: true };
+    const offNetwork = loc.dist > ON_PATH_MAX_M;
 
     const e = edges[loc.edgeIdx];
     const a = e.pts[loc.segIdx], b = e.pts[loc.segIdx + 1];
@@ -352,7 +361,13 @@
       const segPts = (forward ? edge.pts : edge.pts.slice().reverse()).map(toLL);
       points = points.concat(segPts.slice(1));
     });
-    return { points: points, total: result.total };
+
+    let connector = null, total = result.total;
+    if (offNetwork) {
+      connector = [[lat, lng], [loc.lat, loc.lng]];
+      total += loc.dist;
+    }
+    return { points: points, connector: connector, total: total, offNetwork: offNetwork };
   }
 
   function toggleTracking() {
@@ -407,19 +422,28 @@
       if (!remainingLine) remainingLine = L.polyline(route.points, { color: '#dc3545', weight: 6, opacity: 0.95 }).addTo(map);
       else remainingLine.setLatLngs(route.points);
 
+      if (route.connector) {
+        if (!connectorLine) connectorLine = L.polyline(route.connector, { color: '#ff9800', weight: 5, opacity: 0.9, dashArray: '2 10' }).addTo(map);
+        else connectorLine.setLatLngs(route.connector);
+      } else if (connectorLine) {
+        map.removeLayer(connectorLine); connectorLine = null;
+      }
+
       if (route.total <= ARRIVED_MAX_M) {
         setStatus('<b>' + destName + '</b> 도착! 🎉 <span class="badge gps">GPS ±' + Math.round(acc) + 'm</span>');
       } else {
-        const nextPoint = route.points[Math.min(1, route.points.length - 1)];
+        const nextPoint = route.offNetwork ? [loc.lat, loc.lng] : route.points[Math.min(1, route.points.length - 1)];
         const b = bearing(lat, lng, nextPoint[0], nextPoint[1]);
-        setStatus('<b>' + destName + '</b> <span class="badge path">조사된 길</span> 남은 거리 약 <b>' + Math.round(route.total) + 'm</b>, 다음 방향: <b>' + compass8(b) + '</b> ' +
+        const badge = route.offNetwork
+          ? '<span class="badge off">조사구간 복귀 중</span>'
+          : '<span class="badge path">조사된 길</span>';
+        setStatus('<b>' + destName + '</b> ' + badge + ' 남은 거리 약 <b>' + Math.round(route.total) + 'm</b>, 다음 방향: <b>' + compass8(b) + '</b> ' +
           '<span class="badge gps">GPS ±' + Math.round(acc) + 'm</span>');
       }
     } else {
       if (remainingLine) { map.removeLayer(remainingLine); remainingLine = null; }
-      if (route.offPath) {
-        setStatus('<span class="badge off">조사된 길 밖</span> 가장 가까운 조사된 길까지 약 <b>' + Math.round(route.nearestDist) + 'm</b> — 그 길로 돌아가면 다시 안내할게.');
-      } else if (route.noData) {
+      if (connectorLine) { map.removeLayer(connectorLine); connectorLine = null; }
+      if (route.noData) {
         setStatus('<span class="badge off">기록된 길 없음</span> 이 토큰에는 조사된 길 데이터가 없어.');
       } else {
         setStatus('<span class="badge off">경로 없음</span> 지금 위치에서 <b>' + destName + '</b> 까지 이어지는 조사된 길 조합을 찾지 못했어. 조사된 길로 이동해줘.');
