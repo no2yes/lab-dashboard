@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>등산로 네비 (임시)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; font-family: 'Malgun Gothic','맑은 고딕',sans-serif; background: #1b1d21; color: #e9e7e2; }
+  #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
+  #panel {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 1000;
+    background: rgba(27,29,33,0.96); padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+  }
+  .row { display: flex; gap: 8px; margin-bottom: 8px; }
+  select, button, input { font-family: inherit; font-size: 15px; border-radius: 8px; border: 1px solid #4a4f57; }
+  select { flex: 1; padding: 10px 10px; background: #272a30; color: #e9e7e2; }
+  button { padding: 10px 16px; background: #3f78c8; color: #fff; border: none; font-weight: 700; cursor: pointer; }
+  button:active { background: #4f86d8; }
+  button.secondary { background: #30343b; color: #cdcbc6; }
+  #status { font-size: 13px; color: #a8a6a1; line-height: 1.5; min-height: 18px; }
+  #status b { color: #8ab4f8; }
+  #tokenBar { position: absolute; top: 0; left: 0; right: 0; z-index: 1001; background: #23262b; padding: 10px 12px; display: flex; gap: 8px; }
+  #tokenBar input { flex: 1; padding: 8px 10px; background: #1b1d21; color: #e9e7e2; }
+  .hidden { display: none !important; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; margin-left: 6px; }
+  .badge.gps { background: #28a745; color: #fff; }
+  .badge.nogps { background: #dc3545; color: #fff; }
+</style>
+</head>
+<body>
+
+<div id="tokenBar">
+  <input type="text" id="tokenInput" placeholder="현황판 링크 또는 토큰을 붙여넣으세요">
+  <button onclick="loadWithToken()">불러오기</button>
+</div>
+
+<div id="map"></div>
+
+<div id="panel">
+  <div class="row">
+    <select id="destSelect">
+      <option value="">목적지 선택...</option>
+    </select>
+    <button id="trackBtn" onclick="toggleTracking()">내 위치 추적</button>
+  </div>
+  <div id="status">목적지를 선택하고 위치추적을 켜면, 직선 거리·방향으로 안내해줘.</div>
+</div>
+
+<script>
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
+
+  function api(params) {
+    const q = Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&');
+    return fetch(GAS_URL + '?page=api&' + q + '&_=' + Date.now()).then(r => r.json());
+  }
+
+  // 트레일/게이트 코드 → 이름 (Code.gs의 SURVEY_TRAILS / SURVEY_GATES 와 동일)
+  const NAMES = {
+    'N1':'정문',
+    'G1':'사과대 방향 보행로 (정문 쪽)', 'G6':'사과대 방향 보행로 (기숙사 쪽)',
+    'G2':'기숙사 출입로', 'G3':'치과병원 방향 출입로', 'G4':'공대 방향 보행로',
+    'G5':'운동장 방향 보행로 (원룸촌 쪽)', 'G7':'운동장 방향 보행로 (도로 쪽)',
+    'T1':'등산로입구(대학본부 주차장)', 'T2':'등산로입구(해람지)',
+    'T3':'등산로출구(공대방향)', 'T4':'등산로출구(문성고방향)',
+    'T5':'등산로출구(죽헌저수지 중간)', 'T6':'등산로출구(죽헌저수지 물막이)'
+  };
+
+  // 서버 압축 경로 문자열 디코딩 (Code.gs walkDecode_ 와 동일 로직)
+  function walkDecode(s) {
+    s = String(s || '');
+    if (!/^-?\d+,-?\d+(,-?\d+)?(;-?\d+,-?\d+(,-?\d+)?)*$/.test(s)) return null;
+    const parts = s.split(';');
+    const f = parts[0].split(',');
+    let la = parseInt(f[0], 10), ln = parseInt(f[1], 10);
+    const hasAlt = f.length > 2;
+    let alt = hasAlt ? parseInt(f[2], 10) : null;
+    const out = [[la / 1e5, ln / 1e5, alt]];
+    for (let i = 1; i < parts.length; i++) {
+      const d = parts[i].split(',');
+      la += parseInt(d[0], 10); ln += parseInt(d[1], 10);
+      if (hasAlt) alt += parseInt(d[2], 10);
+      out.push([la / 1e5, ln / 1e5, alt]);
+    }
+    return out;
+  }
+
+  function haversine(lat1, lng1, lat2, lng2) {
+    const R = 6371000, toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+  function bearing(lat1, lng1, lat2, lng2) {
+    const toRad = d => d * Math.PI / 180, toDeg = r => r * 180 / Math.PI;
+    const y = Math.sin(toRad(lng2-lng1)) * Math.cos(toRad(lat2));
+    const x = Math.cos(toRad(lat1))*Math.sin(toRad(lat2)) - Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(toRad(lng2-lng1));
+    return (toDeg(Math.atan2(y, x)) + 360) % 360;
+  }
+  function compass8(deg) {
+    const dirs = ['북','북동','동','남동','남','남서','서','북서'];
+    return dirs[Math.round(deg / 45) % 8];
+  }
+
+  let map, destCoords = null, meMarker = null, watchId = null, destMarker = null;
+
+  function initMap() {
+    map = L.map('map', { zoomControl: true }).setView([37.7720, 128.8660], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+    }).addTo(map);
+  }
+
+  function extractToken(raw) {
+    raw = (raw || '').trim();
+    const m = raw.match(/[?&]t=([^&]+)/);
+    return m ? decodeURIComponent(m[1]) : raw;
+  }
+
+  function loadWithToken() {
+    const t = extractToken(document.getElementById('tokenInput').value);
+    if (!t) { setStatus('토큰 또는 현황판 링크를 입력해줘.'); return; }
+    localStorage.setItem('trailnav_token', t);
+    setStatus('불러오는 중...');
+    api({ action: 'buildingcoords', t: t }).then(function(res) {
+      if (!res || !res.success) {
+        setStatus('불러오기 실패: ' + ((res && res.message) || '유효하지 않은 토큰'));
+        return;
+      }
+      document.getElementById('tokenBar').classList.add('hidden');
+      renderCoords(res.coords || {});
+      renderPaths(res.paths || []);
+      setStatus('지도를 불러왔어. 목적지를 선택해줘.');
+    }).catch(function() {
+      setStatus('서버 연결에 실패했어. 잠시 후 다시 시도해줘.');
+    });
+  }
+
+  function renderCoords(coords) {
+    const sel = document.getElementById('destSelect');
+    const bounds = [];
+    Object.keys(coords).forEach(function(code) {
+      const ll = coords[code];
+      if (!ll || ll.length < 2) return;
+      bounds.push(ll);
+      const name = NAMES[code] || code;
+      const isTrail = /^T\d/.test(code);
+      L.circleMarker(ll, {
+        radius: 7, color: isTrail ? '#f3d98d' : '#8ab4f8', weight: 2,
+        fillColor: isTrail ? '#f3d98d' : '#8ab4f8', fillOpacity: 0.85
+      }).addTo(map).bindPopup(name + ' (' + code + ')');
+
+      const opt = document.createElement('option');
+      opt.value = code; opt.textContent = name + (isTrail ? ' [등산로]' : '');
+      sel.appendChild(opt);
+    });
+    if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
+    sel.setAttribute('data-coords', JSON.stringify(coords));
+  }
+
+  function renderPaths(paths) {
+    paths.forEach(function(s) {
+      const pts = walkDecode(s);
+      if (!pts) return;
+      L.polyline(pts.map(function(p){ return [p[0], p[1]]; }), { color: '#b5e8c4', weight: 4, opacity: 0.7 }).addTo(map);
+    });
+  }
+
+  document.getElementById('destSelect').addEventListener('change', function() {
+    const code = this.value;
+    const coords = JSON.parse(this.getAttribute('data-coords') || '{}');
+    if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
+    if (!code || !coords[code]) { destCoords = null; return; }
+    destCoords = coords[code];
+    destMarker = L.marker(destCoords, {
+      icon: L.divIcon({ className: '', html: '🚩', iconSize: [24,24] })
+    }).addTo(map).bindPopup('목적지: ' + (NAMES[code] || code)).openPopup();
+    map.panTo(destCoords);
+    setStatus('목적지: <b>' + (NAMES[code] || code) + '</b> — "내 위치 추적"을 눌러줘.');
+  });
+
+  function toggleTracking() {
+    const btn = document.getElementById('trackBtn');
+    if (watchId) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+      btn.textContent = '내 위치 추적';
+      btn.classList.remove('secondary');
+      return;
+    }
+    if (!navigator.geolocation) { setStatus('이 브라우저는 위치추적을 지원하지 않아.'); return; }
+    btn.textContent = '추적 중지';
+    btn.classList.add('secondary');
+    watchId = navigator.geolocation.watchPosition(onPosition, onPosError, {
+      enableHighAccuracy: true, maximumAge: 2000, timeout: 15000
+    });
+  }
+
+  function onPosition(pos) {
+    const lat = pos.coords.latitude, lng = pos.coords.longitude, acc = pos.coords.accuracy;
+    if (!meMarker) {
+      meMarker = L.circleMarker([lat, lng], { radius: 8, color: '#f6b5ae', weight: 2, fillColor: '#f6b5ae', fillOpacity: 0.9 }).addTo(map);
+    } else {
+      meMarker.setLatLng([lat, lng]);
+    }
+    map.panTo([lat, lng]);
+
+    if (destCoords) {
+      const d = haversine(lat, lng, destCoords[0], destCoords[1]);
+      const b = bearing(lat, lng, destCoords[0], destCoords[1]);
+      const sel = document.getElementById('destSelect');
+      const destName = NAMES[sel.value] || sel.value;
+      setStatus('<b>' + destName + '</b> 까지 직선거리 약 <b>' + Math.round(d) + 'm</b>, 방향: <b>' + compass8(b) + '</b> ' +
+        '<span class="badge gps">GPS ±' + Math.round(acc) + 'm</span>');
+    } else {
+      setStatus('현재 위치 추적 중 <span class="badge gps">GPS ±' + Math.round(acc) + 'm</span> — 목적지를 선택해줘.');
+    }
+  }
+
+  function onPosError(err) {
+    setStatus('위치를 가져오지 못했어: ' + (err.message || '') + ' <span class="badge nogps">GPS 실패</span>');
+  }
+
+  function setStatus(html) {
+    document.getElementById('status').innerHTML = html;
+  }
+
+  initMap();
+  // 쿼리스트링(?t=) 또는 이전에 썼던 토큰을 자동으로 채워줌
+  const qsToken = new URLSearchParams(location.search).get('t');
+  const savedToken = (function(){ try { return localStorage.getItem('trailnav_token'); } catch(e){ return null; } })();
+  if (qsToken || savedToken) {
+    document.getElementById('tokenInput').value = qsToken || savedToken;
+    loadWithToken();
+  }
+</script>
+</body>
+</html>
