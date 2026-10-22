@@ -8,8 +8,18 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; font-family: 'Malgun Gothic','맑은 고딕',sans-serif; background: #1b1d21; color: #e9e7e2; }
+  html, body { height: 100%; font-family: 'Malgun Gothic','맑은 고딕',sans-serif; background: #1b1d21; color: #e9e7e2; overflow: hidden; }
+  #mapOuter { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; background: #1b1d21; }
+  #mapRotate {
+    position: absolute; top: 50%; left: 50%; width: 200vmax; height: 200vmax;
+    margin-left: -100vmax; margin-top: -100vmax; transform-origin: 50% 50%;
+    transition: transform 0.25s linear;
+  }
   #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
+  #compassArrow {
+    position: absolute; top: 50%; left: 50%; width: 0; height: 0; z-index: 900; pointer-events: none;
+    transform: translate(-50%, -50%);
+  }
   #panel {
     position: absolute; left: 0; right: 0; bottom: 0; z-index: 1000;
     background: rgba(27,29,33,0.96); padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
@@ -18,10 +28,11 @@
   .row { display: flex; gap: 8px; margin-bottom: 8px; }
   select, button, input { font-family: inherit; font-size: 15px; border-radius: 8px; border: 1px solid #4a4f57; }
   select { flex: 1; padding: 10px 10px; background: #272a30; color: #e9e7e2; }
-  button { padding: 10px 16px; background: #3f78c8; color: #fff; border: none; font-weight: 700; cursor: pointer; }
+  button { padding: 10px 14px; background: #3f78c8; color: #fff; border: none; font-weight: 700; cursor: pointer; }
   button:active { background: #4f86d8; }
   button.secondary { background: #30343b; color: #cdcbc6; }
-  #status { font-size: 13px; color: #a8a6a1; line-height: 1.5; min-height: 18px; }
+  button.small { font-size: 13px; padding: 8px 10px; }
+  #status { font-size: 13px; color: #a8a6a1; line-height: 1.6; min-height: 18px; }
   #status b { color: #8ab4f8; }
   #tokenBar { position: absolute; top: 0; left: 0; right: 0; z-index: 1001; background: #23262b; padding: 10px 12px; display: flex; gap: 8px; }
   #tokenBar input { flex: 1; padding: 8px 10px; background: #1b1d21; color: #e9e7e2; }
@@ -29,6 +40,13 @@
   .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; margin-left: 6px; }
   .badge.gps { background: #28a745; color: #fff; }
   .badge.nogps { background: #dc3545; color: #fff; }
+  .badge.path { background: #ff9800; color: #1b1d21; }
+  .badge.line { background: #5f6267; color: #fff; }
+  #headingDot {
+    position: absolute; top: 50%; left: 50%; z-index: 1000; pointer-events: none;
+    transform: translate(-50%, -140%);
+    font-size: 26px;
+  }
 </style>
 </head>
 <body>
@@ -38,16 +56,22 @@
   <button onclick="loadWithToken()">불러오기</button>
 </div>
 
-<div id="map"></div>
+<div id="mapOuter">
+  <div id="mapRotate"><div id="map"></div></div>
+</div>
+<div id="headingDot">🔼</div>
 
 <div id="panel">
   <div class="row">
     <select id="destSelect">
       <option value="">목적지 선택...</option>
     </select>
-    <button id="trackBtn" onclick="toggleTracking()">내 위치 추적</button>
+    <button class="small secondary" id="rotateBtn" onclick="toggleCompass()">방향센서</button>
   </div>
-  <div id="status">목적지를 선택하고 위치추적을 켜면, 직선 거리·방향으로 안내해줘.</div>
+  <div class="row">
+    <button id="trackBtn" onclick="toggleTracking()" style="flex:1;">내 위치 추적 시작</button>
+  </div>
+  <div id="status">목적지를 선택하고 "내 위치 추적"을 켜줘. 기록된 보행경로가 있으면 그 길을 따라 안내해줄게.</div>
 </div>
 
 <script>
@@ -68,6 +92,9 @@
     'T3':'등산로출구(공대방향)', 'T4':'등산로출구(문성고방향)',
     'T5':'등산로출구(죽헌저수지 중간)', 'T6':'등산로출구(죽헌저수지 물막이)'
   };
+
+  // 목적지 근처(이 거리 안)에서 끝나는 기록된 길이 있으면 그 길을 따라 안내 (없으면 직선 안내로 대체)
+  const PATH_MATCH_MAX_M = 150;
 
   // 서버 압축 경로 문자열 디코딩 (Code.gs walkDecode_ 와 동일 로직)
   function walkDecode(s) {
@@ -105,13 +132,17 @@
     return dirs[Math.round(deg / 45) % 8];
   }
 
-  let map, destCoords = null, meMarker = null, watchId = null, destMarker = null;
+  let map, destCoords = null, destCode = '', meMarker = null, watchId = null, destMarker = null;
+  let rawPathStrings = [], decodedPaths = [], activePath = null, activePathLine = null;
+  let pathLinesLayer = null;
+  let compassOn = false, lastHeading = null;
 
   function initMap() {
-    map = L.map('map', { zoomControl: true }).setView([37.7720, 128.8660], 15);
+    map = L.map('map', { zoomControl: true, attributionControl: true }).setView([37.7720, 128.8660], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
     }).addTo(map);
+    pathLinesLayer = L.layerGroup().addTo(map);
   }
 
   function extractToken(raw) {
@@ -132,8 +163,10 @@
       }
       document.getElementById('tokenBar').classList.add('hidden');
       renderCoords(res.coords || {});
-      renderPaths(res.paths || []);
-      setStatus('지도를 불러왔어. 목적지를 선택해줘.');
+      rawPathStrings = res.paths || [];
+      decodedPaths = rawPathStrings.map(walkDecode).filter(Boolean);
+      drawAllPaths();
+      setStatus('지도를 불러왔어 (기록된 길 ' + decodedPaths.length + '개). 목적지를 선택해줘.');
     }).catch(function() {
       setStatus('서버 연결에 실패했어. 잠시 후 다시 시도해줘.');
     });
@@ -161,33 +194,65 @@
     sel.setAttribute('data-coords', JSON.stringify(coords));
   }
 
-  function renderPaths(paths) {
-    paths.forEach(function(s) {
-      const pts = walkDecode(s);
-      if (!pts) return;
-      L.polyline(pts.map(function(p){ return [p[0], p[1]]; }), { color: '#b5e8c4', weight: 4, opacity: 0.7 }).addTo(map);
+  function drawAllPaths() {
+    pathLinesLayer.clearLayers();
+    decodedPaths.forEach(function(pts) {
+      L.polyline(pts.map(function(p){ return [p[0], p[1]]; }), { color: '#b5e8c4', weight: 4, opacity: 0.55 }).addTo(pathLinesLayer);
     });
+    if (activePathLine) { activePathLine = null; }
+  }
+
+  // 선택한 목적지 근처에서 끝나는 기록된 길을 찾아, 목적지 쪽이 배열의 끝(마지막)이 되도록 정렬
+  function findPathToDestination(destLatLng) {
+    let best = null, bestDist = Infinity, reversed = false;
+    decodedPaths.forEach(function(pts) {
+      if (!pts || pts.length < 2) return;
+      const first = pts[0], last = pts[pts.length - 1];
+      const dFirst = haversine(destLatLng[0], destLatLng[1], first[0], first[1]);
+      const dLast = haversine(destLatLng[0], destLatLng[1], last[0], last[1]);
+      if (dFirst < bestDist) { bestDist = dFirst; best = pts; reversed = true; }
+      if (dLast < bestDist) { bestDist = dLast; best = pts; reversed = false; }
+    });
+    if (!best || bestDist > PATH_MATCH_MAX_M) return null;
+    return reversed ? best.slice().reverse() : best;
   }
 
   document.getElementById('destSelect').addEventListener('change', function() {
     const code = this.value;
     const coords = JSON.parse(this.getAttribute('data-coords') || '{}');
     if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
-    if (!code || !coords[code]) { destCoords = null; return; }
+    if (activePathLine) { map.removeLayer(activePathLine); activePathLine = null; }
+    destCode = code;
+    if (!code || !coords[code]) { destCoords = null; activePath = null; return; }
     destCoords = coords[code];
-    destMarker = L.marker(destCoords, {
-      icon: L.divIcon({ className: '', html: '🚩', iconSize: [24,24] })
-    }).addTo(map).bindPopup('목적지: ' + (NAMES[code] || code)).openPopup();
+    destMarker = L.circleMarker(destCoords, { radius: 9, color: '#f6b5ae', weight: 3, fillColor: '#dc3545', fillOpacity: 0.9 })
+      .addTo(map).bindPopup('목적지: ' + (NAMES[code] || code)).openPopup();
     map.panTo(destCoords);
-    setStatus('목적지: <b>' + (NAMES[code] || code) + '</b> — "내 위치 추적"을 눌러줘.');
+
+    activePath = findPathToDestination(destCoords);
+    if (activePath) {
+      activePathLine = L.polyline(activePath.map(function(p){ return [p[0], p[1]]; }), { color: '#ff9800', weight: 6, opacity: 0.95 }).addTo(map);
+      setStatus('목적지: <b>' + (NAMES[code] || code) + '</b> <span class="badge path">기록된 길 안내</span> — "내 위치 추적"을 눌러줘.');
+    } else {
+      setStatus('목적지: <b>' + (NAMES[code] || code) + '</b> <span class="badge line">직선 안내 (근처 기록된 길 없음)</span> — "내 위치 추적"을 눌러줘.');
+    }
   });
+
+  function nearestPointOnPath(lat, lng, pts) {
+    let bestIdx = 0, bestDist = Infinity;
+    pts.forEach(function(p, i) {
+      const d = haversine(lat, lng, p[0], p[1]);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    });
+    return { idx: bestIdx, dist: bestDist };
+  }
 
   function toggleTracking() {
     const btn = document.getElementById('trackBtn');
     if (watchId) {
       navigator.geolocation.clearWatch(watchId);
       watchId = null;
-      btn.textContent = '내 위치 추적';
+      btn.textContent = '내 위치 추적 시작';
       btn.classList.remove('secondary');
       return;
     }
@@ -208,20 +273,85 @@
     }
     map.panTo([lat, lng]);
 
-    if (destCoords) {
-      const d = haversine(lat, lng, destCoords[0], destCoords[1]);
-      const b = bearing(lat, lng, destCoords[0], destCoords[1]);
-      const sel = document.getElementById('destSelect');
-      const destName = NAMES[sel.value] || sel.value;
-      setStatus('<b>' + destName + '</b> 까지 직선거리 약 <b>' + Math.round(d) + 'm</b>, 방향: <b>' + compass8(b) + '</b> ' +
+    if (!destCoords) {
+      setStatus('현재 위치 추적 중 <span class="badge gps">GPS ±' + Math.round(acc) + 'm</span> — 목적지를 선택해줘.');
+      return;
+    }
+
+    const destName = NAMES[destCode] || destCode;
+
+    if (activePath) {
+      const near = nearestPointOnPath(lat, lng, activePath);
+      let remain = near.dist;
+      for (let i = near.idx; i < activePath.length - 1; i++) {
+        remain += haversine(activePath[i][0], activePath[i][1], activePath[i + 1][0], activePath[i + 1][1]);
+      }
+      const nextIdx = Math.min(near.idx + 1, activePath.length - 1);
+      const nextPoint = activePath[nextIdx];
+      const b = bearing(lat, lng, nextPoint[0], nextPoint[1]);
+      setStatus('<b>' + destName + '</b> (기록된 길) 남은 거리 약 <b>' + Math.round(remain) + 'm</b>, 다음 방향: <b>' + compass8(b) + '</b> ' +
         '<span class="badge gps">GPS ±' + Math.round(acc) + 'm</span>');
     } else {
-      setStatus('현재 위치 추적 중 <span class="badge gps">GPS ±' + Math.round(acc) + 'm</span> — 목적지를 선택해줘.');
+      const d = haversine(lat, lng, destCoords[0], destCoords[1]);
+      const b = bearing(lat, lng, destCoords[0], destCoords[1]);
+      setStatus('<b>' + destName + '</b> (직선) 까지 약 <b>' + Math.round(d) + 'm</b>, 방향: <b>' + compass8(b) + '</b> ' +
+        '<span class="badge gps">GPS ±' + Math.round(acc) + 'm</span>');
     }
   }
 
   function onPosError(err) {
     setStatus('위치를 가져오지 못했어: ' + (err.message || '') + ' <span class="badge nogps">GPS 실패</span>');
+  }
+
+  // ====== 걷는 방향이 위로 오도록 지도 회전 (나침반) ======
+  function applyRotation(headingDeg) {
+    lastHeading = headingDeg;
+    document.getElementById('mapRotate').style.transform = 'rotate(' + (-headingDeg) + 'deg)';
+  }
+
+  function onOrientation(e) {
+    let heading = null;
+    if (typeof e.webkitCompassHeading === 'number') {
+      heading = e.webkitCompassHeading; // iOS Safari: 0=북, 시계방향 증가 (바로 사용 가능)
+    } else if (typeof e.alpha === 'number') {
+      heading = (360 - e.alpha) % 360; // Android 등: 근사치
+    }
+    if (heading !== null && !isNaN(heading)) applyRotation(heading);
+  }
+
+  function toggleCompass() {
+    const btn = document.getElementById('rotateBtn');
+    if (compassOn) {
+      window.removeEventListener('deviceorientation', onOrientation);
+      compassOn = false;
+      btn.classList.remove('secondary');
+      btn.textContent = '방향센서';
+      applyRotation(0);
+      return;
+    }
+    const DOE = window.DeviceOrientationEvent;
+    if (DOE && typeof DOE.requestPermission === 'function') {
+      // iOS 13+: 반드시 사용자 탭 안에서 호출해야 함
+      DOE.requestPermission().then(function(state) {
+        if (state === 'granted') {
+          window.addEventListener('deviceorientation', onOrientation);
+          compassOn = true;
+          btn.classList.add('secondary');
+          btn.textContent = '회전 끄기';
+        } else {
+          setStatus('방향센서 권한이 거부됐어. 설정에서 허용해줘야 지도가 회전돼.');
+        }
+      }).catch(function() {
+        setStatus('방향센서를 사용할 수 없어 (iOS 권한 요청 실패).');
+      });
+    } else if (window.DeviceOrientationEvent) {
+      window.addEventListener('deviceorientation', onOrientation);
+      compassOn = true;
+      btn.classList.add('secondary');
+      btn.textContent = '회전 끄기';
+    } else {
+      setStatus('이 기기/브라우저는 방향센서를 지원하지 않아.');
+    }
   }
 
   function setStatus(html) {
