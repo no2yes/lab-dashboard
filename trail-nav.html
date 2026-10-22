@@ -196,10 +196,13 @@
   let edges = [], adjacency = {}, pathLinesLayer = null;
   let remainingLine = null, traveledLine = null, traveledTrace = [], connectorLine = null;
   let compassOn = false;
-  let lockedRoute = null;      // 사용자가 목록에서 고른 경로 하나 (고정) — 이후엔 이 경로 위에서만 진행 상황을 계산
-  let awaitingChoice = false;  // 경로 목록을 보여주고 선택을 기다리는 중인지
+  let lockedRoute = null;      // 사용자가 목록/지도에서 고른 경로 하나 (고정) — 이후엔 이 경로 위에서만 진행 상황을 계산
+  let awaitingChoice = false;  // 경로 후보들을 보여주고 선택을 기다리는 중인지
   let lastPanLatLng = null;    // 지도 흔들림 방지: 아주 작은 위치 변화에는 panTo를 다시 호출하지 않음
   const PAN_MIN_MOVE_M = 3;
+  let candidateLinesLayer = null; // 경로 후보들을 지도에 색깔별로 미리 그려두는 레이어 — 터치해서 바로 고를 수 있음
+  // 후보 경로마다 다른 색을 줘서 지도에서/목록에서 같은 경로임을 한눈에 알 수 있게 함
+  const ROUTE_COLORS = ['#42a5f5', '#ab47bc', '#26c6da', '#ffa726', '#9ccc65'];
 
   function initMap() {
     map = L.map('map', { zoomControl: true, attributionControl: true }).setView([37.7720, 128.8660], 15);
@@ -207,6 +210,11 @@
       attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
     }).addTo(map);
     pathLinesLayer = L.layerGroup().addTo(map);
+    candidateLinesLayer = L.layerGroup().addTo(map);
+  }
+
+  function clearCandidateLines() {
+    if (candidateLinesLayer) candidateLinesLayer.clearLayers();
   }
 
   function extractToken(raw) {
@@ -345,6 +353,7 @@
   function resetRouteChoice() {
     lockedRoute = null;
     awaitingChoice = false;
+    clearCandidateLines();
     document.getElementById('routePicker').classList.add('hidden');
     document.getElementById('routePicker').innerHTML = '';
     document.getElementById('reRouteBtn').classList.add('hidden');
@@ -575,22 +584,47 @@
   function renderRouteChoices(result) {
     const box = document.getElementById('routePicker');
     box.innerHTML = '';
+    clearCandidateLines();
     const label = result.offNetwork ? ' (조사구간 복귀 포함)' : '';
+    const bounds = [];
+
     result.routes.forEach(function(r, i) {
+      const color = ROUTE_COLORS[i % ROUTE_COLORS.length];
+      const llPoints = r.points.map(function(p){ return [p[0], p[1]]; });
+      bounds.push.apply(bounds, llPoints);
+
+      // 실제 보이는 색깔 선 (후보 경로마다 다른 색)
+      const visible = L.polyline(llPoints, { color: color, weight: 6, opacity: 0.85 }).addTo(candidateLinesLayer);
+      // 그 아래 깔리는 투명한 넓은 선 — 손가락으로 터치하기 쉽도록 터치 가능 영역을 넓혀줌
+      const touchArea = L.polyline(llPoints, { color: color, weight: 26, opacity: 0.001 }).addTo(candidateLinesLayer);
+      const pick = function() { selectRoute(result, r); };
+      visible.on('click', pick);
+      touchArea.on('click', pick);
+
       const btn = document.createElement('button');
       btn.className = 'routeOpt';
-      btn.innerHTML = '경로 ' + (i + 1) + label + ' — 약 <b>' + Math.round(r.total) + 'm</b>';
-      btn.onclick = function() { selectRoute(result, r); };
+      btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:' + color +
+        ';margin-right:8px;vertical-align:middle;"></span>경로 ' + (i + 1) + label + ' — 약 <b>' + Math.round(r.total) + 'm</b>';
+      btn.onclick = pick;
       box.appendChild(btn);
     });
+
+    if (result.connector) {
+      bounds.push.apply(bounds, result.connector);
+      L.polyline(result.connector, { color: '#ff9800', weight: 5, opacity: 0.8, dashArray: '2 10' }).addTo(candidateLinesLayer);
+    }
+    if (bounds.length) map.fitBounds(bounds, { padding: [40, 120] });
+
     box.classList.remove('hidden');
     document.getElementById('reRouteBtn').classList.remove('hidden');
-    setStatus('<b>' + (NAMES[destCode] || destCode) + '</b> 로 갈 수 있는 길이 ' + result.routes.length + '개 있어. 안내받을 경로를 하나 골라줘.');
+    setStatus('<b>' + (NAMES[destCode] || destCode) + '</b> 로 갈 수 있는 길이 ' + result.routes.length +
+      '개 있어. 지도에서 색깔 있는 경로를 터치하거나 목록에서 골라줘.');
   }
 
   function selectRoute(result, chosen) {
     lockedRoute = { points: chosen.points, connector: result.connector, offNetwork: result.offNetwork };
     awaitingChoice = false;
+    clearCandidateLines();
     document.getElementById('routePicker').classList.add('hidden');
     document.getElementById('routePicker').innerHTML = '';
     clearRouteLines();
