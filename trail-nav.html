@@ -16,10 +16,6 @@
     transition: transform 0.25s linear;
   }
   #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
-  #compassArrow {
-    position: absolute; top: 50%; left: 50%; width: 0; height: 0; z-index: 900; pointer-events: none;
-    transform: translate(-50%, -50%);
-  }
   #panel {
     position: absolute; left: 0; right: 0; bottom: 0; z-index: 1000;
     background: rgba(27,29,33,0.96); padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
@@ -41,7 +37,7 @@
   .badge.gps { background: #28a745; color: #fff; }
   .badge.nogps { background: #dc3545; color: #fff; }
   .badge.path { background: #ff9800; color: #1b1d21; }
-  .badge.line { background: #5f6267; color: #fff; }
+  .badge.off { background: #5f6267; color: #fff; }
   #headingDot {
     position: absolute; top: 50%; left: 50%; z-index: 1000; pointer-events: none;
     transform: translate(-50%, -140%);
@@ -71,7 +67,7 @@
   <div class="row">
     <button id="trackBtn" onclick="toggleTracking()" style="flex:1;">내 위치 추적 시작</button>
   </div>
-  <div id="status">목적지를 선택하고 "내 위치 추적"을 켜줘. 기록된 보행경로가 있으면 그 길을 따라 안내해줄게.</div>
+  <div id="status">목적지를 선택하고 "내 위치 추적"을 켜줘. 조사된 길을 따라서만 안내하고, 조사된 길이 없으면 안내하지 않아.</div>
 </div>
 
 <script>
@@ -93,9 +89,9 @@
     'T5':'등산로출구(죽헌저수지 중간)', 'T6':'등산로출구(죽헌저수지 물막이)'
   };
 
-  // 목적지 근처(이 거리 안)에서 끝나는 기록된 길이 있으면 그 길을 따라 안내 (없으면 직선 안내로 대체)
-  // GPS로 찍어둔 목적지 좌표와 실제로 걸으며 기록을 멈춘 지점은 다소 떨어져 있을 수 있어 여유를 넉넉히 둠
-  const PATH_MATCH_MAX_M = 300;
+  // 현재 위치가 조사된 길에서 이 거리 안이어야 "그 길 위에 있다"고 판단 (조사 지점 간격이 최대 300m라 여유를 둠)
+  const ON_PATH_MAX_M = 150;
+  const ARRIVED_MAX_M = 15;
 
   // 서버 압축 경로 문자열 디코딩 (Code.gs walkDecode_ 와 동일 로직)
   function walkDecode(s) {
@@ -132,11 +128,21 @@
     const dirs = ['북','북동','동','남동','남','남서','서','북서'];
     return dirs[Math.round(deg / 45) % 8];
   }
+  function pathLength(pts) {
+    let s = 0;
+    for (let i = 1; i < pts.length; i++) s += haversine(pts[i-1][0], pts[i-1][1], pts[i][0], pts[i][1]);
+    return s;
+  }
+  function segSum(pts, i0, i1) { // i0<=i1 구간의 누적 거리
+    let s = 0;
+    for (let i = i0; i < i1; i++) s += haversine(pts[i][0], pts[i][1], pts[i+1][0], pts[i+1][1]);
+    return s;
+  }
 
-  let map, destCoords = null, destCode = '', meMarker = null, watchId = null, destMarker = null;
-  let rawPathStrings = [], decodedPaths = [], activePath = null, traveledLine = null, remainingLine = null;
-  let pathLinesLayer = null;
-  let compassOn = false, lastHeading = null;
+  let map, destCode = '', meMarker = null, watchId = null, destMarker = null;
+  let edges = [], adjacency = {}, pathLinesLayer = null;
+  let remainingLine = null, traveledLine = null, traveledTrace = [];
+  let compassOn = false;
 
   function initMap() {
     map = L.map('map', { zoomControl: true, attributionControl: true }).setView([37.7720, 128.8660], 15);
@@ -164,10 +170,9 @@
       }
       document.getElementById('tokenBar').classList.add('hidden');
       renderCoords(res.coords || {});
-      rawPathStrings = res.paths || [];
-      decodedPaths = rawPathStrings.map(walkDecode).filter(Boolean);
+      buildGraph(res.paths || []);
       drawAllPaths();
-      setStatus('지도를 불러왔어 (기록된 길 ' + decodedPaths.length + '개). 목적지를 선택해줘.');
+      setStatus('지도를 불러왔어 (기록된 길 ' + edges.length + '개). 목적지를 선택해줘.');
     }).catch(function() {
       setStatus('서버 연결에 실패했어. 잠시 후 다시 시도해줘.');
     });
@@ -195,90 +200,138 @@
     sel.setAttribute('data-coords', JSON.stringify(coords));
   }
 
+  // 서버가 준 {from, to, path} 목록 → 그래프(노드=조사 코드, 엣지=기록된 길)로 변환
+  // 조사된 길만 연결해서 다닐 수 있고, 지름길(직선) 연결은 절대 만들지 않음
+  function buildGraph(rawEdges) {
+    edges = rawEdges.map(function(e) {
+      const pts = walkDecode(e && e.path);
+      if (!pts || pts.length < 2) return null;
+      const from = String((e && e.from) || '').trim().toUpperCase();
+      const to = String((e && e.to) || '').trim().toUpperCase();
+      return { from: from, to: to, pts: pts, length: pathLength(pts) };
+    }).filter(Boolean);
+
+    adjacency = {};
+    edges.forEach(function(e, i) {
+      if (e.from && e.from !== '-') {
+        (adjacency[e.from] = adjacency[e.from] || []).push({ edgeIdx: i, node: e.to });
+      }
+      if (e.to && e.to !== '-') {
+        (adjacency[e.to] = adjacency[e.to] || []).push({ edgeIdx: i, node: e.from });
+      }
+    });
+  }
+
   function drawAllPaths() {
     pathLinesLayer.clearLayers();
-    decodedPaths.forEach(function(pts) {
-      L.polyline(pts.map(function(p){ return [p[0], p[1]]; }), { color: '#b5e8c4', weight: 4, opacity: 0.55 }).addTo(pathLinesLayer);
+    edges.forEach(function(e) {
+      L.polyline(e.pts.map(function(p){ return [p[0], p[1]]; }), { color: '#b5e8c4', weight: 4, opacity: 0.55 }).addTo(pathLinesLayer);
     });
   }
 
-  function clearActivePathLines() {
-    if (traveledLine) { map.removeLayer(traveledLine); traveledLine = null; }
+  function clearRouteLines() {
     if (remainingLine) { map.removeLayer(remainingLine); remainingLine = null; }
-  }
-
-  // 선택한 목적지 근처에서 끝나는 기록된 길을 찾아, 목적지 쪽이 배열의 끝(마지막)이 되도록 정렬
-  // path가 없을 때도 "가장 가까웠던 길이 몇 m 떨어져 있었는지"를 알 수 있도록 bestDist를 항상 같이 반환
-  function findPathToDestination(destLatLng) {
-    let best = null, bestDist = Infinity, reversed = false;
-    decodedPaths.forEach(function(pts) {
-      if (!pts || pts.length < 2) return;
-      const first = pts[0], last = pts[pts.length - 1];
-      const dFirst = haversine(destLatLng[0], destLatLng[1], first[0], first[1]);
-      const dLast = haversine(destLatLng[0], destLatLng[1], last[0], last[1]);
-      if (dFirst < bestDist) { bestDist = dFirst; best = pts; reversed = true; }
-      if (dLast < bestDist) { bestDist = dLast; best = pts; reversed = false; }
-    });
-    const matched = (best && bestDist <= PATH_MATCH_MAX_M) ? (reversed ? best.slice().reverse() : best) : null;
-    return { path: matched, bestDist: isFinite(bestDist) ? bestDist : null, totalPaths: decodedPaths.length };
+    if (traveledLine) { map.removeLayer(traveledLine); traveledLine = null; }
+    traveledTrace = [];
   }
 
   document.getElementById('destSelect').addEventListener('change', function() {
     const code = this.value;
     const coords = JSON.parse(this.getAttribute('data-coords') || '{}');
     if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
-    clearActivePathLines();
+    clearRouteLines();
     destCode = code;
-    if (!code || !coords[code]) { destCoords = null; activePath = null; return; }
-    destCoords = coords[code];
-    destMarker = L.circleMarker(destCoords, { radius: 9, color: '#f6b5ae', weight: 3, fillColor: '#dc3545', fillOpacity: 0.9 })
-      .addTo(map).bindPopup('목적지: ' + (NAMES[code] || code)).openPopup();
-    map.panTo(destCoords);
-
-    const found = findPathToDestination(destCoords);
-    activePath = found.path;
-    if (activePath) {
-      // 조사해둔 목적지 구간 — 처음엔 전체가 빨간색(아직 안 지나감), 위치추적을 켜면 지나간 구간은 흐려짐
-      remainingLine = L.polyline(activePath.map(function(p){ return [p[0], p[1]]; }), { color: '#dc3545', weight: 6, opacity: 0.95 }).addTo(map);
-      setStatus('목적지: <b>' + (NAMES[code] || code) + '</b> <span class="badge path">기록된 길 안내</span> — "내 위치 추적"을 눌러줘.');
+    if (!code) return;
+    const ll = coords[code];
+    if (ll) {
+      destMarker = L.circleMarker(ll, { radius: 9, color: '#f6b5ae', weight: 3, fillColor: '#dc3545', fillOpacity: 0.9 })
+        .addTo(map).bindPopup('목적지: ' + (NAMES[code] || code)).openPopup();
+      map.panTo(ll);
+    }
+    if (!adjacency[code]) {
+      setStatus('목적지: <b>' + (NAMES[code] || code) + '</b><br>이 목적지로 연결된 조사된 길이 아직 없어 — 안내할 수 없어.');
     } else {
-      const diag = found.totalPaths === 0
-        ? '불러온 기록된 길이 0개야 (이 토큰으로는 아직 길 기록이 없어)'
-        : '가장 가까운 기록된 길의 끝점이 이 목적지에서 약 ' + Math.round(found.bestDist) + 'm 떨어져 있어 (기준 ' + PATH_MATCH_MAX_M + 'm)';
-      setStatus('목적지: <b>' + (NAMES[code] || code) + '</b> <span class="badge line">직선 안내 (근처 기록된 길 없음)</span><br>' + diag);
+      setStatus('목적지: <b>' + (NAMES[code] || code) + '</b> — "내 위치 추적"을 눌러줘. 조사된 길을 따라서만 안내할게.');
     }
   });
 
-  // 현재 위치 기준으로 지나간 구간(흐리게)과 남은 구간(빨간색)을 다시 그림
-  function updateProgressLines(pts, nearIdx, meLatLng) {
-    const traveled = pts.slice(0, nearIdx + 1).map(function(p){ return [p[0], p[1]]; });
-    traveled.push(meLatLng);
-    const remaining = [meLatLng].concat(pts.slice(nearIdx).map(function(p){ return [p[0], p[1]]; }));
-
-    if (traveled.length >= 2) {
-      if (!traveledLine) {
-        traveledLine = L.polyline(traveled, { color: '#dc3545', weight: 6, opacity: 0.28 }).addTo(map);
-      } else {
-        traveledLine.setLatLngs(traveled);
-      }
-    } else if (traveledLine) {
-      map.removeLayer(traveledLine); traveledLine = null;
-    }
-
-    if (!remainingLine) {
-      remainingLine = L.polyline(remaining, { color: '#dc3545', weight: 6, opacity: 0.95 }).addTo(map);
-    } else {
-      remainingLine.setLatLngs(remaining);
-    }
+  // 현재 위치에서 가장 가까운 엣지 위의 꼭짓점을 찾음 (= 지금 어느 조사된 길 위에 있는지)
+  function locateOnGraph(lat, lng) {
+    let best = null;
+    edges.forEach(function(e, ei) {
+      e.pts.forEach(function(p, vi) {
+        const d = haversine(lat, lng, p[0], p[1]);
+        if (!best || d < best.dist) best = { edgeIdx: ei, vertexIdx: vi, dist: d };
+      });
+    });
+    return best;
   }
 
-  function nearestPointOnPath(lat, lng, pts) {
-    let bestIdx = 0, bestDist = Infinity;
-    pts.forEach(function(p, i) {
-      const d = haversine(lat, lng, p[0], p[1]);
-      if (d < bestDist) { bestDist = d; bestIdx = i; }
+  // 그래프(노드=조사 코드)에서 다익스트라로 가장 짧은 "조사된 길들의 조합"을 찾음 — 직선 지름길은 절대 쓰지 않음
+  function shortestNodePath(seeds, target) {
+    const dist = {}, prev = {}, prevEdge = {}, visited = {};
+    const pq = seeds.map(function(s){ return { node: s.node, cost: s.cost }; });
+    seeds.forEach(function(s) {
+      if (dist[s.node] === undefined || s.cost < dist[s.node]) dist[s.node] = s.cost;
     });
-    return { idx: bestIdx, dist: bestDist };
+    while (pq.length) {
+      let bi = 0;
+      for (let i = 1; i < pq.length; i++) if (pq[i].cost < pq[bi].cost) bi = i;
+      const cur = pq.splice(bi, 1)[0];
+      if (visited[cur.node]) continue;
+      if (dist[cur.node] !== undefined && cur.cost > dist[cur.node] + 1e-6) continue;
+      visited[cur.node] = true;
+      if (cur.node === target) break;
+      (adjacency[cur.node] || []).forEach(function(adj) {
+        const nd = cur.cost + edges[adj.edgeIdx].length;
+        if (dist[adj.node] === undefined || nd < dist[adj.node]) {
+          dist[adj.node] = nd;
+          prev[adj.node] = cur.node;
+          prevEdge[adj.node] = adj.edgeIdx;
+          pq.push({ node: adj.node, cost: nd });
+        }
+      });
+    }
+    if (dist[target] === undefined) return null;
+    const seq = [];
+    let node = target;
+    while (prev[node] !== undefined) {
+      seq.unshift({ edgeIdx: prevEdge[node], from: prev[node], to: node });
+      node = prev[node];
+    }
+    return { startNode: node, seq: seq, total: dist[target] };
+  }
+
+  // 현재 위치 → 목적지까지, 조사된 길만 이어서 만든 전체 좌표 목록을 매번 새로 계산 (갈림길에서 다른 조사된 길을 타면 자동으로 다시 계산됨)
+  function computeRoute(lat, lng, dest) {
+    if (!edges.length) return { noData: true };
+    const loc = locateOnGraph(lat, lng);
+    if (!loc || loc.dist > ON_PATH_MAX_M) return { offPath: true, nearestDist: loc ? loc.dist : null };
+
+    const e = edges[loc.edgeIdx];
+    const costToFrom = segSum(e.pts, 0, loc.vertexIdx);
+    const costToTo = segSum(e.pts, loc.vertexIdx, e.pts.length - 1);
+    const seeds = [];
+    if (e.from) seeds.push({ node: e.from, cost: costToFrom });
+    if (e.to) seeds.push({ node: e.to, cost: costToTo });
+    if (!seeds.length) return { noRoute: true };
+
+    const result = shortestNodePath(seeds, dest);
+    if (!result) return { noRoute: true };
+
+    let points;
+    if (result.startNode === e.to) {
+      points = e.pts.slice(loc.vertexIdx).map(function(p){ return [p[0], p[1]]; });
+    } else {
+      points = e.pts.slice(0, loc.vertexIdx + 1).slice().reverse().map(function(p){ return [p[0], p[1]]; });
+    }
+    result.seq.forEach(function(step) {
+      const edge = edges[step.edgeIdx];
+      const forward = (step.from === edge.from);
+      const segPts = (forward ? edge.pts : edge.pts.slice().reverse()).map(function(p){ return [p[0], p[1]]; });
+      points = points.concat(segPts.slice(1));
+    });
+    return { points: points, total: result.total };
   }
 
   function toggleTracking() {
@@ -307,30 +360,42 @@
     }
     map.panTo([lat, lng]);
 
-    if (!destCoords) {
+    // 지나온 흔적 (흐리게)
+    traveledTrace.push([lat, lng]);
+    if (traveledTrace.length >= 2) {
+      if (!traveledLine) traveledLine = L.polyline(traveledTrace, { color: '#dc3545', weight: 6, opacity: 0.28 }).addTo(map);
+      else traveledLine.setLatLngs(traveledTrace);
+    }
+
+    if (!destCode) {
       setStatus('현재 위치 추적 중 <span class="badge gps">GPS ±' + Math.round(acc) + 'm</span> — 목적지를 선택해줘.');
       return;
     }
 
     const destName = NAMES[destCode] || destCode;
+    const route = computeRoute(lat, lng, destCode);
 
-    if (activePath) {
-      const near = nearestPointOnPath(lat, lng, activePath);
-      let remain = near.dist;
-      for (let i = near.idx; i < activePath.length - 1; i++) {
-        remain += haversine(activePath[i][0], activePath[i][1], activePath[i + 1][0], activePath[i + 1][1]);
+    if (route.points) {
+      if (!remainingLine) remainingLine = L.polyline(route.points, { color: '#dc3545', weight: 6, opacity: 0.95 }).addTo(map);
+      else remainingLine.setLatLngs(route.points);
+
+      if (route.total <= ARRIVED_MAX_M) {
+        setStatus('<b>' + destName + '</b> 도착! 🎉 <span class="badge gps">GPS ±' + Math.round(acc) + 'm</span>');
+      } else {
+        const nextPoint = route.points[Math.min(1, route.points.length - 1)];
+        const b = bearing(lat, lng, nextPoint[0], nextPoint[1]);
+        setStatus('<b>' + destName + '</b> <span class="badge path">조사된 길</span> 남은 거리 약 <b>' + Math.round(route.total) + 'm</b>, 다음 방향: <b>' + compass8(b) + '</b> ' +
+          '<span class="badge gps">GPS ±' + Math.round(acc) + 'm</span>');
       }
-      const nextIdx = Math.min(near.idx + 1, activePath.length - 1);
-      const nextPoint = activePath[nextIdx];
-      const b = bearing(lat, lng, nextPoint[0], nextPoint[1]);
-      updateProgressLines(activePath, near.idx, [lat, lng]);
-      setStatus('<b>' + destName + '</b> (기록된 길) 남은 거리 약 <b>' + Math.round(remain) + 'm</b>, 다음 방향: <b>' + compass8(b) + '</b> ' +
-        '<span class="badge gps">GPS ±' + Math.round(acc) + 'm</span>');
     } else {
-      const d = haversine(lat, lng, destCoords[0], destCoords[1]);
-      const b = bearing(lat, lng, destCoords[0], destCoords[1]);
-      setStatus('<b>' + destName + '</b> (직선) 까지 약 <b>' + Math.round(d) + 'm</b>, 방향: <b>' + compass8(b) + '</b> ' +
-        '<span class="badge gps">GPS ±' + Math.round(acc) + 'm</span>');
+      if (remainingLine) { map.removeLayer(remainingLine); remainingLine = null; }
+      if (route.offPath) {
+        setStatus('<span class="badge off">조사된 길 밖</span> 가장 가까운 조사된 길까지 약 <b>' + Math.round(route.nearestDist) + 'm</b> — 그 길로 돌아가면 다시 안내할게.');
+      } else if (route.noData) {
+        setStatus('<span class="badge off">기록된 길 없음</span> 이 토큰에는 조사된 길 데이터가 없어.');
+      } else {
+        setStatus('<span class="badge off">경로 없음</span> 지금 위치에서 <b>' + destName + '</b> 까지 이어지는 조사된 길 조합을 찾지 못했어. 조사된 길로 이동해줘.');
+      }
     }
   }
 
@@ -340,7 +405,6 @@
 
   // ====== 걷는 방향이 위로 오도록 지도 회전 (나침반) ======
   function applyRotation(headingDeg) {
-    lastHeading = headingDeg;
     document.getElementById('mapRotate').style.transform = 'rotate(' + (-headingDeg) + 'deg)';
   }
 
