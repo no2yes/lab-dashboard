@@ -94,7 +94,8 @@
   };
 
   // 목적지 근처(이 거리 안)에서 끝나는 기록된 길이 있으면 그 길을 따라 안내 (없으면 직선 안내로 대체)
-  const PATH_MATCH_MAX_M = 150;
+  // GPS로 찍어둔 목적지 좌표와 실제로 걸으며 기록을 멈춘 지점은 다소 떨어져 있을 수 있어 여유를 넉넉히 둠
+  const PATH_MATCH_MAX_M = 300;
 
   // 서버 압축 경로 문자열 디코딩 (Code.gs walkDecode_ 와 동일 로직)
   function walkDecode(s) {
@@ -207,6 +208,7 @@
   }
 
   // 선택한 목적지 근처에서 끝나는 기록된 길을 찾아, 목적지 쪽이 배열의 끝(마지막)이 되도록 정렬
+  // path가 없을 때도 "가장 가까웠던 길이 몇 m 떨어져 있었는지"를 알 수 있도록 bestDist를 항상 같이 반환
   function findPathToDestination(destLatLng) {
     let best = null, bestDist = Infinity, reversed = false;
     decodedPaths.forEach(function(pts) {
@@ -217,8 +219,8 @@
       if (dFirst < bestDist) { bestDist = dFirst; best = pts; reversed = true; }
       if (dLast < bestDist) { bestDist = dLast; best = pts; reversed = false; }
     });
-    if (!best || bestDist > PATH_MATCH_MAX_M) return null;
-    return reversed ? best.slice().reverse() : best;
+    const matched = (best && bestDist <= PATH_MATCH_MAX_M) ? (reversed ? best.slice().reverse() : best) : null;
+    return { path: matched, bestDist: isFinite(bestDist) ? bestDist : null, totalPaths: decodedPaths.length };
   }
 
   document.getElementById('destSelect').addEventListener('change', function() {
@@ -233,13 +235,17 @@
       .addTo(map).bindPopup('목적지: ' + (NAMES[code] || code)).openPopup();
     map.panTo(destCoords);
 
-    activePath = findPathToDestination(destCoords);
+    const found = findPathToDestination(destCoords);
+    activePath = found.path;
     if (activePath) {
       // 조사해둔 목적지 구간 — 처음엔 전체가 빨간색(아직 안 지나감), 위치추적을 켜면 지나간 구간은 흐려짐
       remainingLine = L.polyline(activePath.map(function(p){ return [p[0], p[1]]; }), { color: '#dc3545', weight: 6, opacity: 0.95 }).addTo(map);
       setStatus('목적지: <b>' + (NAMES[code] || code) + '</b> <span class="badge path">기록된 길 안내</span> — "내 위치 추적"을 눌러줘.');
     } else {
-      setStatus('목적지: <b>' + (NAMES[code] || code) + '</b> <span class="badge line">직선 안내 (근처 기록된 길 없음)</span> — "내 위치 추적"을 눌러줘.');
+      const diag = found.totalPaths === 0
+        ? '불러온 기록된 길이 0개야 (이 토큰으로는 아직 길 기록이 없어)'
+        : '가장 가까운 기록된 길의 끝점이 이 목적지에서 약 ' + Math.round(found.bestDist) + 'm 떨어져 있어 (기준 ' + PATH_MATCH_MAX_M + 'm)';
+      setStatus('목적지: <b>' + (NAMES[code] || code) + '</b> <span class="badge line">직선 안내 (근처 기록된 길 없음)</span><br>' + diag);
     }
   });
 
