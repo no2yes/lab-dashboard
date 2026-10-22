@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>실습실 점검</title>
+<style>
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1b1d21; --surface-pop: #272a30; --surface-deep: #202328; --surface-solid: #23262b;
+  --text: #e9e7e2; --accent: #8ab4f8; --accent-soft: #b3cdfa; --accent-strong: #4f86d8; --on-accent: #10233d;
+  --warn-text: #f3d98d; --ok-text: #b5e8c4; --danger-text: #f6b5ae; --muted-text: #c7ced3; --danger-line: #f28b82;
+  --line-soft: rgba(255,255,255,.10);
+  --t1: #e9e7e2; --t2: #cdcbc6; --t3: #a8a6a1; --t4: #84827e;
+  --surface-1: #2a2d33; --surface-2: #30343b; --bd1: #3a3e45; --bd2: #4a4f57;
+  --brand-solid: #3f78c8;
+  --warn-bg: rgba(245,166,35,.16); --danger-bg: rgba(248,113,113,.16); --ok-bg: rgba(74,222,128,.14);
+  --ok-strong: #4ade80; --warn-bd: rgba(245,166,35,.38); --danger-bd: rgba(248,113,113,.38); --ok-bd: rgba(74,222,128,.34);
+  --sh: 0,0,0; --shk: 1;
+  --w03:rgba(255,255,255,0.03); --w04:rgba(255,255,255,0.04); --w05:rgba(255,255,255,0.05);
+  --w06:rgba(255,255,255,0.06); --w07:rgba(255,255,255,0.07); --w08:rgba(255,255,255,0.08);
+  --w10:rgba(255,255,255,0.1); --w12:rgba(255,255,255,0.12); --w14:rgba(255,255,255,0.14);
+  --w15:rgba(255,255,255,0.15); --w16:rgba(255,255,255,0.16); --w18:rgba(255,255,255,0.18);
+  --w20:rgba(255,255,255,0.2); --w22:rgba(255,255,255,0.22); --w25:rgba(255,255,255,0.25);
+  --w30:rgba(255,255,255,0.3); --w35:rgba(255,255,255,0.35); --w40:rgba(255,255,255,0.4);
+  --w45:rgba(255,255,255,0.45); --w50:rgba(255,255,255,0.5); --w55:rgba(255,255,255,0.55);
+  --w60:rgba(255,255,255,0.6); --w65:rgba(255,255,255,0.65); --w70:rgba(255,255,255,0.7);
+  --w75:rgba(255,255,255,0.75); --w80:rgba(255,255,255,0.8); --w85:rgba(255,255,255,0.85); --w90:rgba(255,255,255,0.9);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f5f2; --surface-pop: #ffffff; --surface-deep: #ece9e3; --surface-solid: #ffffff;
+  --text: #26282c; --accent: #1d5fae; --accent-soft: #2a6bb8; --accent-strong: #154a8c; --on-accent: #ffffff;
+  --warn-text: #8a5a00; --ok-text: #1b6b3a; --danger-text: #a8322a; --muted-text: #5a6670; --danger-line: #c0392b;
+  --line-soft: rgba(40,36,28,.10);
+  --t1: #26282c; --t2: #3f4247; --t3: #5f6267; --t4: #8b8e93;
+  --surface-1: #f4f2ed; --surface-2: #ebe8e1; --bd1: #e4e1da; --bd2: #d2cec5;
+  --brand-solid: #1d5fae;
+  --warn-bg: #fff4dc; --danger-bg: #fde8e6; --ok-bg: #e4f4e8;
+  --ok-strong: #15803d; --warn-bd: #f0d28a; --danger-bd: #f0b9b4; --ok-bd: #a9d6b6;
+  --sh: 60,50,30; --shk: .35;
+  --w03:rgba(40,36,28,0.025); --w04:rgba(40,36,28,0.034); --w05:rgba(255,255,255,0.78);
+  --w06:rgba(255,255,255,0.82); --w07:rgba(255,255,255,0.86); --w08:rgba(255,255,255,0.90);
+  --w10:rgba(40,36,28,0.06); --w12:rgba(40,36,28,0.09); --w14:rgba(40,36,28,0.11);
+  --w15:rgba(40,36,28,0.12); --w16:rgba(40,36,28,0.13); --w18:rgba(40,36,28,0.14);
+  --w20:rgba(40,36,28,0.16); --w22:rgba(40,36,28,0.18); --w25:rgba(40,36,28,0.20);
+  --w30:rgba(40,36,28,.24); --w35:rgba(38,40,44,0.46); --w40:rgba(38,40,44,0.52);
+  --w45:rgba(38,40,44,0.56); --w50:rgba(38,40,44,0.60); --w55:rgba(38,40,44,0.64);
+  --w60:rgba(38,40,44,0.68); --w65:rgba(38,40,44,0.72); --w70:rgba(38,40,44,0.76);
+  --w75:rgba(38,40,44,0.80); --w80:rgba(38,40,44,0.85); --w85:rgba(38,40,44,0.88); --w90:rgba(38,40,44,0.92);
+}
+html { background: var(--bg); }
+#labThemeBtn {
+  position: fixed; left: 14px; bottom: 14px; z-index: 99999;
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--w22); background: var(--surface-pop); color: var(--text);
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 0;
+  box-shadow: 0 2px 10px rgba(var(--sh), calc(.35 * var(--shk)));
+  display: flex; align-items: center; justify-content: center;
+  opacity: .85; transition: opacity .15s, transform .15s;
+}
+#labThemeBtn:hover { opacity: 1; transform: scale(1.06); }
+@media print { #labThemeBtn { display: none !important; } }
+</style>
+<script>
+(function () {
+  var KEY = 'lab_theme', mode = 'dark';
+  try { mode = localStorage.getItem(KEY) || 'dark'; } catch (e) {}
+  if (mode !== 'light' && mode !== 'dark') mode = 'dark';
+  function apply(m) {
+    mode = m;
+    document.documentElement.setAttribute('data-theme', m);
+    var b = document.getElementById('labThemeBtn');
+    if (b) {
+      b.textContent = (m === 'dark') ? '☀️' : '🌙';
+      b.title = (m === 'dark') ? '화이트 테마로 전환' : '다크 테마로 전환';
+      b.setAttribute('aria-label', b.title);
+    }
+  }
+  window.toggleLabTheme = function () {
+    var next = (mode === 'dark') ? 'light' : 'dark';
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+    apply(next);
+  };
+  apply(mode);
+  function mount() {
+    if (document.getElementById('labThemeBtn') || !document.body) return;
+    var b = document.createElement('button');
+    b.id = 'labThemeBtn'; b.type = 'button';
+    b.onclick = window.toggleLabTheme;
+    document.body.appendChild(b);
+    apply(mode);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
+})();
+</script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Malgun Gothic','맑은 고딕',sans-serif; background: var(--bg); min-height: 100vh; padding: 20px; color: var(--text); }
+.card { background: var(--surface-solid); border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.10); max-width: 480px; margin: 0 auto; padding: 28px 24px; }
+.logo { color: var(--accent); font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+h1 { font-size: 20px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+.greet { font-size: 13px; color: var(--t3); margin-bottom: 20px; }
+.msg { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+.msg.error { background: var(--danger-bg); color: var(--danger-text); }
+.msg.info { background: var(--warn-bg); color: var(--warn-text); }
+.room-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+.room-btn { padding: 14px 16px; border: 2px solid var(--bd1); border-radius: 10px; background: var(--surface-solid); text-align: left; cursor: pointer; font-family: inherit; font-size: 15px; font-weight: 600; color: var(--t1); }
+.room-btn:hover { border-color: var(--accent); background: var(--surface-2); }
+.section-label { font-size: 13px; font-weight: 600; color: var(--accent); margin: 20px 0 10px; }
+.item-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--bd1); }
+.item-name { font-size: 14px; color: var(--t1); }
+.item-toggle { display: flex; gap: 6px; }
+.toggle-btn { padding: 7px 14px; border-radius: 6px; border: 1px solid var(--bd2); background: var(--surface-solid); font-size: 12px; font-family: inherit; cursor: pointer; color: var(--t3); }
+.toggle-btn.ok.active { background: #28a745; color: #fff; border-color: #28a745; }
+.toggle-btn.bad.active { background: #dc3545; color: #fff; border-color: var(--danger-line); }
+.item-memo { display: none; margin: -4px 0 10px; padding-left: 4px; }
+.item-memo.show { display: block; }
+.item-memo input { width: 100%; padding: 8px 10px; border: 1px solid var(--danger-bd); background: var(--danger-bg); border-radius: 6px; font-size: 13px; font-family: inherit; box-sizing: border-box; color: var(--text); }
+textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--bd2); border-radius: 8px; font-size: 13px; font-family: inherit; resize: vertical; margin-top: 6px; background: var(--surface-solid); color: var(--text); }
+.btn { width: 100%; padding: 14px; background: var(--brand-solid); color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 20px; }
+.btn:disabled { background: #b0bec5; }
+.btn.back { background: #6c757d; margin-top: 10px; }
+.done { text-align: center; padding: 30px 0; }
+.done-icon { font-size: 56px; margin-bottom: 16px; }
+.done-title { font-size: 20px; font-weight: 700; color: var(--ok-text); margin-bottom: 8px; }
+.done-sub { font-size: 14px; color: var(--t3); }
+.spinner { display: inline-block; width: 16px; height: 16px; border: 3px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="card" id="mainCard">
+  <div class="logo">강원대학교 강릉캠퍼스</div>
+  <h1>실습실 점검</h1>
+  <div class="greet" id="greetText">확인 중...</div>
+  <div id="msgArea"></div>
+  <div id="bodyArea"></div>
+</div>
+
+<script>
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
+
+  function api(params) {
+    const q = Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&');
+    return fetch(GAS_URL + '?page=api&' + q + '&_=' + Date.now()).then(r => r.json());
+  }
+
+  let studentId = '', studentName = '';
+  let selectedRoom = null;
+  const ITEMS = [
+    { key: 'boot', label: '컴퓨터 부팅' },
+    { key: 'keyboard', label: '키보드 / 마우스' },
+    { key: 'network', label: '네트워크 링크속도' },
+    { key: 'chair', label: '의자 수량' },
+    { key: 'clean', label: '테이블 / 바닥 청결' },
+    { key: 'podium', label: '전자교탁' },
+    { key: 'board', label: '전자칠판' },
+    { key: 'etc', label: '기타' }
+  ];
+  const LOST_ITEM = { key: 'lostFound', label: '습득물' };
+  const results = {};
+
+  function escapeHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function showMsg(type, text) { document.getElementById('msgArea').innerHTML = '<div class="msg ' + type + '">' + escapeHtml(text) + '</div>'; }
+  function clearMsg() { document.getElementById('msgArea').innerHTML = ''; }
+
+  const qs = new URLSearchParams(location.search);
+  const adminTokenParam = qs.get('admin') || '';
+  const isAdminMode = adminTokenParam !== '';
+  const inspectToken = isAdminMode ? adminTokenParam : (qs.get('t') || '');
+
+  api({ action: 'inspectverify', t: inspectToken, admin: isAdminMode ? '1' : '0' })
+    .then(function(res) {
+      if (!res || !res.valid) {
+        showMsg('error', res ? res.message : '유효하지 않은 링크입니다.');
+        return;
+      }
+      studentId = res.studentId;
+      studentName = res.studentName || '';
+      document.getElementById('greetText').textContent = studentName ? studentName + ' 님, 점검할 실습실을 선택하세요.' : '점검할 실습실을 선택하세요.';
+      loadRooms();
+    })
+    .catch(function() { showMsg('error', '링크 확인 중 오류가 발생했습니다.'); });
+
+  function loadRooms() {
+    document.getElementById('greetText').textContent = studentName ? studentName + ' 님, 오늘 점검할 실습실을 선택하세요.' : '오늘 점검할 실습실을 선택하세요.';
+    document.getElementById('bodyArea').innerHTML = '<div style="text-align:center;color:var(--t4);padding:20px;">불러오는 중...</div>';
+    api({ action: 'inspectablerooms', studentId: studentId, admin: isAdminMode ? '1' : '0' })
+      .then(function(res) {
+        if (!res || !res.success) { showMsg('error', (res&&res.message)||'조회에 실패했습니다.'); document.getElementById('bodyArea').innerHTML=''; return; }
+        if (!res.hasSchedule) {
+          document.getElementById('bodyArea').innerHTML =
+            '<div class="msg info">오늘(' + (res.today||'') + ')은 등록된 근무시간이 없습니다.</div>';
+          return;
+        }
+        if (res.rooms.length === 0) {
+          document.getElementById('bodyArea').innerHTML =
+            '<div class="msg info">오늘 근무시간(' + (res.workTime||'') + ')에 점검 가능한 실습실이 없습니다.</div>';
+          return;
+        }
+        renderRoomList(res.rooms, res.workTime);
+      })
+      .catch(function(err) { showMsg('error', '서버 오류: ' + (err.message||'')); });
+  }
+
+  function renderRoomList(rooms, workTime) {
+    let html = '<div style="font-size:12px;color:var(--t4);margin-bottom:10px;">오늘 근무시간: ' + escapeHtml(workTime) + '</div>';
+    html += '<div class="room-list">';
+    rooms.forEach(r => {
+      html += '<button type="button" class="room-btn" onclick="selectRoom(\'' + escapeHtml(r.id) + '\',\'' + escapeHtml(r.name) + '\')">' + escapeHtml(r.name) + '</button>';
+    });
+    html += '</div>';
+    document.getElementById('bodyArea').innerHTML = html;
+  }
+
+    function selectRoom(id, name) {
+    selectedRoom = { id, name };
+    ITEMS.forEach(it => results[it.key] = '양호');
+    results[LOST_ITEM.key] = '없음';
+
+    let html = '<div style="font-size:15px;font-weight:700;color:var(--accent);margin-bottom:4px;">' + escapeHtml(name) + '</div>';
+    html += '<div class="section-label">점검 항목</div>';
+    ITEMS.forEach(it => {
+      html += '<div class="item-row">';
+      html += '<span class="item-name">' + it.label + '</span>';
+      html += '<div class="item-toggle">';
+      html += '<button type="button" class="toggle-btn ok active" id="ok_' + it.key + '" onclick="setResult(\'' + it.key + '\',\'양호\')">양호</button>';
+      html += '<button type="button" class="toggle-btn bad" id="bad_' + it.key + '" onclick="setResult(\'' + it.key + '\',\'이상\')">이상</button>';
+      html += '</div></div>';
+      html += '<div class="item-memo" id="memo_' + it.key + '">' +
+              '<input type="text" id="memoInput_' + it.key + '" placeholder="' + it.label + ' — 무엇이 어떻게 이상한지 짧게 적어주세요"></div>';
+    });
+
+    html += '<div class="item-row">';
+    html += '<span class="item-name">' + LOST_ITEM.label + '</span>';
+    html += '<div class="item-toggle">';
+    html += '<button type="button" class="toggle-btn ok active" id="ok_' + LOST_ITEM.key + '" onclick="setLostFound(\'없음\')">없음</button>';
+    html += '<button type="button" class="toggle-btn bad" id="bad_' + LOST_ITEM.key + '" onclick="setLostFound(\'있음\')">있음</button>';
+    html += '</div></div>';
+    html += '<div class="item-memo" id="memo_' + LOST_ITEM.key + '">' +
+            '<input type="text" id="memoInput_' + LOST_ITEM.key + '" placeholder="습득물 — 물품과 발견 위치를 적어주세요 (예: 검정 우산, 3번 자리)"></div>';
+
+    html += '<button class="btn" id="submitBtn" onclick="doSubmit()">점검 완료 제출</button>';
+    html += '<button class="btn back" onclick="loadRooms()">← 실습실 다시 선택</button>';
+
+    document.getElementById('bodyArea').innerHTML = html;
+    clearMsg();
+  }
+
+  function setLostFound(val) {
+    results[LOST_ITEM.key] = val;
+    document.getElementById('ok_' + LOST_ITEM.key).classList.toggle('active', val === '없음');
+    document.getElementById('bad_' + LOST_ITEM.key).classList.toggle('active', val === '있음');
+    const memo = document.getElementById('memo_' + LOST_ITEM.key);
+    if (memo) {
+      memo.classList.toggle('show', val === '있음');
+      if (val === '있음') {
+        setTimeout(() => document.getElementById('memoInput_' + LOST_ITEM.key).focus(), 50);
+      } else {
+        document.getElementById('memoInput_' + LOST_ITEM.key).value = '';
+      }
+    }
+  }
+
+  function setResult(key, val) {
+    results[key] = val;
+    document.getElementById('ok_' + key).classList.toggle('active', val === '양호');
+    document.getElementById('bad_' + key).classList.toggle('active', val === '이상');
+    const memo = document.getElementById('memo_' + key);
+    if (memo) {
+      memo.classList.toggle('show', val === '이상');
+      if (val === '이상') {
+        setTimeout(() => document.getElementById('memoInput_' + key).focus(), 50);
+      } else {
+        document.getElementById('memoInput_' + key).value = '';
+      }
+    }
+  }
+
+  function doSubmit() {
+    const itemNotes = [];
+    ITEMS.forEach(it => {
+      if (results[it.key] === '이상') {
+        const memoEl = document.getElementById('memoInput_' + it.key);
+        const memo = memoEl ? memoEl.value.trim() : '';
+        itemNotes.push(it.label + (memo ? ': ' + memo : ' (내용 미입력)'));
+      }
+    });
+
+    const lostMemoEl = document.getElementById('memoInput_' + LOST_ITEM.key);
+    const lostMemo = lostMemoEl ? lostMemoEl.value.trim() : '';
+    if (results[LOST_ITEM.key] === '있음' && !lostMemo) {
+      showMsg('error', '습득물이 있는 경우 물품과 발견 위치를 반드시 적어주세요.');
+      return;
+    }
+    const lostFoundContent = (results[LOST_ITEM.key] === '있음') ? lostMemo : '';
+
+    const note = itemNotes.join(' / ');
+
+    const missingMemo = ITEMS.some(it => results[it.key] === '이상' &&
+      !(document.getElementById('memoInput_' + it.key) && document.getElementById('memoInput_' + it.key).value.trim()));
+    if (missingMemo) {
+      if (!confirm('이상으로 체크한 항목 중 내용을 안 적으신 게 있습니다. 그래도 제출하시겠습니까?')) return;
+    }
+
+    const issueList = [];
+    ITEMS.forEach(it => {
+      if (results[it.key] === '이상') {
+        const memoEl = document.getElementById('memoInput_' + it.key);
+        issueList.push({ label: it.label, memo: memoEl ? memoEl.value.trim() : '' });
+      }
+    });
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> 제출 중...';
+
+    api({
+      action: 'inspectsubmit',
+      studentId: isAdminMode ? '' : studentId,
+      studentName: studentName,
+      roomId: selectedRoom.id,
+      results: JSON.stringify(results),
+      note: note,
+      issueList: JSON.stringify(issueList),
+      lostFoundContent: lostFoundContent
+    })
+      .then(function(res) {
+        if (res && res.success) {
+          document.getElementById('greetText').textContent = studentName ? studentName + ' 님, 수고하셨습니다.' : '수고하셨습니다.';
+          document.getElementById('bodyArea').innerHTML =
+            '<div class="done"><div class="done-icon">✅</div><div class="done-title">제출 완료</div><div class="done-sub">' + escapeHtml(res.message) + '</div>' +
+            '<button class="btn" style="margin-top:20px;" onclick="loadRooms()">다른 실습실 점검하기</button></div>';
+        } else {
+          showMsg('error', (res&&res.message)||'제출에 실패했습니다.');
+          btn.disabled = false; btn.textContent = '점검 완료 제출';
+        }
+      })
+      .catch(function(err) {
+        showMsg('error', '서버 오류: ' + (err.message||''));
+        btn.disabled = false; btn.textContent = '점검 완료 제출';
+      });
+  }
+</script>
+</body>
+</html>
