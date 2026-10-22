@@ -108,7 +108,7 @@
   <div id="mapRotate"><div id="map"></div></div>
 </div>
 <div id="headingDot">🔼</div>
-<div id="verTag">v1.6</div>
+<div id="verTag">v1.7</div>
 
 <div id="topBar">
   <div id="appBrand">다녀봐!<br>강대강캠!<span class="subtitle">태동여지도</span></div>
@@ -127,6 +127,7 @@
   </div>
   <div id="routePicker" class="hidden"></div>
   <div id="status">목적지를 선택하고 "내 위치 추적"을 켜줘. 조사된 길을 따라서만 안내하고, 조사된 길이 없으면 안내하지 않아.</div>
+  <div id="routeDebug" style="font-size:11px;color:#9aa0a6;margin-top:4px;word-break:break-all;"></div>
 </div>
 
 <script>
@@ -475,6 +476,8 @@
     document.getElementById('routePicker').classList.add('hidden');
     document.getElementById('routePicker').innerHTML = '';
     document.getElementById('reRouteBtn').classList.add('hidden');
+    const dbg = document.getElementById('routeDebug');
+    if (dbg) dbg.innerHTML = '';
   }
 
   // 점 하나를 선분(a-b) 위로 투영 (평면근사 — 짧은 거리라 충분히 정확함)
@@ -615,9 +618,10 @@
         ? [[loc.lat, loc.lng]].concat(e.pts.slice(loc.segIdx + 1).map(toLL))
         : [[loc.lat, loc.lng]].concat(e.pts.slice(0, loc.segIdx + 1).map(toLL).reverse());
 
-      (function dfs(node, cost, visitedNodes, visitedEdges, pts, depth) {
+      (function dfs(node, cost, visitedNodes, visitedEdges, pts, nodeSeq, depth) {
         if (results.length >= MAX_RESULTS) return;
-        if (node === dest) { results.push({ total: cost, points: pts.slice() }); return; }
+        // 디버그/문제 추적용: 이 경로가 실제로 거쳐간 코드 목록(~X로 시작하면 가상 접점)
+        if (node === dest) { results.push({ total: cost, points: pts.slice(), nodes: nodeSeq.slice() }); return; }
         if (depth >= MAX_DEPTH) return;
         (adjacency[node] || []).forEach(function(adj) {
           if (results.length >= MAX_RESULTS) return;
@@ -628,10 +632,10 @@
           const segPts = (forward ? edge.pts : edge.pts.slice().reverse()).map(toLL);
           const nextVisitedNodes = Object.assign({}, visitedNodes); nextVisitedNodes[adj.node] = true;
           const nextVisitedEdges = Object.assign({}, visitedEdges); nextVisitedEdges[adj.edgeIdx] = true;
-          dfs(adj.node, cost + edge.length, nextVisitedNodes, nextVisitedEdges, pts.concat(segPts.slice(1)), depth + 1);
+          dfs(adj.node, cost + edge.length, nextVisitedNodes, nextVisitedEdges, pts.concat(segPts.slice(1)), nodeSeq.concat([adj.node]), depth + 1);
         });
       })(seed.node, seed.cost, (function(){ const o = {}; o[seed.node] = true; return o; })(),
-         (function(){ const o = {}; o[loc.edgeIdx] = true; return o; })(), startPts, 0);
+         (function(){ const o = {}; o[loc.edgeIdx] = true; return o; })(), startPts, [seed.node], 0);
     });
 
     if (!results.length) return { noRoute: true };
@@ -754,10 +758,18 @@
     const accWarn = result.lowAcc ? ' <span class="badge nogps">위치 정확도 ±' + Math.round(result.lowAcc) + 'm — 부정확할 수 있어</span>' : '';
     setStatus('<b>' + (NAMES[destCode] || destCode) + '</b> 로 갈 수 있는 길이 ' + result.routes.length +
       '개 있어. 지도에서 색깔 있는 경로를 터치하거나 목록에서 골라줘.' + accWarn);
+
+    // 디버그용: 왜 이렇게 돌아가는지 나중에 짚어볼 수 있게, 각 후보가 거쳐간 코드 목록을 작은 글씨로 보여줌
+    const dbg = document.getElementById('routeDebug');
+    if (dbg) {
+      dbg.innerHTML = result.routes.map(function(r, i) {
+        return '경로' + (i + 1) + ': ' + (r.nodes || []).join(' → ');
+      }).join('<br>');
+    }
   }
 
   function selectRoute(result, chosen) {
-    lockedRoute = { points: chosen.points, connector: result.connector, offNetwork: result.offNetwork };
+    lockedRoute = { points: chosen.points, connector: result.connector, offNetwork: result.offNetwork, nodes: chosen.nodes };
     awaitingChoice = false;
     clearCandidateLines();
     document.getElementById('routePicker').classList.add('hidden');
@@ -768,6 +780,8 @@
       connectorLine = L.polyline(lockedRoute.connector, { color: '#ff9800', weight: 5, opacity: 0.9, dashArray: '2 10' }).addTo(map);
     }
     setStatus('<b>' + (NAMES[destCode] || destCode) + '</b> 경로를 골랐어 — 이제 이 경로만 따라 안내할게.');
+    const dbg = document.getElementById('routeDebug');
+    if (dbg) dbg.innerHTML = '선택한 경로: ' + (lockedRoute.nodes || []).join(' → ');
     setUiVisible(false); // 검색 + 경로 선택이 끝났으니 패널을 스르륵 치워서 지도를 꽉 채워 보여줌
   }
 
