@@ -582,7 +582,10 @@
     const pos = lastRawPos;
     if (!pos) { setStatus('위치를 아직 확인 못했어 — "내 위치 추적"을 먼저 켜줘.'); return; }
 
-    const result = findCandidateRoutes(pos.lat, pos.lng, destCode, 4);
+    // 등산로(T코드) 목적지는 갈림길마다 실제로 고를 만한 분기가 여러 개일 수 있어 좀 더 넉넉히 보여주고,
+    // 건물 등 그 외 목적지는 불필요한 경로 없이 최단거리 "탑4"만 (지도에도) 보여줌
+    const isTrailDest = /^T\d/.test(destCode);
+    const result = findCandidateRoutes(pos.lat, pos.lng, destCode, isTrailDest ? 8 : 4);
     result.lowAcc = lowAcc;
     if (!result.routes || !result.routes.length) {
       resetRouteChoice();
