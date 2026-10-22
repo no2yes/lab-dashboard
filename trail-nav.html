@@ -108,7 +108,7 @@
   <div id="mapRotate"><div id="map"></div></div>
 </div>
 <div id="headingDot">🔼</div>
-<div id="verTag">v1.4</div>
+<div id="verTag">v1.5</div>
 
 <div id="topBar">
   <div id="appBrand">다녀봐!<br>강대강캠!<span class="subtitle">태동여지도</span></div>
@@ -296,12 +296,37 @@
     sel.setAttribute('data-coords', JSON.stringify(allCoords));
   }
 
+  // 측량 중 GPS 오차나 "갔다가 되돌아온" 구간 때문에, 기록된 길 하나 안에 지그재그/고리 모양이
+  // 생기는 경우가 있음 (건물 근처 멀티패스 반사 등으로 흔함). 그대로 쓰면 최단경로 알고리즘이
+  // 아무리 최적이어도 그 노이즈 구간까지 "실제 거리"로 집계되고 화면에도 지그재그로 그려짐.
+  // 그래서 각 길을 그래프에 넣기 전에, "앞으로 갔다가 거의 같은 자리로 돌아온" 구간을 통째로
+  // 잘라내서 더 짧고 깨끗한 직선에 가까운 경로로 정리함 (시작/끝 점은 노드 좌표라 그대로 둠).
+  const LOOP_SNIP_M = 12;
+  function removeBacktrackLoops(pts) {
+    if (!pts || pts.length < 3) return pts;
+    const out = [pts[0]];
+    let i = 0;
+    while (i < pts.length - 1) {
+      let next = i + 1;
+      for (let k = pts.length - 1; k > i + 1; k--) {
+        if (haversine(pts[i][0], pts[i][1], pts[k][0], pts[k][1]) <= LOOP_SNIP_M) {
+          next = k;
+          break;
+        }
+      }
+      out.push(pts[next]);
+      i = next;
+    }
+    return out;
+  }
+
   // 서버가 준 {from, to, path} 목록 → 그래프(노드=조사 코드, 엣지=기록된 길)로 변환
   // 조사된 길만 연결해서 다닐 수 있고, 지름길(직선) 연결은 절대 만들지 않음
   function buildGraph(rawEdges) {
     edges = rawEdges.map(function(e) {
-      const pts = walkDecode(e && e.path);
+      let pts = walkDecode(e && e.path);
       if (!pts || pts.length < 2) return null;
+      pts = removeBacktrackLoops(pts);
       const from = String((e && e.from) || '').trim().toUpperCase();
       const to = String((e && e.to) || '').trim().toUpperCase();
       return { from: from, to: to, pts: pts, length: pathLength(pts) };
