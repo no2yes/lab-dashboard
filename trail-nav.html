@@ -60,7 +60,7 @@
   <div id="mapRotate"><div id="map"></div></div>
 </div>
 <div id="headingDot">🔼</div>
-<div id="verTag">v1.0</div>
+<div id="verTag">v1.1</div>
 
 <div id="panel">
   <div class="row">
@@ -174,8 +174,8 @@
         return;
       }
       document.getElementById('tokenBar').classList.add('hidden');
-      renderCoords(res.coords || {});
       buildGraph(res.paths || []);
+      renderCoords(res.coords || {});
       drawAllPaths();
       setStatus('지도를 불러왔어 (기록된 길 ' + edges.length + '개). 목적지를 선택해줘.');
     }).catch(function() {
@@ -183,26 +183,51 @@
     });
   }
 
+  // 지점을 찍을 좌표가 없어도(정문 샘플 3회 미만 등) 기록된 길의 끝점에 등장하면
+  // 그 길의 끝 좌표를 그대로 마커 위치로 써서 목적지 목록에 올려준다.
+  function edgeFallbackCoord(code) {
+    for (let i = 0; i < edges.length; i++) {
+      const e = edges[i];
+      if (e.from === code) return [e.pts[0][0], e.pts[0][1]];
+      if (e.to === code) return [e.pts[e.pts.length - 1][0], e.pts[e.pts.length - 1][1]];
+    }
+    return null;
+  }
+
   function renderCoords(coords) {
     const sel = document.getElementById('destSelect');
     const bounds = [];
-    Object.keys(coords).forEach(function(code) {
-      const ll = coords[code];
-      if (!ll || ll.length < 2) return;
+    const allCoords = Object.assign({}, coords);
+    const codes = Object.keys(coords);
+    Object.keys(adjacency || {}).forEach(function(code) {
+      if (!coords[code]) codes.push(code);
+    });
+    codes.forEach(function(code) {
+      let ll = coords[code];
+      let surveyed = !!(ll && ll.length >= 2);
+      if (!surveyed) {
+        ll = edgeFallbackCoord(code);
+        if (!ll) return;
+      }
       bounds.push(ll);
+      allCoords[code] = ll;
       const name = NAMES[code] || code;
       const isTrail = /^T\d/.test(code);
       L.circleMarker(ll, {
-        radius: 7, color: isTrail ? '#f3d98d' : '#8ab4f8', weight: 2,
-        fillColor: isTrail ? '#f3d98d' : '#8ab4f8', fillOpacity: 0.85
-      }).addTo(map).bindPopup(name + ' (' + code + ')');
+        radius: surveyed ? 7 : 5,
+        color: isTrail ? '#f3d98d' : '#8ab4f8', weight: 2,
+        fillColor: isTrail ? '#f3d98d' : '#8ab4f8',
+        fillOpacity: surveyed ? 0.85 : 0.4,
+        dashArray: surveyed ? null : '2,3'
+      }).addTo(map).bindPopup(name + ' (' + code + ')' + (surveyed ? '' : ' - 정문 좌표 미확정, 경로 끝점 기준'));
 
       const opt = document.createElement('option');
-      opt.value = code; opt.textContent = name + (isTrail ? ' [등산로]' : '');
+      opt.value = code;
+      opt.textContent = name + (isTrail ? ' [등산로]' : '') + (surveyed ? '' : ' (미확정)');
       sel.appendChild(opt);
     });
     if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
-    sel.setAttribute('data-coords', JSON.stringify(coords));
+    sel.setAttribute('data-coords', JSON.stringify(allCoords));
   }
 
   // 서버가 준 {from, to, path} 목록 → 그래프(노드=조사 코드, 엣지=기록된 길)로 변환
