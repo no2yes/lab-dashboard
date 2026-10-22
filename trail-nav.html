@@ -255,14 +255,32 @@
     }
   });
 
-  // 현재 위치에서 가장 가까운 엣지 위의 꼭짓점을 찾음 (= 지금 어느 조사된 길 위에 있는지)
-  function locateOnGraph(lat, lng) {
+  // 점 하나를 선분(a-b) 위로 투영 (평면근사 — 짧은 거리라 충분히 정확함)
+  function projectOnSegment(lat, lng, aLat, aLng, bLat, bLng) {
+    const latRef = (aLat + bLat) / 2;
+    const mLat = 111320, mLng = 111320 * Math.cos(latRef * Math.PI / 180);
+    const ax = 0, ay = 0;
+    const bx = (bLng - aLng) * mLng, by = (bLat - aLat) * mLat;
+    const px = (lng - aLng) * mLng, py = (lat - aLat) * mLat;
+    const dx = bx - ax, dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    let t = len2 > 0 ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    const pLat = aLat + t * (bLat - aLat), pLng = aLng + t * (bLng - aLng);
+    return { lat: pLat, lng: pLng, t: t, dist: haversine(lat, lng, pLat, pLng) };
+  }
+
+  // 현재 위치에서 가장 가까운 "조사된 길 위의 지점"을 선분 투영으로 찾음 (꼭짓점 사이 중간에 있어도 정확하게 그 길 위로 스냅)
+  function nearestPointOnNetwork(lat, lng) {
     let best = null;
     edges.forEach(function(e, ei) {
-      e.pts.forEach(function(p, vi) {
-        const d = haversine(lat, lng, p[0], p[1]);
-        if (!best || d < best.dist) best = { edgeIdx: ei, vertexIdx: vi, dist: d };
-      });
+      for (let vi = 0; vi < e.pts.length - 1; vi++) {
+        const a = e.pts[vi], b = e.pts[vi + 1];
+        const proj = projectOnSegment(lat, lng, a[0], a[1], b[0], b[1]);
+        if (!best || proj.dist < best.dist) {
+          best = { edgeIdx: ei, segIdx: vi, t: proj.t, lat: proj.lat, lng: proj.lng, dist: proj.dist };
+        }
+      }
     });
     return best;
   }
@@ -303,14 +321,17 @@
   }
 
   // 현재 위치 → 목적지까지, 조사된 길만 이어서 만든 전체 좌표 목록을 매번 새로 계산 (갈림길에서 다른 조사된 길을 타면 자동으로 다시 계산됨)
-  function computeRoute(lat, lng, dest) {
+  // loc은 nearestPointOnNetwork()의 결과(없으면 새로 계산) — 마커 스냅과 같은 지점을 재사용해서 일관되게 보이도록 함
+  function computeRoute(lat, lng, dest, loc) {
     if (!edges.length) return { noData: true };
-    const loc = locateOnGraph(lat, lng);
+    if (loc === undefined) loc = nearestPointOnNetwork(lat, lng);
     if (!loc || loc.dist > ON_PATH_MAX_M) return { offPath: true, nearestDist: loc ? loc.dist : null };
 
     const e = edges[loc.edgeIdx];
-    const costToFrom = segSum(e.pts, 0, loc.vertexIdx);
-    const costToTo = segSum(e.pts, loc.vertexIdx, e.pts.length - 1);
+    const a = e.pts[loc.segIdx], b = e.pts[loc.segIdx + 1];
+    const toLL = function(p){ return [p[0], p[1]]; };
+    const costToFrom = segSum(e.pts, 0, loc.segIdx) + haversine(loc.lat, loc.lng, a[0], a[1]);
+    const costToTo = haversine(loc.lat, loc.lng, b[0], b[1]) + segSum(e.pts, loc.segIdx + 1, e.pts.length - 1);
     const seeds = [];
     if (e.from) seeds.push({ node: e.from, cost: costToFrom });
     if (e.to) seeds.push({ node: e.to, cost: costToTo });
@@ -321,14 +342,14 @@
 
     let points;
     if (result.startNode === e.to) {
-      points = e.pts.slice(loc.vertexIdx).map(function(p){ return [p[0], p[1]]; });
+      points = [[loc.lat, loc.lng]].concat(e.pts.slice(loc.segIdx + 1).map(toLL));
     } else {
-      points = e.pts.slice(0, loc.vertexIdx + 1).slice().reverse().map(function(p){ return [p[0], p[1]]; });
+      points = [[loc.lat, loc.lng]].concat(e.pts.slice(0, loc.segIdx + 1).map(toLL).reverse());
     }
     result.seq.forEach(function(step) {
       const edge = edges[step.edgeIdx];
       const forward = (step.from === edge.from);
-      const segPts = (forward ? edge.pts : edge.pts.slice().reverse()).map(function(p){ return [p[0], p[1]]; });
+      const segPts = (forward ? edge.pts : edge.pts.slice().reverse()).map(toLL);
       points = points.concat(segPts.slice(1));
     });
     return { points: points, total: result.total };
@@ -352,7 +373,14 @@
   }
 
   function onPosition(pos) {
-    const lat = pos.coords.latitude, lng = pos.coords.longitude, acc = pos.coords.accuracy;
+    const rawLat = pos.coords.latitude, rawLng = pos.coords.longitude, acc = pos.coords.accuracy;
+
+    // 길 근처에 있으면 GPS 오차로 튀지 않도록 위치를 그 길 위로 스냅해서 표시 (지도가 과도하게 움직이는 것 방지)
+    const loc = (edges.length ? nearestPointOnNetwork(rawLat, rawLng) : null);
+    const onNetwork = !!(loc && loc.dist <= ON_PATH_MAX_M);
+    const lat = onNetwork ? loc.lat : rawLat;
+    const lng = onNetwork ? loc.lng : rawLng;
+
     if (!meMarker) {
       meMarker = L.circleMarker([lat, lng], { radius: 8, color: '#f6b5ae', weight: 2, fillColor: '#f6b5ae', fillOpacity: 0.9 }).addTo(map);
     } else {
@@ -360,7 +388,7 @@
     }
     map.panTo([lat, lng]);
 
-    // 지나온 흔적 (흐리게)
+    // 지나온 흔적 (흐리게) — 스냅된 위치 기준으로 쌓아서 흔적도 길을 따라 깔끔하게 그려짐
     traveledTrace.push([lat, lng]);
     if (traveledTrace.length >= 2) {
       if (!traveledLine) traveledLine = L.polyline(traveledTrace, { color: '#dc3545', weight: 6, opacity: 0.28 }).addTo(map);
@@ -373,7 +401,7 @@
     }
 
     const destName = NAMES[destCode] || destCode;
-    const route = computeRoute(lat, lng, destCode);
+    const route = computeRoute(rawLat, rawLng, destCode, loc || undefined);
 
     if (route.points) {
       if (!remainingLine) remainingLine = L.polyline(route.points, { color: '#dc3545', weight: 6, opacity: 0.95 }).addTo(map);
@@ -404,18 +432,57 @@
   }
 
   // ====== 걷는 방향이 위로 오도록 지도 회전 (나침반) ======
+  // 산 속 등에서 나침반 신호가 약해지면 값이 갑자기 크게 튀는데, 그때마다 지도가 뱅뱅 돌지 않도록
+  // "직전 방향을 유지하다가, 같은 새 방향이 몇 번 연속으로 들어오면 그제서야 서서히 보정"하는 방식으로 완화함
+  let smoothedHeading = null, pendingHeading = null, pendingCount = 0;
+  const HEADING_SMOOTH_ALPHA = 0.18;   // 평소 보정 속도 (0~1, 작을수록 천천히 부드럽게)
+  const HEADING_JUMP_THRESHOLD = 50;   // 이보다 크게 튀면 "신호가 약해졌다"고 보고 일단 보류
+  const HEADING_CONFIRM_COUNT = 4;     // 튄 방향이 이만큼 연속으로 들어와야 실제 방향전환으로 인정
+
+  function circDiff(a, b) { return ((a - b + 540) % 360) - 180; } // a-b를 -180~180 범위로
+
   function applyRotation(headingDeg) {
     document.getElementById('mapRotate').style.transform = 'rotate(' + (-headingDeg) + 'deg)';
   }
 
   function onOrientation(e) {
-    let heading = null;
+    let heading = null, accuracy = null;
     if (typeof e.webkitCompassHeading === 'number') {
       heading = e.webkitCompassHeading; // iOS Safari: 0=북, 시계방향 증가 (바로 사용 가능)
+      if (typeof e.webkitCompassAccuracy === 'number') accuracy = e.webkitCompassAccuracy; // -1 또는 큰 값 = 신호 약함
     } else if (typeof e.alpha === 'number') {
       heading = (360 - e.alpha) % 360; // Android 등: 근사치
     }
-    if (heading !== null && !isNaN(heading)) applyRotation(heading);
+    if (heading === null || isNaN(heading)) return;
+
+    if (smoothedHeading === null) {
+      smoothedHeading = heading;
+      applyRotation(smoothedHeading);
+      return;
+    }
+
+    const diff = circDiff(heading, smoothedHeading);
+    const weak = (accuracy !== null && (accuracy < 0 || accuracy > 50));
+
+    if (weak || Math.abs(diff) > HEADING_JUMP_THRESHOLD) {
+      // 신호가 약하거나 값이 크게 튐 — 같은 새 방향이 연속으로 들어오는지 확인
+      if (pendingHeading !== null && Math.abs(circDiff(heading, pendingHeading)) < 20) {
+        pendingCount++;
+      } else {
+        pendingHeading = heading;
+        pendingCount = 1;
+      }
+      if (pendingCount >= HEADING_CONFIRM_COUNT) {
+        smoothedHeading = (smoothedHeading + circDiff(pendingHeading, smoothedHeading) * HEADING_SMOOTH_ALPHA + 360) % 360;
+        applyRotation(smoothedHeading);
+      }
+      // 아직 확인 안 됐으면 직전 방향 그대로 유지 (지도를 돌리지 않음)
+      return;
+    }
+
+    pendingHeading = null; pendingCount = 0;
+    smoothedHeading = (smoothedHeading + diff * HEADING_SMOOTH_ALPHA + 360) % 360;
+    applyRotation(smoothedHeading);
   }
 
   function toggleCompass() {
@@ -423,6 +490,7 @@
     if (compassOn) {
       window.removeEventListener('deviceorientation', onOrientation);
       compassOn = false;
+      smoothedHeading = null; pendingHeading = null; pendingCount = 0;
       btn.classList.remove('secondary');
       btn.textContent = '방향센서';
       applyRotation(0);
