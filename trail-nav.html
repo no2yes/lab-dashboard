@@ -108,7 +108,7 @@
   <div id="mapRotate"><div id="map"></div></div>
 </div>
 <div id="headingDot">🔼</div>
-<div id="verTag">v1.7</div>
+<div id="verTag">v1.8</div>
 
 <div id="topBar">
   <div id="appBrand">다녀봐!<br>강대강캠!<span class="subtitle">태동여지도</span></div>
@@ -373,16 +373,23 @@
         // 만나는 지점이 한쪽 길의 "끝점"과 정확히 겹치는 경우엔 그 끝점의 기존 코드를
         // 그대로 접점으로 써야 함 (새 가상 노드를 만들면 그 끝점과 연결이 안 되고 따로 떠버림).
         // 양쪽 다 중간 지점일 때만 새 가상 노드(~X0, ~X1, ...)를 만듦.
-        let vCode;
+        // anchor: 접점으로 쓸 실제 좌표 — 두 길의 "가장 가까운 지점"이 서로 몇 m씩 어긋나 있을 수
+        // 있는데(같은 코드로 조사된 게 아니라서), 그걸 그대로 쓰면 지도에 접점에서 살짝 꺾이는
+        // 자국(지그재그)이 남아서 "다른 곳을 거쳐가는 것처럼" 보임. 양쪽 길의 끝점을 전부 이
+        // anchor 좌표로 맞춰서, 접점에서 매끄럽게 하나로 이어지도록 함.
+        let vCode, anchor;
         if (endA) {
           vCode = (best.a === 0) ? ei.from : ei.to;
+          anchor = ei.pts[best.a];
         } else if (endC) {
           vCode = (best.c === 0) ? ej.from : ej.to;
+          anchor = ej.pts[best.c];
         } else {
           vCode = '~X' + (vCounter++);
+          anchor = [(ei.pts[best.a][0] + ej.pts[best.c][0]) / 2, (ei.pts[best.a][1] + ej.pts[best.c][1]) / 2, null];
         }
-        splitsAt[i].push({ idx: best.a, code: vCode });
-        splitsAt[j].push({ idx: best.c, code: vCode });
+        splitsAt[i].push({ idx: best.a, code: vCode, anchor: anchor });
+        splitsAt[j].push({ idx: best.c, code: vCode, anchor: anchor });
       }
     }
 
@@ -392,14 +399,17 @@
         .filter(function(c){ return c.idx > 0 && c.idx < e.pts.length - 1; });
       if (!cuts.length) { out.push(e); return; }
 
-      let startIdx = 0, startCode = e.from;
+      let startIdx = 0, startCode = e.from, startAnchor = null;
       cuts.forEach(function(c) {
         if (c.idx <= startIdx) return; // 너무 가까운 중복 절단 방지
-        const segPts = e.pts.slice(startIdx, c.idx + 1);
+        const segPts = e.pts.slice(startIdx, c.idx + 1).slice();
+        if (startAnchor) segPts[0] = startAnchor; // 이전 접점과 정확히 같은 좌표로 시작
+        segPts[segPts.length - 1] = c.anchor; // 접점 좌표로 정확히 맞춤 (지그재그 방지)
         out.push({ from: startCode, to: c.code, pts: segPts, length: pathLength(segPts) });
-        startIdx = c.idx; startCode = c.code;
+        startIdx = c.idx; startCode = c.code; startAnchor = c.anchor;
       });
-      const tailPts = e.pts.slice(startIdx);
+      const tailPts = e.pts.slice(startIdx).slice();
+      if (startAnchor) tailPts[0] = startAnchor;
       out.push({ from: startCode, to: e.to, pts: tailPts, length: pathLength(tailPts) });
     });
     return out;
