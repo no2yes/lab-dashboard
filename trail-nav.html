@@ -108,7 +108,7 @@
   <div id="mapRotate"><div id="map"></div></div>
 </div>
 <div id="headingDot">🔼</div>
-<div id="verTag">v1.8</div>
+<div id="verTag">v1.9</div>
 
 <div id="topBar">
   <div id="appBrand">다녀봐!<br>강대강캠!<span class="subtitle">태동여지도</span></div>
@@ -152,6 +152,21 @@
   // 현재 위치가 조사된 길에서 이 거리 안이어야 "그 길 위에 있다"고 판단 (조사 지점 간격이 최대 300m라 여유를 둠)
   const ON_PATH_MAX_M = 150;
   const ARRIVED_MAX_M = 15;
+
+  // 출입로(정문/후문 등 G코드, 정문 N1)인지 판단 — 학교 밖에서 조회할 때 "가장 가까운 아무 길
+  // 지점"이 아니라 실제로 걸어 들어갈 수 있는 출입로부터 안내를 시작하기 위해 씀
+  function isGateCode(code) { return /^G\d+$/.test(code) || code === 'N1'; }
+  function nearestGateNode(lat, lng) {
+    let best = null;
+    Object.keys(allNodeCoords || {}).forEach(function(code) {
+      if (!isGateCode(code)) return;
+      const ll = allNodeCoords[code];
+      if (!ll) return;
+      const d = haversine(lat, lng, ll[0], ll[1]);
+      if (!best || d < best.d) best = { code: code, lat: ll[0], lng: ll[1], d: d };
+    });
+    return best;
+  }
 
   // 서버 압축 경로 문자열 디코딩 (Code.gs walkDecode_ 와 동일 로직)
   function walkDecode(s) {
@@ -201,6 +216,7 @@
 
   let map, destCode = '', meMarker = null, watchId = null, destMarker = null;
   let edges = [], adjacency = {}, pathLinesLayer = null;
+  let allNodeCoords = {}; // 모든 코드(정문/출입로/건물 등)의 좌표 — renderCoords()에서 채워짐, 출입로 탐색에 사용
   let remainingLine = null, traveledLine = null, traveledTrace = [], connectorLine = null;
   let compassOn = false;
   let lockedRoute = null;      // 사용자가 목록/지도에서 고른 경로 하나 (고정) — 이후엔 이 경로 위에서만 진행 상황을 계산
@@ -296,6 +312,7 @@
       sel.appendChild(opt);
     });
     if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
+    allNodeCoords = allCoords;
     sel.setAttribute('data-coords', JSON.stringify(allCoords));
   }
 
@@ -607,16 +624,35 @@
     const loc = nearestPointOnNetwork(lat, lng);
     if (!loc) return { noRoute: true };
     const offNetwork = loc.dist > ON_PATH_MAX_M;
-
-    const e = edges[loc.edgeIdx];
-    const a = e.pts[loc.segIdx], b = e.pts[loc.segIdx + 1];
     const toLL = function(p){ return [p[0], p[1]]; };
-    const costToFrom = segSum(e.pts, 0, loc.segIdx) + haversine(loc.lat, loc.lng, a[0], a[1]);
-    const costToTo = haversine(loc.lat, loc.lng, b[0], b[1]) + segSum(e.pts, loc.segIdx + 1, e.pts.length - 1);
 
-    const seedBranches = [];
-    if (e.from) seedBranches.push({ node: e.from, cost: costToFrom, dir: 'from' });
-    if (e.to) seedBranches.push({ node: e.to, cost: costToTo, dir: 'to' });
+    // 학교 밖처럼 조사된 길에서 많이 벗어난 곳이면, 그냥 지리적으로 가장 가까운 "길 위의 아무
+    // 지점"(등산로 중간 등 실제로는 바로 걸어 들어갈 수 없는 곳)으로 직선을 그어버리면 이상한
+    // 경로처럼 보임. 이럴 땐 가장 가까운 출입로(정문/후문 등 G코드, N1)를 먼저 찾아서 거기까지만
+    // 직선 점선으로 안내하고, 그 출입로부터는 평소처럼 조사된 길로만 최단거리 안내함.
+    const gate = offNetwork ? nearestGateNode(lat, lng) : null;
+    const useGate = !!(gate && adjacency[gate.code]);
+
+    let seedBranches, seedEdgeIdx, startPtsFor;
+    if (useGate) {
+      seedEdgeIdx = -1;
+      seedBranches = [{ node: gate.code, cost: gate.d, dir: 'gate' }];
+      startPtsFor = function() { return [[lat, lng], [gate.lat, gate.lng]]; };
+    } else {
+      const e = edges[loc.edgeIdx];
+      const a = e.pts[loc.segIdx], b = e.pts[loc.segIdx + 1];
+      const costToFrom = segSum(e.pts, 0, loc.segIdx) + haversine(loc.lat, loc.lng, a[0], a[1]);
+      const costToTo = haversine(loc.lat, loc.lng, b[0], b[1]) + segSum(e.pts, loc.segIdx + 1, e.pts.length - 1);
+      seedEdgeIdx = loc.edgeIdx;
+      seedBranches = [];
+      if (e.from) seedBranches.push({ node: e.from, cost: costToFrom, dir: 'from' });
+      if (e.to) seedBranches.push({ node: e.to, cost: costToTo, dir: 'to' });
+      startPtsFor = function(seed) {
+        return (seed.dir === 'to')
+          ? [[loc.lat, loc.lng]].concat(e.pts.slice(loc.segIdx + 1).map(toLL))
+          : [[loc.lat, loc.lng]].concat(e.pts.slice(0, loc.segIdx + 1).map(toLL).reverse());
+      };
+    }
     if (!seedBranches.length) return { noRoute: true };
 
     const results = [];
@@ -624,9 +660,7 @@
     const MAX_RESULTS = 40;
 
     seedBranches.forEach(function(seed) {
-      const startPts = (seed.dir === 'to')
-        ? [[loc.lat, loc.lng]].concat(e.pts.slice(loc.segIdx + 1).map(toLL))
-        : [[loc.lat, loc.lng]].concat(e.pts.slice(0, loc.segIdx + 1).map(toLL).reverse());
+      const startPts = startPtsFor(seed);
 
       (function dfs(node, cost, visitedNodes, visitedEdges, pts, nodeSeq, depth) {
         if (results.length >= MAX_RESULTS) return;
@@ -645,7 +679,7 @@
           dfs(adj.node, cost + edge.length, nextVisitedNodes, nextVisitedEdges, pts.concat(segPts.slice(1)), nodeSeq.concat([adj.node]), depth + 1);
         });
       })(seed.node, seed.cost, (function(){ const o = {}; o[seed.node] = true; return o; })(),
-         (function(){ const o = {}; o[loc.edgeIdx] = true; return o; })(), startPts, [seed.node], 0);
+         (function(){ const o = {}; if (seedEdgeIdx >= 0) o[seedEdgeIdx] = true; return o; })(), startPts, [seed.node], 0);
     });
 
     if (!results.length) return { noRoute: true };
@@ -665,10 +699,15 @@
 
     let connector = null;
     if (offNetwork) {
-      connector = [[lat, lng], [loc.lat, loc.lng]];
-      top.forEach(function(r) { r.total += loc.dist; });
+      if (useGate) {
+        connector = [[lat, lng], [gate.lat, gate.lng]];
+        top.forEach(function(r) { r.total += gate.d; });
+      } else {
+        connector = [[lat, lng], [loc.lat, loc.lng]];
+        top.forEach(function(r) { r.total += loc.dist; });
+      }
     }
-    return { routes: top, connector: connector, offNetwork: offNetwork, loc: loc };
+    return { routes: top, connector: connector, offNetwork: offNetwork, loc: loc, gate: useGate ? gate.code : null };
   }
 
   // 임의의 좌표 목록(고정된 경로) 위에서 가장 가까운 지점을 찾음 (전체 네트워크가 아니라 "이 경로"로만 한정 — 흔들림 방지 핵심)
