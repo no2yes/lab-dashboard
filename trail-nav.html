@@ -359,6 +359,7 @@
   function resetRouteChoice() {
     lockedRoute = null;
     awaitingChoice = false;
+    waitingForFixSince = null;
     clearCandidateLines();
     document.getElementById('routePicker').classList.add('hidden');
     document.getElementById('routePicker').innerHTML = '';
@@ -567,14 +568,17 @@
     };
   }
 
-  // 목적지까지 고를 수 있는 경로 목록을 계산해서 패널에 보여줌 (force=true면 이미 고정된 경로가 있어도 다시 목록을 띄움)
-  function requestRouteChoice(force) {
+  // 목적지까지 고를 수 있는 경로 목록을 계산해서 패널에 보여줌
+  // force=true면 이미 고정된 경로가 있어도 다시 목록을 띄움. lowAcc는 정확도가 충분히 좋아지길
+  // 기다리다 포기하고 지금 위치로라도 추천한 경우에만 넘겨서, 그 사실을 상태 메시지에 남김.
+  function requestRouteChoice(force, lowAcc) {
     if (!destCode) return;
     if (!force && (awaitingChoice || lockedRoute)) return;
     const pos = lastRawPos;
     if (!pos) { setStatus('위치를 아직 확인 못했어 — "내 위치 추적"을 먼저 켜줘.'); return; }
 
     const result = findCandidateRoutes(pos.lat, pos.lng, destCode, 4);
+    result.lowAcc = lowAcc;
     if (!result.routes || !result.routes.length) {
       resetRouteChoice();
       if (remainingLine) { map.removeLayer(remainingLine); remainingLine = null; }
@@ -623,8 +627,9 @@
 
     box.classList.remove('hidden');
     document.getElementById('reRouteBtn').classList.remove('hidden');
+    const accWarn = result.lowAcc ? ' <span class="badge nogps">위치 정확도 ±' + Math.round(result.lowAcc) + 'm — 부정확할 수 있어</span>' : '';
     setStatus('<b>' + (NAMES[destCode] || destCode) + '</b> 로 갈 수 있는 길이 ' + result.routes.length +
-      '개 있어. 지도에서 색깔 있는 경로를 터치하거나 목록에서 골라줘.');
+      '개 있어. 지도에서 색깔 있는 경로를 터치하거나 목록에서 골라줘.' + accWarn);
   }
 
   function selectRoute(result, chosen) {
@@ -688,6 +693,13 @@
     map.panTo([lat, lng]);
   }
 
+  // GPS를 막 켠 직후의 첫 위치는 정확도가 아주 나쁜 경우가 많음(수백~수천m) — 그 위치로 바로
+  // 경로를 추천하면 전혀 엉뚱한 길을 안내하게 됨. 정확도가 충분히 좋아질 때까지는 추천을 미루고,
+  // 너무 오래 안 좋아지면(기기 상황상 어쩔 수 없는 경우) 그때는 어쩔 수 없이 현재 위치로 추천함.
+  const GOOD_ACC_M = 30;
+  const ACC_WAIT_MAX_MS = 12000;
+  let waitingForFixSince = null;
+
   function onPosition(pos) {
     const rawLat = pos.coords.latitude, rawLng = pos.coords.longitude, acc = pos.coords.accuracy;
     lastRawPos = { lat: rawLat, lng: rawLng };
@@ -703,9 +715,20 @@
       }
       panIfMoved(rawLat, rawLng);
       if (!destCode) {
+        waitingForFixSince = null;
         setStatus('현재 위치 추적 중 <span class="badge gps">GPS ±' + Math.round(acc) + 'm</span> — 목적지를 선택해줘.');
       } else if (!awaitingChoice) {
-        requestRouteChoice(false);
+        if (acc <= GOOD_ACC_M) {
+          waitingForFixSince = null;
+          requestRouteChoice(false);
+        } else if (waitingForFixSince && (Date.now() - waitingForFixSince) > ACC_WAIT_MAX_MS) {
+          // 너무 오래 기다렸으면 지금 위치로라도 추천 (상태 메시지에 정확도가 낮았다는 걸 남김)
+          requestRouteChoice(false, acc);
+        } else {
+          if (!waitingForFixSince) waitingForFixSince = Date.now();
+          setStatus('<b>' + destName + '</b> 위치 정확도를 기다리는 중 <span class="badge gps">GPS ±' + Math.round(acc) +
+            'm</span> — 정확도가 좋아지면 자동으로 경로를 추천할게.');
+        }
       }
       return;
     }
