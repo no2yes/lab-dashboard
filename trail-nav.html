@@ -694,9 +694,10 @@
   }
 
   // GPS를 막 켠 직후의 첫 위치는 정확도가 아주 나쁜 경우가 많음(수백~수천m) — 그 위치로 바로
-  // 경로를 추천하면 전혀 엉뚱한 길을 안내하게 됨. 정확도가 충분히 좋아질 때까지는 추천을 미루고,
-  // 너무 오래 안 좋아지면(기기 상황상 어쩔 수 없는 경우) 그때는 어쩔 수 없이 현재 위치로 추천함.
-  const GOOD_ACC_M = 30;
+  // 경로를 추천하면 전혀 엉뚱한 길을 안내하게 됨. 정확도가 10m 미만으로 충분히 좋아질 때까지는
+  // 추천을 미루고, 너무 오래 안 좋아지면(기기 상황상 어쩔 수 없는 경우) 그때는 어쩔 수 없이
+  // 현재 위치로 추천함.
+  const GOOD_ACC_M = 10;
   const ACC_WAIT_MAX_MS = 12000;
   let waitingForFixSince = null;
 
@@ -718,7 +719,7 @@
         waitingForFixSince = null;
         setStatus('현재 위치 추적 중 <span class="badge gps">GPS ±' + Math.round(acc) + 'm</span> — 목적지를 선택해줘.');
       } else if (!awaitingChoice) {
-        if (acc <= GOOD_ACC_M) {
+        if (acc < GOOD_ACC_M) {
           waitingForFixSince = null;
           requestRouteChoice(false);
         } else if (waitingForFixSince && (Date.now() - waitingForFixSince) > ACC_WAIT_MAX_MS) {
