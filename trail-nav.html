@@ -133,7 +133,7 @@
   }
 
   let map, destCoords = null, destCode = '', meMarker = null, watchId = null, destMarker = null;
-  let rawPathStrings = [], decodedPaths = [], activePath = null, activePathLine = null;
+  let rawPathStrings = [], decodedPaths = [], activePath = null, traveledLine = null, remainingLine = null;
   let pathLinesLayer = null;
   let compassOn = false, lastHeading = null;
 
@@ -199,7 +199,11 @@
     decodedPaths.forEach(function(pts) {
       L.polyline(pts.map(function(p){ return [p[0], p[1]]; }), { color: '#b5e8c4', weight: 4, opacity: 0.55 }).addTo(pathLinesLayer);
     });
-    if (activePathLine) { activePathLine = null; }
+  }
+
+  function clearActivePathLines() {
+    if (traveledLine) { map.removeLayer(traveledLine); traveledLine = null; }
+    if (remainingLine) { map.removeLayer(remainingLine); remainingLine = null; }
   }
 
   // 선택한 목적지 근처에서 끝나는 기록된 길을 찾아, 목적지 쪽이 배열의 끝(마지막)이 되도록 정렬
@@ -221,7 +225,7 @@
     const code = this.value;
     const coords = JSON.parse(this.getAttribute('data-coords') || '{}');
     if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
-    if (activePathLine) { map.removeLayer(activePathLine); activePathLine = null; }
+    clearActivePathLines();
     destCode = code;
     if (!code || !coords[code]) { destCoords = null; activePath = null; return; }
     destCoords = coords[code];
@@ -231,12 +235,36 @@
 
     activePath = findPathToDestination(destCoords);
     if (activePath) {
-      activePathLine = L.polyline(activePath.map(function(p){ return [p[0], p[1]]; }), { color: '#ff9800', weight: 6, opacity: 0.95 }).addTo(map);
+      // 조사해둔 목적지 구간 — 처음엔 전체가 빨간색(아직 안 지나감), 위치추적을 켜면 지나간 구간은 흐려짐
+      remainingLine = L.polyline(activePath.map(function(p){ return [p[0], p[1]]; }), { color: '#dc3545', weight: 6, opacity: 0.95 }).addTo(map);
       setStatus('목적지: <b>' + (NAMES[code] || code) + '</b> <span class="badge path">기록된 길 안내</span> — "내 위치 추적"을 눌러줘.');
     } else {
       setStatus('목적지: <b>' + (NAMES[code] || code) + '</b> <span class="badge line">직선 안내 (근처 기록된 길 없음)</span> — "내 위치 추적"을 눌러줘.');
     }
   });
+
+  // 현재 위치 기준으로 지나간 구간(흐리게)과 남은 구간(빨간색)을 다시 그림
+  function updateProgressLines(pts, nearIdx, meLatLng) {
+    const traveled = pts.slice(0, nearIdx + 1).map(function(p){ return [p[0], p[1]]; });
+    traveled.push(meLatLng);
+    const remaining = [meLatLng].concat(pts.slice(nearIdx).map(function(p){ return [p[0], p[1]]; }));
+
+    if (traveled.length >= 2) {
+      if (!traveledLine) {
+        traveledLine = L.polyline(traveled, { color: '#dc3545', weight: 6, opacity: 0.28 }).addTo(map);
+      } else {
+        traveledLine.setLatLngs(traveled);
+      }
+    } else if (traveledLine) {
+      map.removeLayer(traveledLine); traveledLine = null;
+    }
+
+    if (!remainingLine) {
+      remainingLine = L.polyline(remaining, { color: '#dc3545', weight: 6, opacity: 0.95 }).addTo(map);
+    } else {
+      remainingLine.setLatLngs(remaining);
+    }
+  }
 
   function nearestPointOnPath(lat, lng, pts) {
     let bestIdx = 0, bestDist = Infinity;
@@ -289,6 +317,7 @@
       const nextIdx = Math.min(near.idx + 1, activePath.length - 1);
       const nextPoint = activePath[nextIdx];
       const b = bearing(lat, lng, nextPoint[0], nextPoint[1]);
+      updateProgressLines(activePath, near.idx, [lat, lng]);
       setStatus('<b>' + destName + '</b> (기록된 길) 남은 거리 약 <b>' + Math.round(remain) + 'm</b>, 다음 방향: <b>' + compass8(b) + '</b> ' +
         '<span class="badge gps">GPS ±' + Math.round(acc) + 'm</span>');
     } else {
