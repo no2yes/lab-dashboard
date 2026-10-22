@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>다녀봐! 강대강캠!</title>
+<title>다녀봐! 강대강캠! · 태동여지도</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <style>
@@ -41,9 +41,10 @@
   }
   #topBar select { background: transparent; border: none; font-size: 16px; }
   #appBrand {
-    font-size: 11px; font-weight: 700; color: #8ab4f8; line-height: 1.25;
+    font-size: 11px; font-weight: 700; color: #8ab4f8; line-height: 1.2;
     white-space: nowrap; padding: 0 2px; flex-shrink: 0;
   }
+  #appBrand .subtitle { display: block; font-size: 9px; font-weight: 400; color: #84827e; margin-top: 2px; }
   #topBar.slide-hide { transform: translateY(-140%); opacity: 0; pointer-events: none; }
 
   /* 하단 패널(경로 선택/상태): 역시 떠있는 느낌으로, 평소엔 아래로 스르륵 숨음 */
@@ -110,7 +111,7 @@
 <div id="verTag">v1.3</div>
 
 <div id="topBar">
-  <div id="appBrand">다녀봐!<br>강대강캠!</div>
+  <div id="appBrand">다녀봐!<br>강대강캠!<span class="subtitle">태동여지도</span></div>
   <select id="destSelect">
     <option value="">목적지 검색...</option>
   </select>
