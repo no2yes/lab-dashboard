@@ -18,7 +18,9 @@
   #mapRotate {
     position: absolute; top: 50%; left: 50%; width: 200vmax; height: 200vmax;
     margin-left: -100vmax; margin-top: -100vmax; transform-origin: 50% 50%;
-    transition: transform 0.25s linear;
+    /* 방향센서 값이 들어올 때마다(초당 여러 번) 고정된 0.25s 트랜지션을 매번 새로 거니까,
+       애니메이션이 끝나기도 전에 목표값이 계속 바뀌면서 지도가 미세하게 흔들려 보이는 원인이었음.
+       방향 값 자체는 이미 원형평균으로 부드럽게 만들어서 넘어오니, 여기서는 트랜지션 없이 그대로 적용. */
   }
   #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
 
@@ -108,7 +110,7 @@
   <div id="mapRotate"><div id="map"></div></div>
 </div>
 <div id="headingDot">🔼</div>
-<div id="verTag">v1.9</div>
+<div id="verTag">v2.0</div>
 
 <div id="topBar">
   <div id="appBrand">다녀봐!<br>강대강캠!<span class="subtitle">태동여지도</span></div>
@@ -1007,6 +1009,10 @@
     applyRotation(circularMeanHeading(headingBuffer));
   }
 
+  // 지도가 CSS로 회전된 상태에서는 Leaflet이 화면 드래그 좌표를 회전 안 된 걸로 착각해서,
+  // 손가락으로 민 방향과 실제로 지도가 움직이는 방향이 어긋나 보임(회전 각도에 따라 달라짐).
+  // 그래서 나침반(회전)이 켜져 있는 동안엔 손으로 끄는 걸 아예 막고 내 위치를 자동으로 따라가게 하고,
+  // 꺼지면 원래대로 자유롭게 드래그되도록 함.
   function toggleCompass() {
     const btn = document.getElementById('rotateBtn');
     if (compassOn) {
@@ -1016,6 +1022,7 @@
       btn.classList.remove('secondary');
       btn.textContent = '방향센서';
       applyRotation(0);
+      if (map.dragging) map.dragging.enable();
       return;
     }
     const DOE = window.DeviceOrientationEvent;
@@ -1027,6 +1034,8 @@
           compassOn = true;
           btn.classList.add('secondary');
           btn.textContent = '회전 끄기';
+          if (map.dragging) map.dragging.disable();
+          setStatus('회전 모드: 내 위치를 자동으로 따라가. 손으로 끄는 건 꺼둘게 — 자유롭게 움직이려면 "회전 끄기"를 눌러줘.');
         } else {
           setStatus('방향센서 권한이 거부됐어. 설정에서 허용해줘야 지도가 회전돼.');
         }
@@ -1038,6 +1047,8 @@
       compassOn = true;
       btn.classList.add('secondary');
       btn.textContent = '회전 끄기';
+      if (map.dragging) map.dragging.disable();
+      setStatus('회전 모드: 내 위치를 자동으로 따라가. 손으로 끄는 건 꺼둘게 — 자유롭게 움직이려면 "회전 끄기"를 눌러줘.');
     } else {
       setStatus('이 기기/브라우저는 방향센서를 지원하지 않아.');
     }
