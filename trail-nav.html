@@ -110,7 +110,7 @@
   <div id="mapRotate"><div id="map"></div></div>
 </div>
 <div id="headingDot">🔼</div>
-<div id="verTag">v2.0</div>
+<div id="verTag">v2.1</div>
 
 <div id="topBar">
   <div id="appBrand">다녀봐!<br>강대강캠!<span class="subtitle">태동여지도</span></div>
@@ -490,7 +490,7 @@
     if (!adjacency[code]) {
       setStatus('목적지: <b>' + (NAMES[code] || code) + '</b><br>이 목적지로 연결된 조사된 길이 아직 없어 — 안내할 수 없어.');
     } else if (watchId) {
-      requestRouteChoice(true);
+      requestRouteChoiceIfReady(true);
     } else {
       setStatus('목적지: <b>' + (NAMES[code] || code) + '</b> — "내 위치 추적"을 눌러줘. 위치를 확인하면 고를 수 있는 경로들을 보여줄게.');
     }
@@ -739,6 +739,25 @@
     };
   }
 
+  // 목적지를 고르거나 "경로 변경"을 누르는 그 순간의 위치 정확도가 아직 안 좋을 수 있음
+  // (예: 추적을 켜고 얼마 안 지나 첫 GPS 신호가 부정확할 때 목적지부터 고른 경우) — 그럴 때
+  // 곧바로 그 부정확한 위치로 경로부터 보여주면 "내 위치도 아직 못 찾았는데 경로부터 뜬다"처럼
+  // 보임. 그래서 정확도가 충분히 좋아질 때까지는 여기서 기다리고, 그동안은 onPosition()의 평소
+  // 정확도-대기 로직이 이어받아 처리함(좋아지면 자동 추천, 너무 오래 걸리면 결국 추천).
+  function requestRouteChoiceIfReady(force) {
+    if (!lastRawPos) { setStatus('위치를 아직 확인 못했어 — 잠시만 기다려줘.'); return; }
+    if (lastAcc !== null && lastAcc < GOOD_ACC_M) {
+      waitingForFixSince = null;
+      requestRouteChoice(force);
+    } else {
+      if (!waitingForFixSince) waitingForFixSince = Date.now();
+      const destName = NAMES[destCode] || destCode;
+      const accTxt = (lastAcc !== null) ? Math.round(lastAcc) + 'm' : '확인 중';
+      setStatus('<b>' + destName + '</b> 위치 정확도를 기다리는 중 <span class="badge gps">GPS ±' + accTxt +
+        '</span> — 정확도가 좋아지면 자동으로 경로를 추천할게.');
+    }
+  }
+
   // 목적지까지 고를 수 있는 경로 목록을 계산해서 패널에 보여줌
   // force=true면 이미 고정된 경로가 있어도 다시 목록을 띄움. lowAcc는 정확도가 충분히 좋아지길
   // 기다리다 포기하고 지금 위치로라도 추천한 경우에만 넘겨서, 그 사실을 상태 메시지에 남김.
@@ -851,7 +870,7 @@
   function changeRoute() {
     lockedRoute = null;
     clearRouteLines();
-    requestRouteChoice(true);
+    requestRouteChoiceIfReady(true);
   }
 
   function toggleTracking() {
@@ -874,6 +893,7 @@
   }
 
   let lastRawPos = null;
+  let lastAcc = null; // 가장 최근 GPS 정확도(m) — 목적지를 바꾸거나 "경로 변경"을 누를 때도 이 값을 보고 정확도가 좋은지 먼저 확인함
 
   // 흔들림 방지: 아주 작은 이동에는 지도를 다시 가운데로 끌어오지 않음
   function panIfMoved(lat, lng) {
@@ -893,6 +913,7 @@
   function onPosition(pos) {
     const rawLat = pos.coords.latitude, rawLng = pos.coords.longitude, acc = pos.coords.accuracy;
     lastRawPos = { lat: rawLat, lng: rawLng };
+    lastAcc = acc;
     const destName = NAMES[destCode] || destCode;
 
     // 아직 경로를 고르지 않았으면: 원 GPS 위치만 표시하고(네트워크 전체에서 가장 가까운 선을 매번 다시 찾지 않음 — 그게 흔들림/경로가 왔다갔다하는 원인이었음),
