@@ -110,7 +110,7 @@
   <div id="mapRotate"><div id="map"></div></div>
 </div>
 <div id="headingDot">🔼</div>
-<div id="verTag">v2.1</div>
+<div id="verTag">v2.2</div>
 
 <div id="topBar">
   <div id="appBrand">다녀봐!<br>강대강캠!<span class="subtitle">태동여지도</span></div>
@@ -287,7 +287,9 @@
     Object.keys(adjacency || {}).forEach(function(code) {
       // '~X'로 시작하는 코드는 서로 다른 길을 교차점에서 이어주려고 만든 내부용 가상 노드라서
       // 사용자가 고를 목적지 목록에는 올리지 않음
-      if (!coords[code] && code.indexOf('~X') !== 0) codes.push(code);
+      // '~'로 시작하는 코드는 전부 내부용 임시/가상 노드(교차 접점 ~X, 경로조회용 임시 도착점 ~DEST
+      // 등)라서 사용자가 고를 목적지 목록에는 올리지 않음
+      if (!coords[code] && code.indexOf('~') !== 0) codes.push(code);
     });
     codes.forEach(function(code) {
       let ll = coords[code];
@@ -487,8 +489,10 @@
         .addTo(map).bindPopup('목적지: ' + (NAMES[code] || code)).openPopup();
       map.panTo(ll);
     }
-    if (!adjacency[code]) {
-      setStatus('목적지: <b>' + (NAMES[code] || code) + '</b><br>이 목적지로 연결된 조사된 길이 아직 없어 — 안내할 수 없어.');
+    if (!ll) {
+      // 이제는 코드로 바로 연결된 길이 없어도(adjacency 없음) 목적지 좌표 근처 아무 길의
+      // 지점에서나 도착할 수 있도록 찾아보니, 좌표 자체가 없는 경우에만 안내 불가로 처리함
+      setStatus('목적지: <b>' + (NAMES[code] || code) + '</b><br>이 목적지의 좌표를 아직 몰라 — 안내할 수 없어.');
     } else if (watchId) {
       requestRouteChoiceIfReady(true);
     } else {
@@ -620,7 +624,80 @@
 
   // 현재 위치 → 목적지까지 가능한 "조사된 길 조합"을 전부 찾아서(단순 경로만, 같은 지점 재방문 금지) 거리순으로 정리.
   // 갈림길이 있으면 여러 개가 나오고, 갈림길이 없으면 1개만 나옴 — 어느 쪽이든 사용자가 직접 골라야 그 경로로 "고정"됨.
+  // 출발지는 이미 nearestPointOnNetwork로 "아무 길 위의 지점"에서나 바로 시작할 수 있었음.
+  // 목적지도 똑같이 — 꼭 코드로 저장된 끝점이 아니어도, 목적지 좌표에서 가장 가까운 길 위의
+  // 지점이 있으면 그 지점을 거쳐 그 지점에서 바로 "도착"할 수 있도록, 그 길을 그 지점에서
+  // 잠깐 쪼개서(임시 접점 ~DEST) 찾아보고, 탐색이 끝나면 다시 원래대로 되돌림(다른 목적지
+  // 조회에 영향 안 주도록). 이미 코드로 연결돼 있어도, 혹시 다른 길이 더 가까이 지나가면
+  // 그쪽도 같이 후보에 들어가서 — 둘 중 짧은 쪽이 자연스럽게 선택됨.
+  // 목적지 코드 자신의 길(들)은 빼고, "그 외의 길들" 중에서 목적지 좌표와 가장 가까운 지점을 찾음.
+  // (목적지가 edgeFallbackCoord로 좌표를 받은 "미확정" 코드면, 그 좌표 자체가 이미 자기 자신의
+  // edge 끝점과 거리 0으로 정확히 일치하기 때문에, 그냥 nearestPointOnNetwork를 쓰면 매번 "자기
+  // 자신"만 찾아져서 다른 길과의 연결을 절대 못 찾음 — 그래서 자기 자신의 edge는 제외하고 찾아야 함)
+  function nearestPointExcludingCode(lat, lng, excludeCode) {
+    let best = null;
+    edges.forEach(function(e, ei) {
+      if (e.from === excludeCode || e.to === excludeCode) return;
+      for (let vi = 0; vi < e.pts.length - 1; vi++) {
+        const a = e.pts[vi], b = e.pts[vi + 1];
+        const proj = projectOnSegment(lat, lng, a[0], a[1], b[0], b[1]);
+        if (!best || proj.dist < best.dist) {
+          best = { edgeIdx: ei, segIdx: vi, t: proj.t, lat: proj.lat, lng: proj.lng, dist: proj.dist };
+        }
+      }
+    });
+    return best;
+  }
+
+  // 목적지 좌표가 실제로 "그 길 위에" 있다고 볼 수 있는 최대 거리. 이보다 멀면 그냥 가장 가까운
+  // 다른 edge일 뿐이지, 그 지점이 목적지는 아님 — 거길 억지로 이어버리면 조사되지 않은 벌판을
+  // 가로지르는 직선 "지름길"이 생겨버려서 오히려 이상한 경로가 됨.
+  const DEST_SNAP_MAX_M = 15;
+
+  const TEMP_DEST_CODE = '~DEST';
+  function withTempDestSplit(destCoord, excludeCode, fn) {
+    if (!destCoord) return fn(null);
+    const near = nearestPointExcludingCode(destCoord[0], destCoord[1], excludeCode);
+    if (!near || near.dist > DEST_SNAP_MAX_M) return fn(null);
+
+    const e = edges[near.edgeIdx];
+    const cutPts = e.pts.slice(0, near.segIdx + 1).concat([[near.lat, near.lng, null]]);
+    const tailPts = [[near.lat, near.lng, null]].concat(e.pts.slice(near.segIdx + 1));
+    const e1 = { from: e.from, to: TEMP_DEST_CODE, pts: cutPts, length: pathLength(cutPts) };
+    const e2 = { from: TEMP_DEST_CODE, to: e.to, pts: tailPts, length: pathLength(tailPts) };
+
+    const origLen = edges.length;
+    const savedFrom = adjacency[e.from] ? adjacency[e.from].slice() : undefined;
+    const savedTo = adjacency[e.to] ? adjacency[e.to].slice() : undefined;
+    const savedTemp = adjacency[TEMP_DEST_CODE] ? adjacency[TEMP_DEST_CODE].slice() : undefined;
+
+    edges.push(e1, e2);
+    const idx1 = origLen, idx2 = origLen + 1;
+    adjacency[e.from] = (savedFrom || []).concat([{ edgeIdx: idx1, node: TEMP_DEST_CODE }]);
+    adjacency[e.to] = (savedTo || []).concat([{ edgeIdx: idx2, node: TEMP_DEST_CODE }]);
+    adjacency[TEMP_DEST_CODE] = (savedTemp || []).concat([
+      { edgeIdx: idx1, node: e.from }, { edgeIdx: idx2, node: e.to }
+    ]);
+
+    near.destLat = destCoord[0];
+    near.destLng = destCoord[1];
+    try {
+      return fn(near);
+    } finally {
+      edges.length = origLen;
+      if (savedFrom === undefined) delete adjacency[e.from]; else adjacency[e.from] = savedFrom;
+      if (savedTo === undefined) delete adjacency[e.to]; else adjacency[e.to] = savedTo;
+      if (savedTemp === undefined) delete adjacency[TEMP_DEST_CODE]; else adjacency[TEMP_DEST_CODE] = savedTemp;
+    }
+  }
+
   function findCandidateRoutes(lat, lng, dest, maxCount) {
+    return withTempDestSplit(allNodeCoords[dest], dest, function(destNear) {
+      return findCandidateRoutesCore(lat, lng, dest, maxCount, destNear);
+    });
+  }
+
+  function findCandidateRoutesCore(lat, lng, dest, maxCount, destNear) {
     maxCount = maxCount || 4;
     if (!edges.length) return { noData: true };
     const loc = nearestPointOnNetwork(lat, lng);
@@ -657,7 +734,7 @@
     }
     if (!seedBranches.length) return { noRoute: true };
 
-    const results = [];
+    let results = [];
     const MAX_DEPTH = 14; // 안전장치: 끝없이 깊은 탐색/폭발 방지
     const MAX_RESULTS = 40;
 
@@ -666,8 +743,11 @@
 
       (function dfs(node, cost, visitedNodes, visitedEdges, pts, nodeSeq, depth) {
         if (results.length >= MAX_RESULTS) return;
-        // 디버그/문제 추적용: 이 경로가 실제로 거쳐간 코드 목록(~X로 시작하면 가상 접점)
-        if (node === dest) { results.push({ total: cost, points: pts.slice(), nodes: nodeSeq.slice() }); return; }
+        // 디버그/문제 추적용: 이 경로가 실제로 거쳐간 코드 목록(~로 시작하면 가상/임시 접점)
+        if (node === dest || node === TEMP_DEST_CODE) {
+          results.push({ total: cost, points: pts.slice(), nodes: nodeSeq.slice(), viaSnap: node === TEMP_DEST_CODE });
+          return;
+        }
         if (depth >= MAX_DEPTH) return;
         (adjacency[node] || []).forEach(function(adj) {
           if (results.length >= MAX_RESULTS) return;
@@ -684,6 +764,23 @@
          (function(){ const o = {}; if (seedEdgeIdx >= 0) o[seedEdgeIdx] = true; return o; })(), startPts, [seed.node], 0);
     });
 
+    if (!results.length) return { noRoute: true };
+
+    // 임시 접점(~DEST)을 거쳐 도착한 경로는, 그 접점에서 실제 목적지 좌표까지 남은 짧은 직선
+    // 거리를 더해주고, 그려지는 선도 실제 목적지까지 닿도록 점을 하나 더 붙여줌
+    if (destNear) {
+      results.forEach(function(r) {
+        if (!r.viaSnap) return;
+        r.total += destNear.dist;
+        r.points = r.points.concat([[destNear.destLat, destNear.destLng]]);
+      });
+    }
+
+    // 목적지 코드로 바로 도착하는 "정식" 경로가 이미 있으면, 임시 접점(~DEST)을 거치는 경로는
+    // 그보다 확실히 더 짧을 때만(=진짜 다른/더 가까운 길이 있을 때만) 후보로 남김. 안 그러면
+    // 사실상 같은 경로가 미세한 오차 때문에 "또 다른 경로"처럼 중복으로 뜨게 됨.
+    const bestDirect = results.reduce(function(m, r) { return r.viaSnap ? m : Math.min(m, r.total); }, Infinity);
+    results = results.filter(function(r) { return !r.viaSnap || r.total < bestDirect - 1; });
     if (!results.length) return { noRoute: true };
 
     results.sort(function(x, y) { return x.total - y.total; });
