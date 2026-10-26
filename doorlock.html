@@ -1837,6 +1837,17 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     speak(msg.trim());
   }
 
+  // 모니터 화면은 한 번 켜두면 계속 떠 있는 경우가 많아, 매일 새벽 4시에 페이지 전체를
+  // 새로고침해서 GitHub Pages에 올라온 최신 코드(디자인/기능 변경)를 자동으로 받아오게 함.
+  // (데이터 자체는 30분마다 fetch로 이미 최신 상태 유지 — 이건 코드/화면 구조 갱신용)
+  function scheduleDailyFullReload() {
+    const now = new Date();
+    const next4am = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 4, 0, 0, 0);
+    if (now.getTime() >= next4am.getTime()) next4am.setDate(next4am.getDate() + 1);
+    const ms = next4am.getTime() - now.getTime();
+    setTimeout(() => { window.location.reload(); }, ms);
+  }
+
   window.addEventListener('load', () => {
     if (!DOORLOCK_TOKEN) {
       showError('링크가 올바르지 않습니다.', '관리자에게 새 링크를 요청해주세요.');
@@ -1845,6 +1856,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     loadSchedule(0);
     if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = setInterval(() => loadSchedule(currentDateStr !== null ? currentDateStr : currentOffset), 30 * 60 * 1000);
+    scheduleDailyFullReload();
   });
 
   const DL_ROOMS_CACHE_KEY = 'doorlock_rooms_' + DOORLOCK_TOKEN;
