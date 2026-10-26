@@ -6364,15 +6364,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 
   function openMonitor() {
     google.script.run.withSuccessHandler(function() {}).withFailureHandler(function() {}).extendSessionForMonitor(token);
-    google.script.run
-      .withSuccessHandler(function(url) {
-        const target = url + '?page=monitor&token=' + encodeURIComponent(token);
-        window.open(target, '_blank');
-      })
-      .withFailureHandler(function(err) {
-        showResultModal('error', '열기 실패', err.message);
-      })
-      .getCleanWebAppUrl();
+    window.open('monitor.html?token=' + encodeURIComponent(token), '_blank');
   }
   
   // ====== 정규시간표 업로드 ======
