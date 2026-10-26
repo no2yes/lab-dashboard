@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  /* ====== 강원대학교 공식 색상 변수 ====== */
+  :root {
+    --knu-primary: #003D7C;        /* KNU 메인 블루 */
+    --knu-primary-dark: #002654;   /* KNU 다크 블루 (호버, 그라데이션) */
+    --knu-primary-light: #1A5490;  /* KNU 소프트 블루 */
+    --knu-primary-soft: rgba(0, 61, 124, 0.15);  /* 포커스 그림자용 */
+    --knu-accent: #C5A572;          /* KNU 골드 (포인트) */
+    --knu-accent-light: #E5D4B0;   /* KNU 라이트 골드 */
+    --knu-bg-tint: #E8EEF5;         /* KNU 배경 틴트 */
+    --knu-bg-soft: #f0f7fa;         /* 부드러운 정보 박스 배경 */
+    --knu-border-light: #b8d8e8;   /* 부드러운 테두리 */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 16px;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .header {
+    background: transparent;
+    color: var(--text);
+    padding: 20px 4px 14px;
+    border-bottom: 1px solid var(--w15);
+    border-radius: 0;
+    margin-bottom: 0;
+  }
+  .header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .header .subtitle {
+    font-size: 13px;
+    opacity: 0.9;
+  }
+  .card {
+    background: var(--surface-solid);
+    padding: 24px;
+    border-radius: 0 0 12px 12px;
+    border: 1px solid var(--w12);
+    box-shadow: 0 2px 8px rgba(var(--sh), calc(.06 * var(--shk)));
+    margin-bottom: 20px;
+  }
+  .section {
+    margin-bottom: 24px;
+  }
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--knu-primary);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--bd1);
+  }
+  .field {
+    margin-bottom: 14px;
+  }
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--t2);
+    margin-bottom: 6px;
+  }
+  .required { color: var(--danger-line); }
+  input[type="text"], input[type="email"], input[type="tel"],
+  input[type="number"], input[type="date"], input[type="time"],
+  select, textarea {
+    width: 100%;
+    max-width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--bd2);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--surface-solid);
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    min-width: 0;
+  }
+
+  /* iOS Safari date/time input 추가 보정 */
+  input[type="date"],
+  input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--surface-solid) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") no-repeat right 10px center;
+    padding-right: 36px;
+    min-height: 42px;
+  }
+
+  /* select도 화살표 아이콘 보정 */
+  select {
+    background: var(--surface-solid) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='3'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 12px center;
+    padding-right: 32px;
+  }
+
+  /* field 컨테이너도 overflow 방지 */
+  .field {
+    margin-bottom: 14px;
+    min-width: 0;
+  }
+
+  /* row 안의 field도 보정 */
+  .row > .field {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--knu-primary);
+    box-shadow: 0 0 0 2px var(--knu-primary-soft);
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  .row {
+    display: flex;
+    gap: 12px;
+  }
+  .row > .field { flex: 1; }
+  .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  .btn {
+    display: inline-block;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: var(--brand-solid);
+    color: white;
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+  }
+  .btn-primary:hover { background: var(--knu-primary-dark); }
+  .btn-primary:disabled { background: #999; cursor: not-allowed; }
+  .btn-secondary {
+    background: var(--surface-2);
+    color: var(--knu-primary);
+  }
+  .btn-secondary:hover { background: #d6dee8; }
+
+  .type-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .type-tab {
+    flex: 1;
+    padding: 10px 8px;
+    border: 1px solid var(--bd2);
+    border-radius: 6px;
+    background: var(--surface-solid);
+    cursor: pointer;
+    font-size: 13px;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .type-tab.active {
+    background: var(--brand-solid);
+    color: white;
+    border-color: var(--knu-primary);
+    font-weight: 600;
+  }
+
+  .slot-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-top: 8px;
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--surface-1);
+    border-radius: 6px;
+    border: 1px solid var(--bd1);
+  }
+  .slot {
+    padding: 6px 4px;
+    text-align: center;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    background: var(--surface-solid);
+    border: 1px solid var(--bd2);
+    user-select: none;
+  }
+  .slot:hover:not(.blocked):not(.selected) { background: var(--surface-2); }
+  .slot.selected { background: var(--brand-solid); color: white; border-color: var(--knu-primary); }
+  .slot.blocked { background: #f0c0c0; color: var(--t4); cursor: not-allowed; text-decoration: line-through; }
+  .slot.blocked-pending { background: #ffe3a8; color: var(--t4); cursor: not-allowed; }
+  .slot.header-cell { background: var(--brand-solid); color: white; font-weight: 600; cursor: default; }
+
+  .blocked-info {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-bd);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 10px 0;
+    font-size: 12px;
+    color: var(--warn-text);
+  }
+  .blocked-info ul { margin-left: 18px; margin-top: 4px; }
+
+  .legend {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .legend-box {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid var(--bd2);
+  }
+
+  .msg {
+    padding: 12px 14px;
+    border-radius: 6px;
+    margin: 16px 0;
+    font-size: 14px;
+    white-space: pre-line;
+  }
+  .msg-success { background: var(--ok-bg); color: var(--ok-text); border: 1px solid var(--ok-bd); }
+  .msg-error { background: var(--danger-bg); color: var(--danger-text); border: 1px solid var(--danger-bd); }
+  .msg-info { background: var(--surface-2); color: var(--knu-primary); border: 1px solid #a8c5e8; }
+
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    color: var(--t4);
+    padding: 16px 0;
+  }
+
+  .loading {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--bd2);
+    border-top-color: var(--knu-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 600px) {
+    body { padding: 8px; }
+    .card { padding: 16px; }
+    .row, .row-3 { grid-template-columns: 1fr; flex-direction: column; }
+    .slot { font-size: 10px; padding: 4px 2px; }
+  }
+
+  /* 처리 중 오버레이 */
+  .overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+  .overlay.show {
+    display: flex;
+    animation: fadeIn 0.2s;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .overlay-box {
+    background: var(--surface-solid);
+    padding: 32px 40px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    max-width: 320px;
+  }
+  .overlay-spinner {
+    width: 56px;
+    height: 56px;
+    border: 5px solid var(--bd1);
+    border-top-color: var(--knu-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  .overlay-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--knu-primary);
+    margin-bottom: 6px;
+  }
+  .overlay-msg {
+    font-size: 13px;
+    color: var(--t3);
+    line-height: 1.6;
+  }
+    .manual-modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.55);
+    z-index: 9996;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .manual-modal.show { display: flex; }
+  .manual-modal-box {
+    background: var(--surface-solid);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 720px;
+    height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.3);
+  }
+  .manual-modal-header {
+    background: var(--brand-solid);
+    color: #fff;
+    padding: 14px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .manual-modal-close {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color:var(--text);
+    border-radius: 5px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .manual-modal-iframe {
+    flex: 1;
+    border: none;
+    width: 100%;
+  }
+  /* 결과 모달 */
+  .result-modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 9998;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .result-modal.show {
+    display: flex;
+    animation: fadeIn 0.25s;
+  }
+  .result-box {
+    background: var(--surface-solid);
+    padding: 36px 32px 28px;
+    border-radius: 14px;
+    text-align: center;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.3);
+    max-width: 420px;
+    width: 100%;
+    animation: popIn 0.3s;
+  }
+  @keyframes popIn {
+    from { transform: scale(0.85); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .result-icon {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    font-weight: bold;
+    color:var(--text);
+  }
+  .result-icon.success {
+    background: #28a745;
+  }
+  .result-icon.error {
+    background: #dc3545;
+  }
+  .result-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .result-title.success { color: var(--ok-text); }
+  .result-title.error { color: var(--danger-text); }
+  .result-content {
+    background: var(--surface-1);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--t2);
+    text-align: left;
+    white-space: pre-line;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .result-btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    color:var(--text);
+    font-family: inherit;
+  }
+  .result-btn.success { background: #28a745; }
+  .result-btn.success:hover { background: #218838; }
+  .result-btn.error { background: #dc3545; }
+  .result-btn.error:hover { background: #c82333; }
+
+  /* 필수값 누락 강조 */
+  .field-error input,
+  .field-error select,
+  .field-error textarea {
+    border-color: var(--danger-line) !important;
+    background: var(--danger-bg);
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.15);
+  }
+  .field-error .error-msg {
+    display: block;
+    color: var(--danger-line);
+    font-size: 12px;
+    margin-top: 4px;
+    font-weight: 500;
+  }
+  .error-msg {
+    display: none;
+  }
+  .shake {
+    animation: shake 0.4s;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+
+  /* 빈 시간 안내 박스 - 정규수업/예약 색상 구분 */
+  .blocked-info-wrapper {
+    margin: 10px 0;
+    padding: 10px 12px;
+    border: 1px solid var(--bd1);
+    border-radius: 6px;
+    background: var(--surface-1);
+    font-size: 12px;
+  }
+  .blocked-info-title {
+    font-weight: 600;
+    color: var(--t2);
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .block-item {
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .block-item:last-child { margin-bottom: 0; }
+  .block-item.regular {
+    background: var(--danger-bg);
+    color: var(--danger-text);
+    border-left: 3px solid var(--danger-line);
+  }
+  .block-item.reserved {
+    background: var(--warn-bg);
+    color: var(--warn-text);
+    border-left: 3px solid #f5a623;
+  }
+  .block-type {
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+  .block-item.regular .block-type {
+    background: #dc3545;
+    color: white;
+  }
+  .block-item.reserved .block-type {
+    background: #f5a623;
+    color: white;
+  }
+    @media (max-width: 480px) {
+    .title-campus { display: none; }
+    .subtitle-full { display: none; }
+  }
+  @media (min-width: 481px) {
+    .subtitle-short { display: none; }
+  }
+  /* 실습실 설치 SW 표시 */
+  .sw-info-box {
+    margin-top: 8px;
+    padding: 12px 14px;
+    background: var(--knu-bg-soft);
+    border: 1px solid var(--knu-border-light);
+    border-radius: 6px;
+  }
+  .sw-info-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--knu-primary);
+    margin-bottom: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .sw-info-title .sw-toggle-arrow {
+    transition: transform 0.2s;
+    font-size: 10px;
+  }
+  .sw-info-title.open .sw-toggle-arrow { transform: rotate(180deg); }
+  .sw-info-list {
+    margin-top: 8px;
+  }
+  .sw-info-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .sw-item {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--surface-solid);
+    border: 1px solid var(--knu-border-light);
+    border-radius: 12px;
+    font-size: 11px;
+    color: var(--knu-primary);
+    white-space: nowrap;
+  }
+  .sw-info-empty {
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: var(--surface-1);
+    border: 1px dashed var(--bd2);
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--t4);
+    text-align: center;
+  }
+
+  /* 주간 시간표 */
+  #weeklyScheduleContainer {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--surface-1);
+    border: 1px solid var(--bd1);
+    border-radius: 8px;
+  }
+  .schedule-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .schedule-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--knu-primary);
+  }
+  .schedule-week-tabs {
+    display: flex;
+    gap: 4px;
+  }
+  .week-tab {
+    padding: 6px 14px;
+    border: 1px solid var(--bd2);
+    border-radius: 5px;
+    background: var(--surface-solid);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .week-tab.active {
+    background: var(--brand-solid);
+    color: white;
+    border-color: var(--knu-primary);
+    font-weight: 600;
+  }
+  .schedule-hint {
+    font-size: 11px;
+    color: var(--t3);
+    margin-bottom: 10px;
+  }
+  .schedule-grid-wrapper {
+    overflow-x: auto;
+    background: var(--surface-solid);
+    border: 1px solid var(--bd1);
+    border-radius: 6px;
+  }
+  .schedule-loading {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--knu-primary);
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .schedule-loading .spinner-icon {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    border: 3px solid var(--bd1);
+    border-top-color: var(--knu-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 10px;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes bounceDown {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(6px); }
+  }
+  .room-change-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--knu-bg-soft);
+    border: 1px solid var(--knu-border-light);
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--knu-primary);
+  }
+  .room-change-hint .bounce-arrow {
+    display: inline-block;
+    animation: bounceDown 0.8s ease-in-out infinite;
+    font-size: 16px;
+  }
+  .schedule-error {
+    padding: 30px;
+    text-align: center;
+    color: var(--danger-line);
+    font-size: 13px;
+  }
+
+  /* 격자 - 헤더 */
+  .schedule-grid {
+    display: grid;
+    /* 열 개수는 renderSchedule에서 날짜 수에 맞춰 동적으로 지정 */
+    min-width: 460px;
+  }
+  .grid-cell {
+    border-right: 1px solid var(--bd1);
+    border-bottom: 1px solid var(--bd1);
+    font-size: 11px;
+    padding: 4px;
+    overflow: hidden;
+  }
+  .grid-cell:last-child { border-right: none; }
+  .header-cell {
+    background: var(--brand-solid);
+    color: white;
+    text-align: center;
+    padding: 8px 4px;
+    font-weight: 600;
+  }
+    .day-header.holiday-text .day-name,
+  .day-header.holiday-text .day-date {
+    color: var(--danger-line);
+  }
+  .day-header.today { background: #f5a623; }
+  .day-name { font-size: 12px; }
+  .day-date { font-size: 10px; opacity: 0.85; }
+
+  /* 격자 - 본문 (시간행) */
+  .schedule-body {
+    display: grid;
+    grid-template-columns: 50px repeat(7, 1fr);
+    min-width: 580px;
+  }
+      .now-line-wrap { position: relative; }
+    .now-line {
+      position: absolute;
+      left: 0; right: 0;
+      height: 0;
+      border-top: 2px dashed var(--danger-line);
+      box-shadow: 0 0 4px rgba(229,57,53,0.5);
+      z-index: 20;
+      pointer-events: none;
+    }
+    .now-line::before {
+      content: '';
+      position: absolute;
+      left: -4px; top: -4px;
+      width: 8px; height: 8px;
+      background: #e53935;
+      border-radius: 50%;
+      box-shadow: 0 0 3px rgba(229,57,53,0.6);
+    }
+    .now-line-label {
+      position: absolute;
+      right: 2px; top: -9px;
+      background: #e53935;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 8px;
+      white-space: nowrap;
+      z-index: 21;
+      pointer-events: none;
+    }
+  .schedule-row {
+    display: contents;
+  }
+  .time-cell {
+    background: var(--surface-1);
+    text-align: center;
+    color: var(--t3);
+    font-size: 11px;
+    padding: 5px 2px;
+    line-height: 1.2;
+    min-height: 32px;
+  }
+  .empty-cell {
+    background: var(--surface-solid);
+    cursor: pointer;
+    min-height: 32px;
+    transition: background 0.1s;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .empty-cell:hover {
+    background: var(--surface-2);
+  }
+  /* 시작 셀만 선택된 상태 (다음 클릭으로 종료 시간 대기 중) */
+  .empty-cell.start-selected {
+    background: var(--knu-primary-light) !important;
+    color: white;
+    position: relative;
+  }
+  .empty-cell.start-selected::after {
+    content: '시작';
+    display: block;
+    font-size: 9px;
+    font-weight: 700;
+    text-align: center;
+    margin-top: 2px;
+  }
+
+  /* 시작~종료 범위로 확정 선택된 셀 */
+  .empty-cell.selected {
+    background: var(--brand-solid) !important;
+    color: white;
+    position: relative;
+  }
+  .empty-cell.selected.first {
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+  }
+  .empty-cell.selected.last {
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+  }
+  /* 선택된 시간 첫 셀에 시작시간 표시 (크고 눈에 띄게) */
+  .empty-cell.selected.first::before {
+    content: '▶ ' attr(data-time);
+    display: block;
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
+    padding-top: 4px;
+    letter-spacing: 0.3px;
+  }
+  /* 선택된 시간 마지막 셀에 종료시간 표시 (크고 눈에 띄게) */
+  .empty-cell.selected.last::after {
+    content: attr(data-end-time) ' ■';
+    display: block;
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
+    padding-bottom: 4px;
+    letter-spacing: 0.3px;
+  }
+
+  /* 종료 시간 선택 대기 중 안내 메시지 */
+  .schedule-hint.waiting-end {
+    background: var(--knu-bg-tint);
+    border: 1px solid var(--knu-primary-light);
+    color: var(--knu-primary-dark);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  /* 공개 페이지 - 클릭 안 되는 빈 셀 */
+  .empty-cell-readonly {
+    background: var(--surface-solid);
+    min-height: 32px;
+  }
+  /* 시간표 - 지난 날짜(신청 불가) 셀 */
+  .empty-cell-readonly.past-cell {
+    background: repeating-linear-gradient(
+      45deg, #f5f5f5, #f5f5f5 4px, #eeeeee 4px, #eeeeee 8px
+    );
+    cursor: not-allowed;
+  }
+
+  /* 격자 - 정규수업 / 예약 블록 */
+  .block-cell {
+    padding: 4px 6px;
+    font-size: 10px;
+    overflow: hidden;
+    line-height: 1.3;
+    border-left: 3px solid;
+  }
+  .block-cell.regular {
+    background: var(--danger-bg);
+    color: var(--danger-text);
+    border-left-color: var(--danger-line);
+  }
+  .block-cell.reserved {
+    background: var(--warn-bg);
+    color: var(--warn-text);
+    border-left-color: #f5a623;
+  }
+  /* 예약 상태 구분 — 대기(노랑) / 확정(회색) */
+  .block-cell.reserved.waiting {
+    background: var(--warn-bg);
+    color: var(--warn-text);
+    border-left-color: #f5a623;
+  }
+  .block-cell.reserved.confirmed {
+    background: var(--surface-2);
+    color: var(--t2);
+    border-left-color: #607d8b;
+  }
+  .block-time {
+    font-weight: 600;
+    font-size: 10px;
+  }
+  .block-label {
+    font-size: 10px;
+    margin-top: 2px;
+    opacity: 0.9;
+  }
+
+  @media (max-width: 600px) {
+    .schedule-grid, .schedule-body { min-width: 700px; }
+  }
+
+  .schedule-grid .day-header.holiday-blocked .day-name,
+  .schedule-grid .day-header.holiday-blocked .day-date { color: var(--danger-line); }
+  .schedule-body .holiday-col-blocked { background: var(--surface-1) !important; cursor: not-allowed !important; }
+  .schedule-body .holiday-col-blocked:hover { background: var(--surface-1) !important; }
+
+  /* Google 안내 띠 관련 사용자 안내 */
+  .google-notice-info {
+    background: var(--knu-bg-soft);
+    border: 1px solid var(--knu-border-light);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 12px;
+    color: var(--knu-primary);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .google-notice-info .gn-icon {
+    flex-shrink: 0;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .google-notice-info .gn-text {
+    line-height: 1.6;
+  }
+  .google-notice-info .gn-text strong {
+    color: var(--knu-primary-dark);
+  }
+  .google-notice-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--t4);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 4px;
+    line-height: 1;
+  }
+  .google-notice-close:hover { color: var(--t2); }
+  /* ===== 신청 흐름 개편 ===== */
+  /* 신청 유형 설명 */
+  .type-desc {
+    font-size: 12px;
+    color: var(--t3);
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--surface-1);
+    border-radius: 6px;
+    line-height: 1.5;
+  }
+
+  /* 모드별 폼 */
+  .mode-form { margin-top: 14px; }
+
+  /* 실습실 미선택 안내 */
+  .schedule-placeholder {
+    padding: 24px;
+    text-align: center;
+    color: var(--t4);
+    font-size: 13px;
+    background: var(--surface-1);
+    border: 1px dashed var(--bd2);
+    border-radius: 8px;
+  }
+
+  /* 단회 선택 확인 박스 */
+  .selected-display {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--bd1);
+    border-radius: 8px;
+    background: var(--surface-1);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .selected-display.has-value {
+    background: var(--knu-bg-tint);
+    border-color: var(--knu-primary-light);
+  }
+  .selected-display-label {
+    font-size: 12px;
+    color: var(--t3);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .selected-display-value {
+    font-size: 15px;
+    color: var(--t4);
+    flex: 1;
+    min-width: 0;
+  }
+      .selected-display.has-value .selected-display-value {
+      color: var(--knu-primary-light);
+      font-weight: 700;
+    }
+  .selected-clear-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--bd2);
+    border-radius: 6px;
+    background: var(--surface-solid);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--t3);
+  }
+  .selected-clear-btn:hover { background: var(--surface-2); }
+
+  /* 주 이동 네비게이션 */
+  .schedule-week-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .week-nav-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--bd2);
+    border-radius: 5px;
+    background: var(--surface-solid);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .week-nav-btn:hover:not(:disabled) { background: var(--knu-bg-tint); }
+  .week-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .week-nav-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--knu-primary);
+    min-width: 56px;
+    text-align: center;
+  }
+
+  /* 참고용(읽기전용) 시간표 모드 - 반복/연속 */
+  .readonly-mode .empty-cell { cursor: default; }
+  .readonly-mode .empty-cell:hover { background: var(--surface-solid); }
+</style>
+<style id="labThemeCss">
+/* ====== 공통 테마 (다크 = 차콜 / 라이트 = 따뜻한 오프화이트) ======
+   각 화면의 head 안에서 include('theme') 한 줄로 불러옵니다.
+   색을 바꾸고 싶으면 이 파일의 변수만 고치면 전체 화면에 반영됩니다. */
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1b1d21;
+  --surface-pop: #272a30;      /* 팝업·모달 바탕 */
+  --surface-deep: #202328;     /* 모달 헤더 등 한 단계 어두운 면 */
+  --surface-solid: #23262b;    /* 불투명 카드 바탕 */
+  --text: #e9e7e2;
+  --accent: #8ab4f8;
+  --accent-soft: #b3cdfa;
+  --accent-strong: #4f86d8;
+  --on-accent: #10233d;
+  --warn-text: #f3d98d;
+  --ok-text: #b5e8c4;
+  --danger-text: #f6b5ae;
+  --muted-text: #c7ced3;
+  --danger-line: #f28b82;
+  --line-soft: rgba(255,255,255,.10);
+  --t1: #e9e7e2; --t2: #cdcbc6; --t3: #a8a6a1; --t4: #84827e;
+  --surface-1: #2a2d33; --surface-2: #30343b;
+  --bd1: #3a3e45; --bd2: #4a4f57;
+  --brand-solid: #3f78c8;
+  --warn-bg: rgba(245,166,35,.16); --danger-bg: rgba(248,113,113,.16); --ok-bg: rgba(74,222,128,.14);
+  --ok-strong: #4ade80;
+  --warn-bd: rgba(245,166,35,.38); --danger-bd: rgba(248,113,113,.38); --ok-bd: rgba(74,222,128,.34);
+  --sh: 0,0,0;
+  --shk: 1;
+  --knu-primary: #8ab4f8;
+  --knu-primary-dark: #4f86d8;
+  --knu-primary-light: #b3cdfa;
+  --knu-primary-soft: rgba(138,180,248,.25);
+  --knu-bg-tint: rgba(255,255,255,.06);
+  --knu-bg-soft: rgba(255,255,255,.08);
+  --knu-border-light: rgba(255,255,255,.18);
+  --w03:rgba(255,255,255,0.03);
+  --w04:rgba(255,255,255,0.04);
+  --w05:rgba(255,255,255,0.05);
+  --w06:rgba(255,255,255,0.06);
+  --w07:rgba(255,255,255,0.07);
+  --w08:rgba(255,255,255,0.08);
+  --w10:rgba(255,255,255,0.1);
+  --w12:rgba(255,255,255,0.12);
+  --w14:rgba(255,255,255,0.14);
+  --w15:rgba(255,255,255,0.15);
+  --w16:rgba(255,255,255,0.16);
+  --w18:rgba(255,255,255,0.18);
+  --w20:rgba(255,255,255,0.2);
+  --w22:rgba(255,255,255,0.22);
+  --w25:rgba(255,255,255,0.25);
+  --w30:rgba(255,255,255,0.3);
+  --w35:rgba(255,255,255,0.35);
+  --w40:rgba(255,255,255,0.4);
+  --w45:rgba(255,255,255,0.45);
+  --w50:rgba(255,255,255,0.5);
+  --w55:rgba(255,255,255,0.55);
+  --w60:rgba(255,255,255,0.6);
+  --w65:rgba(255,255,255,0.65);
+  --w70:rgba(255,255,255,0.7);
+  --w75:rgba(255,255,255,0.75);
+  --w80:rgba(255,255,255,0.8);
+  --w85:rgba(255,255,255,0.85);
+  --w90:rgba(255,255,255,0.9);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f5f2;
+  --surface-pop: #ffffff;
+  --surface-deep: #ece9e3;
+  --surface-solid: #ffffff;
+  --text: #26282c;
+  --accent: #1d5fae;
+  --accent-soft: #2a6bb8;
+  --accent-strong: #154a8c;
+  --on-accent: #ffffff;
+  --warn-text: #8a5a00;
+  --ok-text: #1b6b3a;
+  --danger-text: #a8322a;
+  --muted-text: #5a6670;
+  --danger-line: #c0392b;
+  --line-soft: rgba(40,36,28,.10);
+  --t1: #26282c; --t2: #3f4247; --t3: #5f6267; --t4: #8b8e93;
+  --surface-1: #f4f2ed; --surface-2: #ebe8e1;
+  --bd1: #e4e1da; --bd2: #d2cec5;
+  --brand-solid: #1d5fae;
+  --warn-bg: #fff4dc; --danger-bg: #fde8e6; --ok-bg: #e4f4e8;
+  --ok-strong: #15803d;
+  --warn-bd: #f0d28a; --danger-bd: #f0b9b4; --ok-bd: #a9d6b6;
+  --sh: 60,50,30;
+  --shk: .35;
+  --knu-primary: #1d5fae;
+  --knu-primary-dark: #154a8c;
+  --knu-primary-light: #2a6bb8;
+  --knu-primary-soft: rgba(29,95,174,.18);
+  --knu-bg-tint: #edeae4;
+  --knu-bg-soft: #f1efe9;
+  --knu-border-light: #dcd8d0;
+  --w03:rgba(40,36,28,0.025);
+  --w04:rgba(40,36,28,0.034);
+  --w05:rgba(255,255,255,0.78);
+  --w06:rgba(255,255,255,0.82);
+  --w07:rgba(255,255,255,0.86);
+  --w08:rgba(255,255,255,0.90);
+  --w10:rgba(40,36,28,0.06);
+  --w12:rgba(40,36,28,0.09);
+  --w14:rgba(40,36,28,0.11);
+  --w15:rgba(40,36,28,0.12);
+  --w16:rgba(40,36,28,0.13);
+  --w18:rgba(40,36,28,0.14);
+  --w20:rgba(40,36,28,0.16);
+  --w22:rgba(40,36,28,0.18);
+  --w25:rgba(40,36,28,0.20);
+  --w30:rgba(40,36,28,.24);
+  --w35:rgba(38,40,44,0.46);
+  --w40:rgba(38,40,44,0.52);
+  --w45:rgba(38,40,44,0.56);
+  --w50:rgba(38,40,44,0.60);
+  --w55:rgba(38,40,44,0.64);
+  --w60:rgba(38,40,44,0.68);
+  --w65:rgba(38,40,44,0.72);
+  --w70:rgba(38,40,44,0.76);
+  --w75:rgba(38,40,44,0.80);
+  --w80:rgba(38,40,44,0.85);
+  --w85:rgba(38,40,44,0.88);
+  --w90:rgba(38,40,44,0.92);
+}
+html { background: var(--bg); }
+/* 드롭다운(select) 목록: 페이지별 색 지정보다 우선해서 항상 읽히게 */
+select option, select optgroup, option, optgroup { background-color: var(--surface-pop) !important; color: var(--text) !important; }
+select optgroup { color: var(--t3) !important; font-weight: 700; font-style: normal; }
+
+/* 테마 전환 버튼 */
+#labThemeBtn {
+  position: fixed; left: 14px; bottom: 14px; z-index: 99999;
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--w22); background: var(--surface-pop); color: var(--text);
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 0;
+  box-shadow: 0 2px 10px rgba(var(--sh), calc(.35 * var(--shk)));
+  display: flex; align-items: center; justify-content: center;
+  opacity: .85; transition: opacity .15s, transform .15s;
+}
+#labThemeBtn:hover { opacity: 1; transform: scale(1.06); }
+@media print { #labThemeBtn { display: none !important; } }
+</style>
+<script>
+(function () {
+  var KEY = 'lab_theme', mode = 'dark';
+  try { mode = localStorage.getItem(KEY) || 'dark'; } catch (e) {}
+  if (mode !== 'light' && mode !== 'dark') mode = 'dark';
+  function apply(m) {
+    mode = m;
+    document.documentElement.setAttribute('data-theme', m);
+    var b = document.getElementById('labThemeBtn');
+    if (b) {
+      b.textContent = (m === 'dark') ? '☀️' : '🌙';
+      b.title = (m === 'dark') ? '화이트 테마로 전환' : '다크 테마로 전환';
+      b.setAttribute('aria-label', b.title);
+    }
+  }
+  // 인쇄할 때는 항상 밝은 테마로 (잉크·가독성)
+  var beforeMode = null;
+  window.addEventListener('beforeprint', function () { beforeMode = mode; document.documentElement.setAttribute('data-theme', 'light'); });
+  window.addEventListener('afterprint', function () { if (beforeMode) document.documentElement.setAttribute('data-theme', beforeMode); beforeMode = null; });
+  window.toggleLabTheme = function () {
+    var next = (mode === 'dark') ? 'light' : 'dark';
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+    apply(next);
+  };
+  apply(mode);
+  function mount() {
+    if (document.getElementById('labThemeBtn') || !document.body) return;
+    var b = document.createElement('button');
+    b.id = 'labThemeBtn'; b.type = 'button';
+    b.onclick = window.toggleLabTheme;
+    document.body.appendChild(b);
+    apply(mode);
+  }
+  window.mountLabThemeBtn = mount;   // 화면이 통째로 교체되는 경우(관리자 로그인 직후)에 버튼을 다시 달기 위해 공개
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
+})();
+</script>
+<style>
+  .cat-tabs {
+    display: flex;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--bd1);
+    -webkit-overflow-scrolling: touch;
+  }
+  .cat-tab {
+    flex: 0 0 auto;
+    padding: 9px 14px;
+    border: 1px solid var(--bd2);
+    border-radius: 20px;
+    background: var(--surface-solid);
+    color: var(--t2);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .cat-tab.active {
+    background: var(--brand-solid);
+    border-color: var(--knu-primary);
+    color: #fff;
+  }
+  .qa-section { display: none; }
+  .qa-section.active { display: block; }
+  .qa-item {
+    border: 1px solid var(--bd1);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .qa-q {
+    padding: 14px 16px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--knu-primary);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface-1);
+    user-select: none;
+  }
+  .qa-q .q-mark { color: var(--knu-accent); margin-right: 6px; }
+  .qa-arrow { flex-shrink: 0; color: var(--t4); font-size: 12px; transition: transform 0.2s; }
+  .qa-arrow.open { transform: rotate(180deg); }
+  .qa-a {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease;
+    background: var(--surface-solid);
+  }
+  .qa-a.open { max-height: 2400px; }
+  .qa-a-inner {
+    padding: 4px 16px 16px;
+    font-size: 13.5px;
+    line-height: 1.75;
+    color: var(--t1);
+  }
+  .qa-a-inner ul { margin: 6px 0 0 18px; }
+  .qa-a-inner li { margin-bottom: 4px; }
+  .qa-a-inner table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12.5px; }
+  .qa-a-inner th {
+    background: var(--knu-bg-tint);
+    color: var(--knu-primary);
+    padding: 7px 9px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 1px solid var(--knu-border-light);
+  }
+  .qa-a-inner td { padding: 7px 9px; border-bottom: 1px solid var(--bd1); vertical-align: top; }
+  .qa-note {
+    background: var(--knu-bg-soft);
+    border: 1px solid var(--knu-border-light);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--knu-primary-dark);
+  }
+  .qa-note b { color: var(--knu-primary); }
+  .color-dot {
+    display: inline-block;
+    width: 11px; height: 11px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+    border: 1px solid var(--bd2);
+  }
+  .back-link {
+    display: block;
+    text-align: center;
+    margin: 18px 0 4px;
+    font-size: 13px;
+    color: var(--knu-primary);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+</style>
+<style>
+  :root {
+    --knu-primary: var(--accent);
+    --knu-primary-dark: var(--accent-strong);
+    --knu-primary-light: var(--accent-soft);
+    --knu-primary-soft: rgba(127, 179, 255, 0.25);
+    --knu-bg-tint: var(--w06);
+    --knu-bg-soft: var(--w08);
+    --knu-border-light: var(--w18);
+  }
+  body { background: var(--bg); background-attachment: fixed; color:var(--text); }
+  .header { background: transparent; color:var(--text); padding: 20px 4px 14px; border-radius: 0; border-bottom: 1px solid var(--w15); margin-bottom: 0; }
+  .header .subtitle { opacity: 0.7; }
+  .card { background: var(--w05); border: 1px solid var(--w12); box-shadow: none; color:var(--text); }
+  .footer { color: var(--w50); }
+
+  .cat-tabs {
+    border-bottom: 1px solid var(--w15);
+    scrollbar-width: thin;
+    scrollbar-color: var(--w25) transparent;
+  }
+  .cat-tabs::-webkit-scrollbar { height: 4px; }
+  .cat-tabs::-webkit-scrollbar-track { background: transparent; }
+  .cat-tabs::-webkit-scrollbar-thumb { background: var(--w25); border-radius: 4px; }
+  .cat-tab {
+    border: 1px solid var(--w22);
+    background: var(--w08);
+    color: var(--w75);
+  }
+  .cat-tab.active {
+    background: var(--knu-primary);
+    border-color: var(--knu-primary);
+    color: var(--on-accent);
+  }
+
+  .qa-item { border: 1px solid var(--w14); }
+  .qa-q { background: var(--w06); color: var(--knu-primary-light); }
+  .qa-q .q-mark { color: #ffb86b; }
+  .qa-arrow { color: var(--w45); }
+  .qa-a { background: var(--w03); }
+  .qa-a-inner { color: var(--w85); }
+  .qa-a-inner td { border-bottom: 1px solid var(--line-soft); }
+  .qa-note { color: var(--knu-primary-light); }
+  .color-dot { border-color: var(--w35); }
+  .back-link { color: var(--knu-primary-light); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="subtitle">강원대학교 강릉캠퍼스 컴퓨터실습실 사용신청 시스템 · 사용자 매뉴얼</div>
+  </div>
+  <div class="card">
+    <div class="cat-tabs" id="catTabs"></div>
+    <div id="qaRoot"></div>
+  </div>
+
+  <div class="footer">
+    본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
+    문의: 강릉행정지원과 전산팀
+  </div>
+</div>
+
+<script>
+  const DATA = [
+    {
+      id: 'intro', label: '시스템 소개',
+      items: [
+        {
+          q: '이 시스템은 무엇인가요?',
+          a: '강원대학교 강릉캠퍼스 컴퓨터실습실(및 일부 강의실)의 사용 신청을 온라인으로 접수·처리하는 자체 운영 시스템입니다. 로그인이나 회원가입 없이 이름·소속·사번 등 최소한의 정보만으로 신청할 수 있습니다.' +
+             '<ul>' +
+             '<li>실습실 예약 신청 및 실시간 시간표 확인</li>' +
+             '<li>신청 결과를 이메일로 자동 안내 (승인/반려)</li>' +
+             '<li>QR 코드로 실습실 앞에서 바로 시간표 확인·문제 신고 가능</li>' +
+             '</ul>'
+        },
+        {
+          q: '누가 이용할 수 있나요?',
+          a: '강원대학교 강릉캠퍼스 <b>교직원(강의자·행정직원 등)</b>만 신청할 수 있습니다. 신청 시 입력하는 사번은 형식이 검증되며, 등록되지 않은 형식은 신청이 접수되지 않습니다.' +
+             '<div class="qa-note">사번 형식 오류가 계속 발생하면 <b>강릉행정지원과 전산팀</b>으로 문의해 주세요.</div>'
+        }
+      ]
+    },
+    {
+      id: 'apply', label: '신청 방법',
+      items: [
+        {
+          q: '실습실은 어떻게 신청하나요?',
+          a: "신청 페이지에서 아래 순서로 진행합니다." +
+             '<ul>' +
+             '<li><b>① 실습실 선택</b> — 드롭다운에서 사용할 실습실을 고릅니다. "💻 컴퓨터실습실"과 "🏫 일반강의실"로 그룹핑되어 있고, 선택하면 좌석 수·설치 소프트웨어 등 정보가 함께 표시됩니다.</li>' +
+             '<li><b>② 신청 유형 선택</b> — 한 번만 신청 / 요일반복 / 기간연속 중 하나를 선택합니다.</li>' +
+             '<li><b>③ 날짜·시간 선택</b> — 시간표를 클릭하거나 기간을 직접 입력합니다.</li>' +
+             '<li><b>④ 신청자 정보 입력</b> — 이름, 소속, 연락처(선택), 사번, 이메일</li>' +
+             '<li><b>⑤ 사용 목적 입력 후 제출</b></li>' +
+             '</ul>' +
+             '<div class="qa-note">사번은 <b>대소문자를 구분</b>하므로 정확히 입력해야 하고, 이메일은 신청 확인·처리 결과 안내를 받는 주소이니 정확히 입력해 주세요.</div>'
+        },
+        {
+          q: '신청 페이지에는 어떻게 들어가나요?',
+          a: '아래 세 가지 방법 중 편한 것을 이용하면 됩니다.' +
+             '<ul>' +
+             '<li><b>직접 접속</b> — 신청 주소로 들어가 실습실을 직접 선택합니다.</li>' +
+             '<li><b>전체 시간표에서 이동</b> — 전체 시간표에서 비어 있는 실습실의 <b>이름을 클릭</b>하면, 그 실습실이 선택된 신청 페이지가 바로 열립니다. 시간표에서 보던 날짜도 함께 넘어가 해당 주의 시간표가 열립니다.</li>' +
+             '<li><b>실습실 앞 QR 코드</b> — QR을 스캔한 뒤 시간표 화면에서 신청 페이지로 이동합니다.</li>' +
+             '</ul>' +
+             '<div class="qa-note">전체 시간표에서 이동하면 실습실을 다시 고를 필요가 없어 가장 빠릅니다.</div>'
+        },
+        {
+          q: '신청 유형(한 번만 신청 / 요일반복 / 기간연속)은 어떻게 다른가요?',
+          a: '<table><thead><tr><th>유형</th><th>설명</th></tr></thead><tbody>' +
+             '<tr><td><b>한 번만 신청</b></td><td>특정 하루, 특정 시간대만 사용할 때. 시간표에서 시작·종료 시간을 클릭해 선택합니다.</td></tr>' +
+             '<tr><td><b>요일반복</b></td><td>시작일~종료일 사이 특정 요일에 매주 반복 사용할 때 (예: 매주 화·목). 시간표에서 원하는 요일의 시작·종료 시간을 클릭하면 요일과 시간이 자동으로 채워집니다.</td></tr>' +
+             '<tr><td><b>기간연속</b></td><td>시작일부터 종료일까지 매일 같은 시간대로 연속 사용할 때. 시간·기간을 직접 입력합니다.</td></tr>' +
+             '</tbody></table>'
+        },
+        {
+          q: '시간표의 칸 색깔은 무엇을 뜻하나요?',
+          a: '<ul>' +
+             '<li><span class="color-dot" style="background:var(--surface-solid);"></span><b>흰 칸</b> — 선택 가능한 빈 시간</li>' +
+             '<li><span class="color-dot" style="background:var(--danger-bg);border-color:var(--danger-line);"></span><b>빨간 칸</b> — 정규수업이 있는 시간 (선택 불가)</li>' +
+             '<li><span class="color-dot" style="background:var(--warn-bg);border-color:#f5a623;"></span><b>노란 칸</b> — 다른 사람이 예약 대기 중인 시간 (선택 불가)</li>' +
+             '<li><span class="color-dot" style="background:var(--surface-2);border-color:#90a4ae;"></span><b>회색 칸</b> — 예약이 확정된 시간 (선택 불가, 사용 목적·소속 표시)</li>' +
+             '</ul>'
+        },
+        {
+          q: '실습실에 설치된 소프트웨어는 어떻게 확인하나요?',
+          a: '실습실을 선택하면 그 아래 "📦 설치된 소프트웨어" 영역이 나타납니다. <b>제목을 클릭하면 목록이 펼쳐지고</b>, 다시 클릭하면 접힙니다. 필요한 프로그램이 설치되어 있는지 미리 확인한 뒤 신청하면 편리합니다.'
+        },
+        {
+          q: '토·일요일이나 공휴일에는 신청할 수 없나요?',
+          a: '평소에는 토·일요일과 공휴일에는 신청할 수 없습니다.' +
+             '<ul>' +
+             '<li><b>한 번만 신청</b>: 시간표에서 토·일요일은 표시되지 않으며, 평일 중 공휴일이 있으면 그 요일·날짜가 <span style="color:var(--danger-line);font-weight:700;">빨간 글씨</span>로 표시되고 해당 날짜 칸은 클릭이 되지 않습니다.</li>' +
+             '<li><b>요일반복·기간연속</b>: 기간 안에 휴일이 포함되어 있으면 시스템이 이를 알려주고, "휴일을 제외하고 나머지 날짜만 신청하시겠습니까?"라고 확인합니다. 확인하면 휴일만 자동으로 제외되고 나머지 날짜로 접수됩니다.</li>' +
+             '</ul>' +
+             '<div class="qa-note">행사 등 특별한 사유로 휴일에 실습실이 꼭 필요하면 <b>강릉행정지원과 전산팀</b>에 문의해 주세요. 관리자가 일시적으로 휴일 신청을 허용하면 그 기간에는 정상적으로 신청할 수 있습니다. (이 경우에도 요일·날짜는 계속 빨간 글씨로 표시되어, 휴일이라는 점은 계속 안내됩니다.)</div>'
+        },
+        {
+          q: '신청 후 결과는 언제, 어떻게 알 수 있나요?',
+          a: '관리자가 확인 후 승인 또는 반려하며, 처리 즉시 결과가 이메일로 자동 발송됩니다. 자동승인이 설정된 경우 신청과 동시에 즉시 승인될 수 있습니다.' +
+             '<div class="qa-note">승인 메일에는 "내 신청 조회·취소하기" 버튼이 포함되어 있어, 메일에서 바로 내 신청 내역을 확인할 수 있습니다.</div>'
+        }
+      ]
+    },
+    {
+      id: 'allrooms', label: '전체 시간표',
+      items: [
+        {
+          q: '전체 시간표는 무엇인가요?',
+          a: '모든 실습실의 <b>정규수업과 예약 현황을 하루 단위로 한 화면에</b> 보여주는 페이지입니다. 실습실을 하나씩 열어 보지 않아도, 원하는 날짜에 <b>비어 있는 실습실</b>을 한눈에 비교할 수 있습니다.' +
+             '<div class="qa-note">관리자가 안내한 전용 주소로 접속합니다. 접속이 되지 않으면 <b>강릉행정지원과 전산팀</b>에 주소를 문의해 주세요.</div>'
+        },
+        {
+          q: '원하는 날짜의 시간표는 어떻게 보나요?',
+          a: '화면 위쪽 버튼으로 날짜를 바꿉니다.' +
+             '<ul>' +
+             '<li><b>◀ 전날 / 다음날 ▶</b> — 하루씩 이동합니다.</li>' +
+             '<li><b>오늘</b> — 오늘 날짜로 돌아옵니다.</li>' +
+             '<li><b>📅 날짜 버튼</b> — 지금 보고 있는 날짜가 표시되어 있고, 누르면 달력이 열려 원하는 날짜를 직접 고를 수 있습니다.</li>' +
+             '</ul>' +
+             '<div class="qa-note">오늘을 보고 있을 때는 현재 시각 위치에 선이 표시되고, 화면은 5분마다 자동으로 새로 고쳐집니다.</div>'
+        },
+        {
+          q: '시간표의 색깔은 무엇을 뜻하나요?',
+          a: '<ul>' +
+             '<li><span class="color-dot" style="background:var(--danger-bg);border-color:var(--danger-line);"></span><b>빨간 블록</b> — 정규수업이 있는 시간</li>' +
+             '<li><span class="color-dot" style="background:#e3f0ff;border-color:var(--accent-strong);"></span><b>파란 블록</b> — 예약된 시간</li>' +
+             '<li><b>블록이 없는 부분</b> — 비어 있는 시간 (신청 가능)</li>' +
+             '</ul>'
+        },
+        {
+          q: '비어 있는 실습실을 바로 신청하려면 어떻게 하나요?',
+          a: '<ul>' +
+             '<li><b>① 날짜 선택</b> — 사용하려는 날짜의 시간표를 엽니다.</li>' +
+             '<li><b>② 빈 시간대 확인</b> — 블록이 없는 시간대의 실습실을 찾습니다.</li>' +
+             '<li><b>③ 실습실 이름 클릭</b> — 시간표 맨 위의 실습실 이름을 누르면 새 탭에서 <b>그 실습실의 신청 페이지</b>가 열립니다.</li>' +
+             '<li><b>④ 신청 진행</b> — 선택한 날짜의 주간 시간표가 열려 있으니, 원하는 시간을 클릭하고 신청자 정보를 입력해 제출합니다.</li>' +
+             '</ul>' +
+             '<div class="qa-note">오늘 이전 날짜는 신청할 수 없어, 지난 날짜에서 이동하면 이번 주 시간표가 열립니다.</div>'
+        }
+      ]
+    },
+    {
+      id: 'mypage', label: '신청 조회·취소',
+      items: [
+        {
+          q: '내가 신청한 내역은 어디서 확인하나요?',
+          a: '신청 페이지 하단의 <b>"내 신청 조회·취소하기"</b> 링크, 또는 처리 결과 메일 안의 버튼으로 접속합니다. 신청 시 사용한 <b>신청번호와 이메일</b>을 입력하면 조회됩니다.'
+        },
+        {
+          q: '신청을 취소하고 싶어요.',
+          a: '아직 사용일이 지나지 않은 <b>대기 중이거나 승인된</b> 신청은 조회 화면에서 카드 하단의 [신청 취소] 버튼으로 직접 취소할 수 있습니다. 이미 반려됐거나 사용일이 지난 신청은 취소가 되지 않으니, 변경이 필요하면 <b>강릉행정지원과 전산팀</b>에 문의해 주세요.'
+        },
+        {
+          q: '요일반복으로 여러 건을 한 번에 취소할 수 있나요?',
+          a: '네. 취소 가능한 신청이 2건 이상이면 목록 상단에 <b>"취소 가능한 신청 전체선택"</b> 체크박스가 나타납니다. 전체선택하거나 원하는 건들만 개별 체크한 뒤 [선택 취소] 버튼을 누르면 한 번에 처리됩니다.' +
+             '<div class="qa-note">일부 건이 그사이 이미 취소됐거나 사용일이 지나 처리되지 않은 경우, 결과 메시지에 어떤 건이 왜 제외됐는지 안내됩니다.</div>'
+        }
+      ]
+    },
+    {
+      id: 'qr-schedule', label: '시간표 확인(QR)',
+      items: [
+        {
+          q: '실습실 문 앞 QR 코드는 어떤 용도인가요?',
+          a: '각 실습실 문 앞에는 <b>시간표 확인용 QR 코드</b>가 부착되어 있습니다. 스마트폰으로 스캔하면 로그인 없이 그 실습실의 이번 주 정규수업·예약 현황을 바로 확인할 수 있습니다.' +
+             '<ul>' +
+             '<li><span class="color-dot" style="background:var(--danger-bg);border-color:var(--danger-line);"></span>빨간 칸 — 정규수업 시간</li>' +
+             '<li><span class="color-dot" style="background:var(--warn-bg);border-color:#f5a623;"></span>노란 칸 — 예약 대기 중인 시간</li>' +
+             '<li><span class="color-dot" style="background:var(--surface-2);border-color:#90a4ae;"></span>회색 칸 — 예약이 확정된 시간 (사용 목적·소속 함께 표시)</li>' +
+             '<li><span class="color-dot" style="background:var(--surface-solid);"></span>흰 칸 — 비어 있는 시간, 신청 없이도 자유롭게 사용 가능</li>' +
+             '</ul>' +
+             '<div class="qa-note">이 화면에서도 그 날이 공휴일·주말이면 요일·날짜가 빨간 글씨로 표시됩니다.</div>'
+        }
+      ]
+    },
+    {
+      id: 'qr-report', label: '안내·신고(QR)',
+      items: [
+        {
+          q: '실습실에 문제가 생겼어요. 어떻게 신고하나요?',
+          a: '실습실마다 별도의 <b>"실습실 안내·신고" QR 카드</b>가 비치되어 있습니다(전자교탁 등에 부착). 스캔하면 다음 화면이 나옵니다.' +
+             '<ul>' +
+             '<li><b>① FAQ 확인</b> — 그 실습실에 대해 자주 묻는 질문과 답변을 먼저 확인할 수 있습니다. 신고 전에 먼저 확인해 보세요.</li>' +
+             '<li><b>② 고장·문제 신고</b> — 신고란에 문제 내용을 자유롭게 적고 제출하면, 이름·연락처 입력 없이 즉시 담당 부서(강릉행정지원과 전산팀)에 접수됩니다.</li>' +
+             '</ul>'
+        },
+        {
+          q: '신고는 익명인가요?',
+          a: '네, 완전히 익명으로 처리됩니다. 다만 같은 기기에서 짧은 시간(2분) 안에 반복 제출은 제한되니, 문제 내용을 한 번에 정리해서 제출해 주세요.'
+        },
+        {
+          q: '처리 결과를 알림으로 받고 싶어요.',
+          a: '신고 화면 하단에 <b>"처리 결과를 메일로 받고 싶으시면 입력해주세요 (선택)"</b> 이메일 입력란이 있습니다. 입력하지 않아도 신고는 동일하게 익명으로 접수되며, 입력하신 경우에만 아래 단계마다 메일로 안내드립니다.' +
+             '<ul>' +
+             '<li>접수 시 — 신고 내용이 정리된 접수 확인 메일</li>' +
+             '<li>조치 완료 시 — 처리 내용과 함께 완료 안내 메일</li>' +
+             '<li>부득이하게 조치가 어려운 경우 — 사유를 담은 정중한 안내 메일</li>' +
+             '</ul>' +
+             '<div class="qa-note">이메일도 신고 내용과 마찬가지로 관리자 확인 용도로만 쓰이며, 짧은 시간에 같은 이메일로 여러 건을 반복 제출하면 접수가 제한될 수 있습니다.</div>'
+        }
+      ]
+    },
+    {
+      id: 'faq', label: '자주 묻는 질문',
+      items: [
+        { q: '신청은 얼마나 미리 해야 하나요?', a: '평소에는 오늘부터 최대 30일 이내로 신청할 수 있습니다. 행사 등으로 이 기간이 관리자에 의해 일시적으로 확장될 수 있습니다.' },
+        { q: '신청 후 언제쯤 승인되나요?', a: '관리자가 확인 후 승인·반려하며, 처리 즉시 결과 메일이 발송됩니다. 자동승인이 설정된 경우 신청과 동시에 즉시 승인될 수 있습니다.' },
+        { q: '사번이 틀렸다고 나옵니다.', a: '본 시스템은 교직원 전용이며 사번 형식을 검증합니다. 대소문자를 구분하니 정확히 입력했는지 다시 확인해 주세요. 계속 오류가 발생하면 관리자에게 문의해 주세요.' },
+        { q: '같은 시간에 다른 사람이 이미 신청했습니다.', a: '이미 예약(대기 또는 확정)이 있는 시간대는 중복 신청이 차단됩니다. 시간표에서 비어 있는 다른 시간을 선택해 주세요.' },
+        { q: '요일·날짜가 빨간색으로 표시되고 클릭이 안 됩니다.', a: '그 날짜가 공휴일 또는 주말이라는 뜻입니다. 평소에는 휴일 신청이 제한되어 있으니, 꼭 필요하면 관리자에게 문의해 주세요.' },
+        { q: '설치된 소프트웨어 목록이 안 보여요.', a: '실습실을 선택한 뒤 "📦 설치된 소프트웨어" 제목 부분을 한 번 클릭해 보세요. 클릭할 때마다 목록이 펼쳐지거나 접힙니다.' }
+      ]
+    }
+  ];
+
+  let currentCat = DATA[0].id;
+
+  function render() {
+    const tabsEl = document.getElementById('catTabs');
+    tabsEl.innerHTML = DATA.map(function(cat) {
+      return '<button type="button" class="cat-tab' + (cat.id === currentCat ? ' active' : '') + '" onclick="switchCat(\'' + cat.id + '\')">' + escapeHtml(cat.label) + '</button>';
+    }).join('');
+
+    const root = document.getElementById('qaRoot');
+    root.innerHTML = DATA.map(function(cat) {
+      const itemsHtml = cat.items.map(function(item, i) {
+        const uid = cat.id + '_' + i;
+        return '<div class="qa-item">' +
+          '<div class="qa-q" id="q_' + uid + '" onclick="toggleQa(\'' + uid + '\')">' +
+            '<span><span class="q-mark">Q.</span>' + escapeHtml(item.q) + '</span>' +
+            '<span class="qa-arrow" id="arrow_' + uid + '">▾</span>' +
+          '</div>' +
+          '<div class="qa-a" id="a_' + uid + '"><div class="qa-a-inner">' + item.a + '</div></div>' +
+        '</div>';
+      }).join('');
+      return '<div class="qa-section' + (cat.id === currentCat ? ' active' : '') + '" id="sec_' + cat.id + '">' + itemsHtml + '</div>';
+    }).join('');
+  }
+
+  function switchCat(id) {
+    currentCat = id;
+    render();
+  }
+
+  function toggleQa(uid) {
+    const a = document.getElementById('a_' + uid);
+    const arrow = document.getElementById('arrow_' + uid);
+    const q = document.getElementById('q_' + uid);
+    const isOpen = a.classList.contains('open');
+    const willOpen = !isOpen;
+
+    document.querySelectorAll('.qa-a.open').forEach(function(el) {
+      if (el !== a) {
+        el.classList.remove('open');
+        const otherArrow = document.getElementById('arrow_' + el.id.replace('a_', ''));
+        if (otherArrow) otherArrow.classList.remove('open');
+      }
+    });
+
+    a.classList.toggle('open', willOpen);
+    arrow.classList.toggle('open', willOpen);
+
+    if (willOpen && q) {
+      setTimeout(function() {
+        q.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 280);
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  render();
+</script>
+</body>
+</html>

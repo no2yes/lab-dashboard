@@ -5743,18 +5743,11 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     document.getElementById('mobileQrModal').classList.remove('show');
     if (mobileQrTimer) clearInterval(mobileQrTimer);
   }
-  // 관리자 매뉴얼을 모달(페이지 내부)로 표시
+  // 관리자 매뉴얼을 모달(페이지 내부)로 표시 (GitHub Pages 버전: 같은 저장소의 adminManual.html로 바로 이동)
   function goToAdminManual() {
     document.getElementById('manualModal').classList.add('show');
     showOverlay('매뉴얼 불러오는 중...');
-    google.script.run
-      .withSuccessHandler(function(url) {
-        document.getElementById('manualIframe').src = url + '?page=adminManual&t=' + encodeURIComponent(token);
-      })
-      .withFailureHandler(function() {
-        document.getElementById('manualIframe').src = '?page=adminManual&t=' + encodeURIComponent(token);
-      })
-      .getCleanWebAppUrl();
+    document.getElementById('manualIframe').src = 'adminManual.html?t=' + encodeURIComponent(token);
   }
 
   function hideManualLoading() {
