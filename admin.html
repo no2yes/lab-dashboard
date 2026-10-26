@@ -8422,24 +8422,15 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       .deleteFaq(token, rowIndex);
   }
 
+  // GitHub Pages 이전 버전: 같은 저장소의 정적 페이지로 바로 이동 (GAS exec URL 왕복 제거)
   function openUserPage(page) {
-    google.script.run
-      .withSuccessHandler(function(url) {
-        window.open(url + (page ? '?page=' + page : ''), '_blank');
-      })
-      .withFailureHandler(onError)
-      .getCleanWebAppUrl();
+    window.open(page ? (page + '.html') : 'request.html', '_blank');
   }
 
   function openUserRoomPage() {
     const roomId = document.getElementById('linkPreviewRoom').value;
     if (!roomId) { showResultModal('error','실습실 선택','확인할 실습실을 선택해주세요.'); return; }
-    google.script.run
-      .withSuccessHandler(function(url) {
-        window.open(url + '?page=room&id=' + encodeURIComponent(roomId), '_blank');
-      })
-      .withFailureHandler(onError)
-      .getCleanWebAppUrl();
+    window.open('room.html?id=' + encodeURIComponent(roomId), '_blank');
   }
 
   function openUserReportPage() {
@@ -8451,7 +8442,15 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         hideOverlay();
         if (res && res.expired) { sessionStorage.removeItem('admin_token'); redirectToLogin(); return; }
         if (!res || !res.success) { showResultModal('error','열기 실패',(res&&res.message)||'실패했습니다.'); return; }
-        window.open(res.url, '_blank');
+        // report.html은 ?t=<previewToken> 형식으로 토큰을 읽으므로, GAS가 돌려준 exec URL에서
+        // 토큰만 추출해 GitHub Pages 상의 report.html로 연결 (추출 실패 시 원래 url로 폴백)
+        try {
+          const u = new URL(res.url);
+          const t = u.searchParams.get('t');
+          window.open('report.html' + (t ? ('?t=' + encodeURIComponent(t)) : ''), '_blank');
+        } catch (e) {
+          window.open(res.url, '_blank');
+        }
       })
       .withFailureHandler(function(err) { hideOverlay(); showResultModal('error','서버 오류',err.message); })
       .getReportPreviewUrl(token, roomId);
