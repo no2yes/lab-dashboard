@@ -9105,23 +9105,8 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   }
   
   function redirectToLogin() {
-    google.script.run
-      .withSuccessHandler(function(url) {
-        const target = url + '?page=admin';
-        try {
-          if (window.top && window.top !== window) {
-            window.top.location.href = target;
-          } else {
-            window.location.href = target;
-          }
-        } catch (e) {
-          window.location.href = target;
-        }
-      })
-      .withFailureHandler(function() {
-        try { window.top.location.reload(); } catch (e) { window.location.reload(); }
-      })
-      .getWebAppUrl();
+    // GitHub Pages 버전: 같은 저장소의 auth.html로 이동 (더 이상 GAS 주소로 보내지 않음)
+    window.location.href = 'auth.html';
   }
   
   function showOverlay(msg) {
