@@ -1693,7 +1693,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   })();
   // ===== shim 끝 =====
 
-  const DOORLOCK_TOKEN = (function(){ var p = new URLSearchParams(window.location.search); return p.get('t') || p.get('token') || p.get('doorlockToken') || ''; })();
+  const DOORLOCK_TOKEN = new URLSearchParams(window.location.search).get('t') || '';
   let currentOffset = 0;       // 오늘=0, 내일=1, 모레=2, 그 외 직접 선택한 날짜면 null
   let currentDateStr = null;   // 직접 선택한 날짜 (yyyy-MM-dd), 탭을 눌렀을 때는 null
   let refreshTimer = null;
