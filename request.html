@@ -123,6 +123,9 @@ input, select, textarea {
 textarea { resize: vertical; min-height: 70px; }
 .error-msg { display: none; font-size: 11px; color: var(--danger-line); margin-top: 4px; }
 .field-error .error-msg { display: block; }
+.room-fixed-display { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--w08); border: 1px solid var(--w18); border-radius: 8px; font-size: 14px; font-weight: 600; }
+.room-fixed-display .room-fixed-back { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--knu-primary-light); text-decoration: none; white-space: nowrap; }
+.room-fixed-display .room-fixed-back:hover { text-decoration: underline; }
 .field-error.shake, .field-error input, .field-error select { animation: none; }
 @keyframes shake { 0%,100%{transform:translateX(0);} 20%,60%{transform:translateX(-5px);} 40%,80%{transform:translateX(5px);} }
 .shake { animation: shake 0.4s; }
@@ -316,6 +319,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
         <select id="roomId" onchange="onRoomChange()" disabled>
           <option value="">(실습실 목록 불러오는 중...)</option>
         </select>
+        <div id="roomIdFixed" class="room-fixed-display" style="display:none;"></div>
         <span class="error-msg">실습실을 선택해주세요.</span>
       </div>
       <div id="roomSwInfo" style="display:none;"></div>
@@ -511,8 +515,16 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     setupAutoClearErrors();
     changeType('single');
 
-    api({ action: 'rooms' }).then(res => roomsLoaded((res && res.rooms) || []))
-      .catch(() => roomsLoaded([], true));
+    if (preselectRoomId) {
+      // 전체 시간표에서 특정 실습실로 바로 들어온 경우: 전체 실습실 목록을 만들 필요가 없으니
+      // 그 실습실 하나의 정보만 가볍게 받아온다. (실패 시에는 평소처럼 전체 목록으로 대체)
+      api({ action: 'roominfo', id: preselectRoomId }).then(res => {
+        if (res && res.success && res.room) singleRoomLoaded(res.room);
+        else loadAllRoomsList();
+      }).catch(() => loadAllRoomsList());
+    } else {
+      loadAllRoomsList();
+    }
     api({ action: 'maxadvancedays' }).then(res => {
       if (res && res.days) {
         maxAdvanceDays = res.days;
@@ -583,6 +595,30 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       const el = document.getElementById(id);
       if (el) el.value = ds;
     });
+  }
+
+  function loadAllRoomsList() {
+    api({ action: 'rooms' }).then(res => roomsLoaded((res && res.rooms) || []))
+      .catch(() => roomsLoaded([], true));
+  }
+
+  // 전체 시간표에서 실습실 하나를 골라 들어온 경우: 드롭다운 자체를 만들지 않고
+  // 그 실습실 이름만 고정 텍스트로 보여준다. (다른 실습실로 바꾸려면 전체 시간표로 돌아가야 함)
+  function singleRoomLoaded(room) {
+    rooms = [room];
+    const sel = document.getElementById('roomId');
+    // 실제 <option>이 없으면 .value를 지정해도 적용되지 않으므로, 숨겨서 쓸 하나짜리 옵션을 만들어둔다.
+    sel.innerHTML = '<option value="' + escapeHtml(room.id) + '">' + escapeHtml(room.name) + '</option>';
+    sel.value = room.id;
+    document.getElementById('field-roomId').querySelector('label').style.display = 'none';
+    sel.style.display = 'none';
+    const fixed = document.getElementById('roomIdFixed');
+    fixed.innerHTML = '📍 <span>' + escapeHtml(room.name) + ' (' + escapeHtml(String(room.seats)) + '석)</span>' +
+      '<a class="room-fixed-back" href="request.html">다른 실습실 선택</a>';
+    fixed.style.display = 'flex';
+
+    applyPreselectDate();
+    onRoomChange(true);
   }
 
   function roomsLoaded(data, failed) {
