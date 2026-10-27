@@ -605,7 +605,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       html += '</div>';
     });
     html += '</div>';
-    document.getElementById('arArea').innerHTML = html;
+    setArArea(html);
   }
 
   // 날짜 버튼에는 현재 보고 있는 날짜를 표시
@@ -616,20 +616,42 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     el.textContent = '📅 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (' + ['일', '월', '화', '수', '목', '금', '토'][d.getDay()] + ')';
   }
 
+  // 마우스/터치를 누르고 있는 동안은 실습실 링크 화면을 교체하지 않음.
+  // (자동 새로고침이 클릭 도중에 끼어들면, 누른 실습실과 뗄 때 실제로 열리는 실습실이 달라질 수 있음)
+  let pointerDown = false;
+  let deferredArArea = null;
+  function setArArea(html, afterFn) {
+    if (pointerDown) {
+      deferredArArea = function() { document.getElementById('arArea').innerHTML = html; if (afterFn) afterFn(); };
+      return;
+    }
+    document.getElementById('arArea').innerHTML = html;
+    if (afterFn) afterFn();
+  }
+  document.addEventListener('mousedown', function() { pointerDown = true; }, true);
+  document.addEventListener('touchstart', function() { pointerDown = true; }, true);
+  function releasePointer() {
+    pointerDown = false;
+    if (deferredArArea) { const fn = deferredArArea; deferredArArea = null; fn(); }
+  }
+  document.addEventListener('mouseup', releasePointer, true);
+  document.addEventListener('touchend', releasePointer, true);
+  document.addEventListener('touchcancel', releasePointer, true);
+
   let loadSeq = 0;   // 조회 순번: 날짜를 빠르게 넘길 때 늦게 도착한 이전 날짜 응답이 화면을 덮어쓰지 않게
   function load() {
     const seq = ++loadSeq;
     const reqOffset = dayOffset;
     updateDateLabel();
     if (!TOKEN) {
-      document.getElementById('arArea').innerHTML = '<div class="aw-error">접속 주소에 인증 정보(?t=...)가 없습니다. 관리자에게 링크를 다시 요청해주세요.</div>';
+      setArArea('<div class="aw-error">접속 주소에 인증 정보(?t=...)가 없습니다. 관리자에게 링크를 다시 요청해주세요.</div>');
       return;
     }
     const cachedRooms = getCachedRooms();
     if (cachedRooms && cachedRooms.length) {
       renderSkeleton(cachedRooms);
     } else {
-      document.getElementById('arArea').innerHTML = '<div class="aw-loading">불러오는 중...</div>';
+      setArArea('<div class="aw-loading">불러오는 중...</div>');
     }
     fetch(GAS_URL + '?page=api&action=allrooms&t=' + encodeURIComponent(TOKEN) + '&dayOffset=' + reqOffset)
       .then(res => res.json())
@@ -642,7 +664,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       .catch(err => {
         if (seq !== loadSeq) return;
         if (!document.querySelector('.aw-block')) {
-          document.getElementById('arArea').innerHTML = '<div class="aw-error">조회 실패: ' + escapeHtml(err.message) + '</div>';
+          setArArea('<div class="aw-error">조회 실패: ' + escapeHtml(err.message) + '</div>');
         }
         finishActiveNavBtn();
       });
@@ -650,7 +672,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 
   function render(res, offset) {
     if (!res || !res.success) {
-      document.getElementById('arArea').innerHTML = '<div class="aw-error">' + escapeHtml((res && res.message) || '조회 실패') + '</div>';
+      setArArea('<div class="aw-error">' + escapeHtml((res && res.message) || '조회 실패') + '</div>');
       return;
     }
 
@@ -700,8 +722,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     });
     html += '</div>';
 
-    document.getElementById('arArea').innerHTML = html;
-    if (res.isToday) drawNowLine(totalSlots);
+    setArArea(html, function() { if (res.isToday) drawNowLine(totalSlots); });
   }
 
   function drawNowLine(totalSlots) {
