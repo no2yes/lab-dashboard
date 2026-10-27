@@ -3,6 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    // 로그인 안 된 상태에서 관리자 화면이 잠깐이라도 그려지는 걸 막기 위해,
+    // 본문을 파싱하기 전(head 단계)에 먼저 토큰 유무만 확인해서 없으면 즉시 이동.
+    (function() {
+      try {
+        if (!sessionStorage.getItem('admin_token')) {
+          window.location.replace('auth.html');
+        }
+      } catch (e) {
+        window.location.replace('auth.html');
+      }
+    })();
+  </script>
 <style>
   /* ====== 강원대학교 공식 색상 변수 ====== */
   :root {
