@@ -501,6 +501,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   const qs = new URLSearchParams(location.search);
   const preselectRoomId = qs.get('room') || '';
   const preselectDateStr = qs.get('date') || '';
+  const preselectRoomName = qs.get('name') || '';
+  const preselectRoomSeats = qs.get('seats') || '';
   let maxAdvanceDays = 30;
 
   const TYPE_DESC = {
@@ -515,9 +517,19 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     setupAutoClearErrors();
     changeType('single');
 
-    if (preselectRoomId) {
-      // 전체 시간표에서 특정 실습실로 바로 들어온 경우: 전체 실습실 목록을 만들 필요가 없으니
-      // 그 실습실 하나의 정보만 가볍게 받아온다. (실패 시에는 평소처럼 전체 목록으로 대체)
+    if (preselectRoomId && preselectRoomName) {
+      // 전체 시간표 링크에 이름·좌석수가 이미 담겨 와서, 서버 응답을 기다릴 필요 없이 즉시 화면을 띄운다.
+      // (설치 SW 목록만 뒤에서 조용히 받아와 보완 — 화면이 뜨는 걸 막지 않음)
+      singleRoomLoaded({ id: preselectRoomId, name: preselectRoomName, seats: preselectRoomSeats, software: [] });
+      api({ action: 'roominfo', id: preselectRoomId }).then(res => {
+        if (res && res.success && res.room && rooms[0] && rooms[0].id === preselectRoomId) {
+          rooms[0] = res.room;
+          updateRoomSwInfo();
+          checkCapacityWarning();
+        }
+      }).catch(() => {});
+    } else if (preselectRoomId) {
+      // 이름·좌석수 없이 실습실 id만 있는 구형 링크: 전체 목록을 만들 필요 없이 그 실습실 정보만 받아온다.
       api({ action: 'roominfo', id: preselectRoomId }).then(res => {
         if (res && res.success && res.room) singleRoomLoaded(res.room);
         else loadAllRoomsList();
@@ -613,7 +625,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     document.getElementById('field-roomId').querySelector('label').style.display = 'none';
     sel.style.display = 'none';
     const fixed = document.getElementById('roomIdFixed');
-    fixed.innerHTML = '📍 <span>' + escapeHtml(room.name) + ' (' + escapeHtml(String(room.seats)) + '석)</span>' +
+    const seatsText = room.seats ? ' (' + escapeHtml(String(room.seats)) + '석)' : '';
+    fixed.innerHTML = '📍 <span>' + escapeHtml(room.name) + seatsText + '</span>' +
       '<a class="room-fixed-back" href="request.html">다른 실습실 선택</a>';
     fixed.style.display = 'flex';
 

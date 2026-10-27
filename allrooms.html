@@ -692,7 +692,9 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       let line1, line2;
       if (m) { line1 = m[1] + ')'; line2 = m[2]; }
       else { line1 = r.name; line2 = ''; }
-      html += '<a class="aw-room-header aw-room-link" href="request.html?room=' + encodeURIComponent(r.id) + '&date=' + selDateStr + '" target="_blank" rel="noopener" title="이 실습실 신청하기">' +
+      html += '<a class="aw-room-header aw-room-link" href="request.html?room=' + encodeURIComponent(r.id) + '&date=' + selDateStr +
+              '&name=' + encodeURIComponent(r.name) + (r.seats ? '&seats=' + encodeURIComponent(r.seats) : '') +
+              '" target="_blank" rel="noopener" title="이 실습실 신청하기">' +
               '<div>' + escapeHtml(line1) + '</div>' +
               ((line2 || seatTag(r)) ? '<div>' + escapeHtml(line2) + seatTag(r) + '</div>' : '') + '</a>';
     });
