@@ -313,8 +313,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       <div class="section-title">1. 실습실 선택</div>
       <div class="field" id="field-roomId">
         <label>사용할 실습실 <span class="required">*</span></label>
-        <select id="roomId" onchange="onRoomChange()">
-          <option value="">-- 실습실 선택 --</option>
+        <select id="roomId" onchange="onRoomChange()" disabled>
+          <option value="">(실습실 목록 불러오는 중...)</option>
         </select>
         <span class="error-msg">실습실을 선택해주세요.</span>
       </div>
@@ -511,7 +511,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     setupAutoClearErrors();
     changeType('single');
 
-    api({ action: 'rooms' }).then(res => roomsLoaded((res && res.rooms) || []));
+    api({ action: 'rooms' }).then(res => roomsLoaded((res && res.rooms) || []))
+      .catch(() => roomsLoaded([], true));
     api({ action: 'maxadvancedays' }).then(res => {
       if (res && res.days) {
         maxAdvanceDays = res.days;
@@ -584,9 +585,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     });
   }
 
-  function roomsLoaded(data) {
+  function roomsLoaded(data, failed) {
     rooms = data;
     const sel = document.getElementById('roomId');
+    sel.disabled = false;
+    sel.firstElementChild.textContent = failed ? '(실습실 목록을 불러오지 못했습니다. 새로고침해주세요)' : '-- 실습실 선택 --';
+    if (failed) return;
 
     const labList = rooms.filter(r => r.roomType !== '강의실');
     const lectureList = rooms.filter(r => r.roomType === '강의실');
