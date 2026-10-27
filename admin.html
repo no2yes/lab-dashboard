@@ -1923,7 +1923,58 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       font-family: inherit;
     }
     .tool-btn:hover { background: var(--knu-primary-dark); }
-    
+
+    /* 관리자 계정 탭 재인증 — auth.html 로그인 화면과 동일한 시각 언어로 통일 */
+    .reauth-box {
+      max-width: 340px;
+      margin: 10px auto;
+      text-align: center;
+    }
+    .reauth-icon {
+      width: 56px;
+      height: 56px;
+      background: var(--brand-solid);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px;
+      font-size: 24px;
+    }
+    .reauth-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--knu-primary);
+      margin-bottom: 6px;
+    }
+    .reauth-subtitle {
+      font-size: 12.5px;
+      color: var(--t3);
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .reauth-box .field { text-align: left; margin-bottom: 14px; }
+    .reauth-box .code-input {
+      letter-spacing: 0.5em;
+      font-size: 22px !important;
+      text-align: center;
+      font-weight: 600;
+      padding: 12px !important;
+    }
+    .reauth-box .resend-link {
+      text-align: center;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+    .reauth-box .resend-link a {
+      color: var(--knu-primary);
+      text-decoration: none;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .reauth-box .resend-link a:hover { text-decoration: underline; }
+
     /* 시스템 사용량 대시보드 */
     .usage-dashboard {
       background: var(--surface-1);
@@ -3976,15 +4027,18 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     <!-- ===== 패널: 관리자 계정 (재인증 필요) ===== -->
     <div id="panel-adminmgmt" style="display:none;">
       <div class="admin-tools" id="adminMgmtLockCard" style="flex-direction:column;align-items:stretch;">
-        <div class="tool-info" style="margin-bottom:10px;">
-          <strong>🔒 본인 확인이 필요합니다</strong>
-          <span class="tool-desc">관리자 계정을 추가·삭제하려면, 로그인하신 이메일로 인증키를 한 번 더 확인합니다.</span>
-        </div>
-        <button class="tool-btn tool-btn-wide" onclick="requestAdminMgmtReauth()">인증키 재발송받기</button>
-        <div id="adminMgmtReauthArea" style="display:none;margin-top:12px;">
-          <div class="subcard-row">
-            <input type="text" id="adminMgmtReauthCode" maxlength="6" inputmode="numeric" placeholder="6자리 인증키" style="letter-spacing:4px;text-align:center;">
-            <button class="tool-btn" onclick="confirmAdminMgmtReauth()">확인</button>
+        <div class="reauth-box">
+          <div class="reauth-icon">🔒</div>
+          <div class="reauth-title">본인 확인이 필요합니다</div>
+          <div class="reauth-subtitle">관리자 계정을 추가·삭제하려면, 로그인하신 이메일로 인증키를 한 번 더 확인합니다.</div>
+          <button class="btn btn-primary" onclick="requestAdminMgmtReauth()">인증키 발송</button>
+          <div id="adminMgmtReauthArea" style="display:none;margin-top:18px;">
+            <div class="field">
+              <label>인증키</label>
+              <input type="text" id="adminMgmtReauthCode" class="code-input" maxlength="6" inputmode="numeric" autocomplete="one-time-code" placeholder="000000">
+            </div>
+            <button class="btn btn-primary" onclick="confirmAdminMgmtReauth()">인증 확인</button>
+            <div class="resend-link"><a onclick="requestAdminMgmtReauth()">인증키 재발송</a></div>
           </div>
         </div>
       </div>
@@ -4009,7 +4063,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     세션 만료: <span id="sessionExpiry">-</span><br>
-    <span style="opacity:0.6;">페이지 버전: 2610272249</span>
+    <span style="opacity:0.6;">페이지 버전: 2610272348</span>
   </div>
 </div>
 <script>
