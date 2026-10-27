@@ -729,7 +729,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   <div class="section-title" id="closeSectionTitle" style="display:none;">🕐 오늘 이용 가능 시간</div>
   <div id="closeGridArea" class="close-grid"></div>
 
-  <div class="footer"><div class="footer-note">30초마다 자동 갱신 · 페이지 버전: 2610272249</div></div>
+  <div class="footer"><div class="footer-note">30초마다 자동 갱신 · 페이지 버전: 2610272322</div></div>
 
   <div class="nav-modal-overlay" id="navModalOverlay" onclick="if(event.target===this) closeNavModal()">
     <div class="nav-modal">
@@ -839,10 +839,6 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     if (cached) render(cached, true);
   }
   function load() {
-    if (!TOKEN) {
-      document.getElementById('gridArea').innerHTML = '<div class="error">링크가 올바르지 않습니다. 관리자에게 문의해주세요.</div>';
-      return;
-    }
     fetch(GAS_URL + '?page=api&action=dashboard&t=' + encodeURIComponent(TOKEN))
       .then(res => res.json())
       .then(function(res) {

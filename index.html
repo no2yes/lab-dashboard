@@ -430,8 +430,8 @@
   }
 
   function load() {
-    if (!TOKEN || GAS_URL.indexOf('GAS_배포_주소') !== -1) {
-      document.getElementById('didStage').innerHTML = '<div class="did-msg">설정이 완료되지 않았습니다.<br>주소(?t=)와 GAS_URL을 확인해주세요.</div>';
+    if (GAS_URL.indexOf('GAS_배포_주소') !== -1) {
+      document.getElementById('didStage').innerHTML = '<div class="did-msg">설정이 완료되지 않았습니다.<br>GAS_URL을 확인해주세요.</div>';
       return;
     }
     fetchDashboardData()
@@ -622,6 +622,6 @@
   updateClock();
   setInterval(updateClock, 1000);
 </script>
-<div style="position:fixed;bottom:4px;right:6px;font-size:10px;opacity:0.35;pointer-events:none;z-index:9999;color:inherit;">페이지 버전: 2610272249</div>
+<div style="position:fixed;bottom:4px;right:6px;font-size:10px;opacity:0.35;pointer-events:none;z-index:9999;color:inherit;">페이지 버전: 2610272322</div>
 </body>
 </html>

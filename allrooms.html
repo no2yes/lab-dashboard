@@ -405,7 +405,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     <div id="arArea" class="aw-loading">불러오는 중...</div>
   </div>
 
-  <div class="footer">실습실 현황판으로 돌아가기 · <a class="footer-link" id="backLink" href="dashboard.html">실습실 현황판</a><br><span style="opacity:0.6;font-size:11px;">페이지 버전: 2610272249</span></div>
+  <div class="footer">실습실 현황판으로 돌아가기 · <a class="footer-link" id="backLink" href="dashboard.html">실습실 현황판</a><br><span style="opacity:0.6;font-size:11px;">페이지 버전: 2610272322</span></div>
 
 <script>
   // ▼▼▼ GAS 배포 주소 (dashboard.html / index.html과 동일) ▼▼▼
@@ -643,10 +643,6 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     const seq = ++loadSeq;
     const reqOffset = dayOffset;
     updateDateLabel();
-    if (!TOKEN) {
-      setArArea('<div class="aw-error">접속 주소에 인증 정보(?t=...)가 없습니다. 관리자에게 링크를 다시 요청해주세요.</div>');
-      return;
-    }
     const cachedRooms = getCachedRooms();
     if (cachedRooms && cachedRooms.length) {
       renderSkeleton(cachedRooms);
