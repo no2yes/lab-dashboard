@@ -196,7 +196,7 @@ body {
       <div class="who">실습실을 신청하는 교직원</div>
       <div class="desc">전체 시간표에서 비어 있는 시간을 확인한 뒤, 원하는 실습실을 눌러 바로 신청합니다. 실습실 목록을 따로 불러오지 않아 신청 페이지가 즉시 열립니다. (학생은 신청 없이 공강시간에 자율 이용 — '이용자' 참고)</div>
       <div class="btnrow">
-        <a id="btn-apply-main" class="btn btn-primary" href="#">📅 전체 시간표에서 신청하기</a>
+        <a class="btn btn-primary" href="allrooms.html" target="_blank" rel="noopener">📅 전체 시간표에서 신청하기</a>
         <a class="btn btn-secondary" href="request.html">✏️ 실습실 선택 없이 바로 신청</a>
         <a class="btn btn-secondary" href="mypage.html">🔎 내 신청 조회 · 취소</a>
       </div>
@@ -218,7 +218,7 @@ body {
       <div class="who">공강시간에 자율 이용하는 학생</div>
       <div class="desc">학생은 별도 신청 없이 공강시간에 실습실을 자유롭게 이용합니다. 지금 어떤 실습실이 비어 있는지, 수업·예약 현황이 어떻게 되는지 로그인 없이 바로 확인합니다. 실습실에 문제가 있으면 안내된 QR로 신고할 수 있습니다.</div>
       <div class="btnrow">
-        <a id="btn-dashboard" class="btn btn-primary" href="#">🖥️ 실습실 현황판 보기</a>
+        <a class="btn btn-primary" href="dashboard.html" target="_blank" rel="noopener">🖥️ 실습실 현황판 보기</a>
       </div>
     </div>
 
@@ -248,24 +248,22 @@ body {
   <details class="foot-note">
     <summary>이 페이지 연결 방법 (관리자용)</summary>
     <div style="margin-top:10px;">
-      이 페이지 자체는 비밀 정보를 담고 있지 않습니다. 아래 표의 값을 관리자 페이지에서 복사해 주소 끝에 붙이면, 위 버튼들이 실제 페이지로 연결됩니다. (값을 안 붙이면 해당 버튼은 비활성 상태로 보입니다.)
+      전체 시간표·현황판·신청 페이지는 이제 토큰 없이 바로 열립니다. 아래 두 가지(문단속·알바생용)만 관리자 페이지에서 값을 복사해 주소 끝에 붙여야 버튼이 연결됩니다. (안 붙이면 해당 버튼만 비활성 상태로 보입니다.)
       <table>
-        <tr><td>전체 시간표 / 현황판</td><td><code>?t=</code> 뒤에 대시보드 토큰 — 관리자 페이지 &gt; 실습실 관리 &gt; 모니터링 화면 링크에서 복사</td></tr>
         <tr><td>문단속 현황</td><td><code>&dt=</code> 뒤에 문단속 토큰 — 관리자 페이지 &gt; 기타 &gt; 문단속 화면 링크에서 복사</td></tr>
         <tr><td>시간표 제출 예시</td><td><code>&worker=</code> 뒤에 전체 링크를 그대로(URL 인코딩) 붙여넣기 — 관리자 페이지 &gt; 점검 관리 &gt; 시간표 제출 링크 발급</td></tr>
         <tr><td>실습실 점검 예시</td><td><code>&inspect=</code> 뒤에 전체 링크를 그대로(URL 인코딩) 붙여넣기 — 발급된 점검 링크</td></tr>
       </table>
-      예) <code>scenarios.html?t=xxxx&dt=yyyy</code>
+      예) <code>scenarios.html?dt=yyyy</code>
     </div>
   </details>
 
-  <div class="page-version">페이지 버전: 2610272318</div>
+  <div class="page-version">페이지 버전: 2610272342</div>
 </div>
 
 <script>
 (function () {
   const qs = new URLSearchParams(location.search);
-  const T = qs.get('t') || '';
   const DT = qs.get('dt') || '';
   const WORKER = qs.get('worker') || '';
   const INSPECT = qs.get('inspect') || '';
@@ -286,8 +284,6 @@ body {
     }
   }
 
-  wire('btn-apply-main', T ? ('allrooms.html?t=' + encodeURIComponent(T)) : '', '📅 전체 시간표에서 신청하기');
-  wire('btn-dashboard', T ? ('dashboard.html?t=' + encodeURIComponent(T)) : '', '🖥️ 실습실 현황판 보기');
   wire('btn-doorlock', DT ? ('doorlock.html?t=' + encodeURIComponent(DT)) : '', '🚪 문단속 현황 보기');
   wire('btn-worker', WORKER || '', '🗓️ 시간표 제출 (예시)');
   wire('btn-inspect', INSPECT || '', '✅ 실습실 점검 (예시)');
