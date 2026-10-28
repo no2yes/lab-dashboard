@@ -133,6 +133,7 @@ textarea { resize: vertical; min-height: 70px; }
 .btn:disabled { cursor: not-allowed; }
 .btn .loading { display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-align:-2px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes blockFadeIn { from { opacity: 0; } to { opacity: 1; } }
 .header { text-align: left; }
 .header h1 { font-size: 19px; font-weight: 700; margin-bottom: 4px; }
 .header .subtitle { font-size: 12px; }
@@ -170,7 +171,7 @@ textarea { resize: vertical; min-height: 70px; }
 .empty-cell-readonly.past-cell { background: repeating-linear-gradient(45deg, var(--w03), var(--w03) 4px, var(--w07) 4px, var(--w07) 8px); }
 .holiday-col-blocked { opacity: 0.5; }
 .readonly-mode .empty-cell { cursor: default; pointer-events: none; }
-.block-cell { padding: 4px 6px; font-size: 10px; overflow: hidden; line-height: 1.3; border-left: 3px solid; }
+.block-cell { padding: 4px 6px; font-size: 10px; overflow: hidden; line-height: 1.3; border-left: 3px solid; animation: blockFadeIn 0.35s ease; }
 .block-cell.regular { background: rgba(248,113,113,0.22); color: var(--danger-text); border-left-color: var(--danger-line); }
 .block-cell.reserved.waiting { background: rgba(245,166,35,0.22); color: var(--warn-text); border-left-color: #f5a623; }
 .block-cell.reserved.confirmed { background: rgba(144,164,174,0.25); color: var(--muted-text); border-left-color: #90a4ae; }
