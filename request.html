@@ -629,7 +629,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     const seatsText = room.seats ? ' (' + escapeHtml(String(room.seats)) + '석)' : '';
     const buildingCode = String(room.id || '').split('-')[0];
     fixed.innerHTML = '📍 <span>' + escapeHtml(room.name) + seatsText + '</span>' +
-      '<a class="room-fixed-back" href="https://no2yes.github.io/letsgokugc/trail-nav.html?dest=' + encodeURIComponent(buildingCode) + '" target="_blank" rel="noopener">가는 길</a>' +
+      '<a class="room-fixed-back" href="https://no2yes.github.io/letsgokugc/outdoor-nav.html?dest=' + encodeURIComponent(buildingCode) + '" target="_blank" rel="noopener">가는 길</a>' +
       '<a class="room-fixed-back" href="request.html">다른 실습실 선택</a>';
     fixed.style.display = 'flex';
 

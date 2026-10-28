@@ -813,7 +813,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     S4: [37.76455, 128.87099]
   };
 
-  // 현장조사(survey.html)로 모인 측정값이 기준을 넘긴 건물은 위 기본 좌표를 자동으로 덮어씀
+  // 현장조사(outdoor-survey.html)로 모인 측정값이 기준을 넘긴 건물은 위 기본 좌표를 자동으로 덮어씀
   fetch(GAS_URL + '?page=api&action=buildingcoords&t=' + encodeURIComponent(TOKEN))
     .then(function (r) { return r.json(); })
     .then(function (res) {
@@ -827,11 +827,11 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     return !!BUILDING_COORDS[parseBuildingCode(roomId)];
   }
 
-  // 실시간 위치추적 + 길찾기는 letsgokugc의 trail-nav.html 하나로 통일해서 쓴다
+  // 실시간 위치추적 + 길찾기(실외)는 letsgokugc의 outdoor-nav.html 하나로 통일해서 쓴다
   // (여기서 따로 engine을 또 만들면 두 구현이 따로 발전하다 어긋나기 쉬움)
   function openTrailNav(roomId) {
     const code = parseBuildingCode(roomId);
-    window.open('https://no2yes.github.io/letsgokugc/trail-nav.html?dest=' + encodeURIComponent(code), '_blank', 'noopener');
+    window.open('https://no2yes.github.io/letsgokugc/outdoor-nav.html?dest=' + encodeURIComponent(code), '_blank', 'noopener');
   }
 
   // 필터 상태
