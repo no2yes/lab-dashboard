@@ -485,7 +485,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610290242</span>
+    <span style="opacity:0.6;">페이지 버전: 2610290930</span>
   </div>
 </div>
 
@@ -812,6 +812,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     container.style.display = 'block';
     updateWeekLabel();
 
+    const monday = getMondayForOffset(currentWeekOffset);
+
     const gridEl = document.getElementById('weeklyScheduleGrid');
     const hasExistingGrid = gridEl.querySelector('.grid-cell, table') !== null;
     const oldOverlay = gridEl.querySelector('.schedule-loading-overlay');
@@ -822,11 +824,10 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       overlay.innerHTML = '<div class="schedule-loading"><span class="spinner-icon"></span>업데이트 중...</div>';
       gridEl.appendChild(overlay);
     } else {
-      gridEl.innerHTML =
-        '<div class="schedule-loading"><span class="spinner-icon"></span>시간표 불러오는 중입니다...</div>';
+      // allrooms.html 첫 로딩처럼: 요일/시간 틀을 먼저 보여주고, 실제 시간표 내용은 로딩 후 부드럽게 나타나게 함
+      gridEl.innerHTML = renderScheduleSkeleton(monday);
     }
 
-    const monday = getMondayForOffset(currentWeekOffset);
     const mySeq = ++scheduleReqSeq;
     api({ action: 'roomschedule', id: roomId, week: monday })
       .then(function(res) {
@@ -863,6 +864,52 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     }
     currentSchedule = res.schedule;
     renderSchedule(res.schedule);
+  }
+
+  // 데이터가 오기 전, 요일/날짜만으로 먼저 그릴 수 있는 틀(요일 헤더 + 빈 시간칸).
+  // allrooms.html 첫 로딩 때처럼 "틀 먼저 → 내용은 로딩 후 부드럽게"를 구현하기 위한 것.
+  function renderScheduleSkeleton(monday) {
+    const { startHour, endHour, slotMinutes } = SCHEDULE_CONFIG;
+    const totalSlots = ((endHour - startHour) * 60) / slotMinutes;
+    const todayStr = getTodayStr();
+    const base = new Date(monday + 'T00:00:00');
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      const dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      days.push({ date: dateStr, dayOfWeek: getDowLabel(dateStr) });
+    }
+    const dayCount = days.length;
+    const gridCols = '50px repeat(' + dayCount + ', 1fr)';
+    const minW = (50 + dayCount * 76) + 'px';
+
+    let html = '<div class="schedule-grid" style="grid-template-columns:' + gridCols + ';min-width:' + minW + ';">';
+    html += '<div class="grid-cell header-cell time-col-header"></div>';
+    days.forEach(day => {
+      const isToday = day.date === todayStr;
+      const dayDate = day.date.slice(5).replace('-', '/');
+      html += `<div class="grid-cell header-cell day-header${isToday ? ' today' : ''}">
+        <div class="day-name">${day.dayOfWeek}</div>
+        <div class="day-date">${dayDate}</div>
+      </div>`;
+    });
+    html += '</div>';
+
+    html += '<div class="schedule-body" style="display:grid;grid-template-columns:' + gridCols + ';min-width:' + minW + ';opacity:0.5;">';
+    for (let s = 0; s < totalSlots; s++) {
+      const totalMin = startHour * 60 + s * slotMinutes;
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      const showLabel = m === 0;
+      const timeLabel = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+      html += '<div class="schedule-row">';
+      html += `<div class="grid-cell time-cell">${showLabel ? timeLabel : ''}</div>`;
+      days.forEach(() => { html += '<div class="grid-cell empty-cell-readonly"></div>'; });
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
   }
 
   function renderSchedule(schedule) {
