@@ -478,7 +478,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610291315</span>
+    <span style="opacity:0.6;">페이지 버전: 2610291325</span>
   </div>
 </div>
 
@@ -1100,25 +1100,39 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     hint.innerHTML = '💡 시작 시간을 클릭한 후 종료 시간을 클릭하면 자동으로 입력됩니다.';
   }
 
+  // 기간연속은 "이 시간대를 선택한 날짜들에 계속 쓰겠다"는 의미이므로,
+  // 연속 기간(selectedDays)까지 정해졌으면 그 기간에 속한 날짜 전부(현재 보이는
+  // 주 안에서)에 같은 시간대를 반복해서 하이라이트해 보여준다. 아직 기간을
+  // 고르지 않았다면(또는 한 번만/요일반복이면) 클릭한 그 날 하루만 표시한다.
   function applyActiveSelectionHighlight() {
     document.querySelectorAll('.empty-cell.selected').forEach(c => c.classList.remove('selected', 'first', 'last'));
     if (!activeSelection.date) return;
-    const cells = document.querySelectorAll('.empty-cell[data-date="' + activeSelection.date + '"]');
-    const selectedList = [];
-    cells.forEach(c => {
-      const t = timeStrToMin(c.dataset.time);
-      if (t >= activeSelection.startTimeMin && t < activeSelection.endTimeMin) {
-        c.classList.add('selected');
-        selectedList.push({ cell: c, time: t });
+
+    let targetDates;
+    if (currentType === 'range' && selectedDays) {
+      targetDates = generateRangeDates(activeSelection.date, addDaysStr(activeSelection.date, selectedDays - 1));
+    } else {
+      targetDates = [activeSelection.date];
+    }
+
+    targetDates.forEach(dateStr => {
+      const cells = document.querySelectorAll('.empty-cell[data-date="' + dateStr + '"]');
+      const selectedList = [];
+      cells.forEach(c => {
+        const t = timeStrToMin(c.dataset.time);
+        if (t >= activeSelection.startTimeMin && t < activeSelection.endTimeMin) {
+          c.classList.add('selected');
+          selectedList.push({ cell: c, time: t });
+        }
+      });
+      if (selectedList.length > 0) {
+        selectedList.sort((a, b) => a.time - b.time);
+        selectedList[0].cell.classList.add('first');
+        const lastCell = selectedList[selectedList.length - 1].cell;
+        lastCell.classList.add('last');
+        lastCell.dataset.endTime = minToTimeStr(activeSelection.endTimeMin);
       }
     });
-    if (selectedList.length > 0) {
-      selectedList.sort((a, b) => a.time - b.time);
-      selectedList[0].cell.classList.add('first');
-      const lastCell = selectedList[selectedList.length - 1].cell;
-      lastCell.classList.add('last');
-      lastCell.dataset.endTime = minToTimeStr(activeSelection.endTimeMin);
-    }
   }
 
   // repeat는 선택 내용을 별도 박스로 echo하지 않음 — 시간표의 강조 표시와
@@ -1157,6 +1171,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     if (currentType === 'repeat') renderRepeatChips();
     if (currentType === 'range') renderRangeChips();
     updateDurationPreview();
+    applyActiveSelectionHighlight();
   }
 
   function clearSingleSelection() {
