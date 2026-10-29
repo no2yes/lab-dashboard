@@ -445,13 +445,13 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
           <span class="error-msg">소속을 입력해주세요.</span>
         </div>
       </div>
-      <div class="row" id="requiredRestRow" style="display:none;">
-        <div class="field" id="field-empNo">
+      <div class="row">
+        <div class="field" id="field-empNo" style="display:none;">
           <label>사번 <span class="required">*</span></label>
           <input type="text" id="empNo" placeholder="교직원 사번 (대소문자 구분)" maxlength="6">
           <span class="error-msg">교직원 사번을 정확히 입력해주세요. (대소문자 구분)</span>
         </div>
-        <div class="field" id="field-email">
+        <div class="field" id="field-email" style="display:none;">
           <label>이메일 <span class="required">*</span></label>
           <input type="email" id="email" placeholder="결과 통보용 (학교 메일)">
           <span class="error-msg">이메일을 입력해주세요.</span>
@@ -490,7 +490,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610292010</span>
+    <span style="opacity:0.6;">페이지 버전: 2610292050</span>
   </div>
 </div>
 
@@ -1604,7 +1604,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     document.getElementById('email').value = '';
     document.getElementById('purpose').value = '';
     clearAllFieldErrors();
-    updateProgressiveReveal();
+    resetProgressiveReveal();
 
     changeType('single');
 
@@ -1635,30 +1635,80 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   function clearAllFieldErrors() {
     document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
   }
-  // 신청자 정보를 한꺼번에 다 보여주지 않고, 앞 칸을 채울 때마다 다음 칸이 나타나게 한다.
-  // 성명 → 소속 → (사번·이메일·강의과목/행사명) → (연락처·신청하기) 순서로 단계적 공개.
-  // 한번 나타난 칸은 다시 지워도 숨기지 않는다(입력 중 화면이 들썩이지 않도록).
-  function updateProgressiveReveal() {
-    const name = document.getElementById('name').value.trim();
-    const affiliation = document.getElementById('affiliation').value.trim();
-    const empNo = document.getElementById('empNo').value.trim();
+  // 신청자 정보를 한꺼번에 다 보여주지 않고, 지정된 조건(글자 수/완료 여부 + 일부는 시간차)에
+  // 따라 순서대로 다음 칸이 나타나게 한다. 각 단계는 한 번 나타나면 입력을 지워도 다시 숨지 않는다.
+  //   성명 2글자 + 0.5초  → 소속
+  //   소속 표시 + 3초(내용과 무관)  → 사번
+  //   사번 5글자  → 이메일
+  //   이메일 형식 완성(…@…. 도메인까지)  → 사용목적
+  //   사용목적 표시 + 3초(내용과 무관)  → 연락처 · 신청하기
+  let progressiveTimers = { name: null, afterAffiliation: null, afterPurpose: null };
+  let progressiveShown = { affiliation: false, empNo: false, email: false, purpose: false, final: false };
+
+  function revealProgressive(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+  }
+
+  function resetProgressiveReveal() {
+    Object.values(progressiveTimers).forEach(t => { if (t) clearTimeout(t); });
+    progressiveTimers = { name: null, afterAffiliation: null, afterPurpose: null };
+    progressiveShown = { affiliation: false, empNo: false, email: false, purpose: false, final: false };
+    ['field-affiliation', 'field-empNo', 'field-email', 'purposeSection', 'optionalRow', 'submitBtn']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  }
+
+  function onNameProgressiveInput() {
+    if (progressiveShown.affiliation) return;
+    const len = document.getElementById('name').value.trim().length;
+    if (len >= 2) {
+      if (!progressiveTimers.name) {
+        progressiveTimers.name = setTimeout(() => {
+          progressiveShown.affiliation = true;
+          revealProgressive('field-affiliation');
+          startAffiliationTimer();
+        }, 500);
+      }
+    } else if (progressiveTimers.name) {
+      clearTimeout(progressiveTimers.name);
+      progressiveTimers.name = null;
+    }
+  }
+
+  function startAffiliationTimer() {
+    if (progressiveShown.empNo || progressiveTimers.afterAffiliation) return;
+    progressiveTimers.afterAffiliation = setTimeout(() => {
+      progressiveShown.empNo = true;
+      revealProgressive('field-empNo');
+    }, 3000);
+  }
+
+  function onEmpNoProgressiveInput() {
+    if (progressiveShown.email) return;
+    const len = document.getElementById('empNo').value.trim().length;
+    if (len >= 5) {
+      progressiveShown.email = true;
+      revealProgressive('field-email');
+    }
+  }
+
+  function onEmailProgressiveInput() {
+    if (progressiveShown.purpose) return;
     const email = document.getElementById('email').value.trim();
-    const purpose = document.getElementById('purpose').value.trim();
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+      progressiveShown.purpose = true;
+      revealProgressive('purposeSection');
+      startPurposeTimer();
+    }
+  }
 
-    const affField = document.getElementById('field-affiliation');
-    if (affField) affField.style.display = name ? '' : 'none';
-
-    const showRest = !!(name && affiliation);
-    const restRow = document.getElementById('requiredRestRow');
-    const purposeSection = document.getElementById('purposeSection');
-    if (restRow) restRow.style.display = showRest ? '' : 'none';
-    if (purposeSection) purposeSection.style.display = showRest ? '' : 'none';
-
-    const showFinal = !!(name && affiliation && empNo && email && purpose);
-    const optionalRow = document.getElementById('optionalRow');
-    const submitBtn = document.getElementById('submitBtn');
-    if (optionalRow) optionalRow.style.display = showFinal ? '' : 'none';
-    if (submitBtn) submitBtn.style.display = showFinal ? '' : 'none';
+  function startPurposeTimer() {
+    if (progressiveShown.final || progressiveTimers.afterPurpose) return;
+    progressiveTimers.afterPurpose = setTimeout(() => {
+      progressiveShown.final = true;
+      revealProgressive('optionalRow');
+      revealProgressive('submitBtn');
+    }, 3000);
   }
 
   function setupAutoClearErrors() {
@@ -1673,10 +1723,16 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     watchFields.forEach(w => {
       const el = document.getElementById(w.input);
       if (!el) return;
-      el.addEventListener('input', () => { if (el.value.trim()) clearFieldError(w.field); updateProgressiveReveal(); });
-      el.addEventListener('change', () => { if (el.value.trim()) clearFieldError(w.field); updateProgressiveReveal(); });
+      el.addEventListener('input', () => { if (el.value.trim()) clearFieldError(w.field); });
+      el.addEventListener('change', () => { if (el.value.trim()) clearFieldError(w.field); });
     });
-    updateProgressiveReveal();
+
+    const nameEl = document.getElementById('name');
+    if (nameEl) { nameEl.addEventListener('input', onNameProgressiveInput); nameEl.addEventListener('change', onNameProgressiveInput); }
+    const empNoEl = document.getElementById('empNo');
+    if (empNoEl) { empNoEl.addEventListener('input', onEmpNoProgressiveInput); empNoEl.addEventListener('change', onEmpNoProgressiveInput); }
+    const emailEl = document.getElementById('email');
+    if (emailEl) { emailEl.addEventListener('input', onEmailProgressiveInput); emailEl.addEventListener('change', onEmailProgressiveInput); }
 
     const phoneEl = document.getElementById('phone');
     if (phoneEl) {
