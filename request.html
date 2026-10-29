@@ -173,12 +173,12 @@ textarea { resize: vertical; min-height: 70px; }
 .empty-cell-readonly { min-height: 20px; }
 .empty-cell-readonly.past-cell { background: repeating-linear-gradient(45deg, var(--w03), var(--w03) 4px, var(--w07) 4px, var(--w07) 8px); }
 .holiday-col-blocked { opacity: 0.5; }
-.duration-chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
-.duration-chip { padding: 6px 14px; border-radius: 16px; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.duration-row { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin-top: 6px; overflow-x: auto; }
+.duration-chip-row { display: flex; gap: 6px; flex-wrap: nowrap; flex-shrink: 0; }
+.duration-chip { padding: 6px 14px; border-radius: 16px; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 .duration-chip:disabled { cursor: not-allowed; opacity: 0.4; }
-.duration-chip.toggle { background: transparent !important; border-style: dashed !important; font-weight: 500; }
-.duration-custom-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; }
-.duration-custom-row input[type="number"] { width: 64px; padding: 5px 8px; }
+.duration-custom-inline { display: flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+.duration-custom-inline input[type="number"] { width: 56px; padding: 5px 6px; flex-shrink: 0; }
 .duration-end-preview { margin-top: 8px; font-size: 12.5px; font-weight: 600; min-height: 1px; }
 .duration-end-preview:empty { display: none; margin: 0; }
 .block-cell { padding: 4px 6px; font-size: 10px; overflow: hidden; line-height: 1.3; border-left: 3px solid; animation: blockFadeIn 0.35s ease; }
@@ -265,8 +265,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
 .type-radio.active { background: var(--knu-primary); border-color: var(--knu-primary); color: var(--on-accent); }
 .duration-chip { background: var(--w08); border: 1px solid var(--w22); color: var(--w75); }
 .duration-chip.active { background: var(--knu-primary); border-color: var(--knu-primary); color: var(--on-accent); }
-.duration-chip.toggle { color: var(--w55); border-color: var(--w25); }
-.duration-custom-row { color: var(--w60); }
+.duration-custom-inline { color: var(--w60); }
 .duration-end-preview { color: var(--knu-primary-light); }
 .duration-end-preview.warn { color: var(--danger-text); }
 .schedule-placeholder { color: var(--w55); background: var(--w04); border: 1px dashed var(--w25); }
@@ -377,41 +376,34 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
         </div>
       </div>
 
-      <div id="single-mode" class="mode-form">
-        <div class="selected-display" id="singleSelectedDisplay">
-          <span class="selected-display-label">선택한 시간</span>
-          <span class="selected-display-value" id="singleSelectedValue">시간표에서 시작·종료 시간을 클릭하세요.</span>
-          <button type="button" class="selected-clear-btn" id="singleClearBtn" onclick="clearSingleSelection()" style="display:none;">선택 취소</button>
-        </div>
-      </div>
+      <div id="single-mode" class="mode-form"></div>
 
       <div id="repeat-mode" class="mode-form" style="display:none;">
         <input type="hidden" id="repeatDowValue">
         <div class="field" id="repeatDurationField" style="display:none;margin-top:10px;margin-bottom:0;">
           <label>반복 기간 <span class="required">*</span></label>
-          <div class="duration-chip-row" id="repeatChipRow"></div>
-          <div class="duration-custom-row">
-            <span>직접입력</span>
-            <input type="number" id="repeatWeeksCustom" min="1" max="52" placeholder="예: 6" onchange="pickDuration('repeat', this.value)">
-            <span>주</span>
+          <div class="duration-row">
+            <div class="duration-chip-row" id="repeatChipRow"></div>
+            <span class="duration-custom-inline">
+              <span>직접입력</span>
+              <input type="number" id="repeatWeeksCustom" min="1" max="52" placeholder="예: 6" onchange="pickDuration('repeat', this.value)">
+              <span>주</span>
+            </span>
           </div>
           <div class="duration-end-preview" id="repeatEndPreview"></div>
         </div>
       </div>
 
       <div id="range-mode" class="mode-form" style="display:none;">
-        <div class="selected-display" id="rangeSelectedDisplay">
-          <span class="selected-display-label">선택한 시간</span>
-          <span class="selected-display-value" id="rangeSelectedValue">시간표에서 시작·종료 시간을 클릭하세요.</span>
-          <button type="button" class="selected-clear-btn" id="rangeClearBtn" onclick="clearSingleSelection()" style="display:none;">선택 취소</button>
-        </div>
         <div class="field" id="rangeDurationField" style="display:none;margin-top:10px;margin-bottom:0;">
           <label>연속 기간 <span class="required">*</span></label>
-          <div class="duration-chip-row" id="rangeChipRow"></div>
-          <div class="duration-custom-row">
-            <span>직접입력</span>
-            <input type="number" id="rangeDaysCustom" min="1" max="60" placeholder="예: 10" onchange="pickDuration('range', this.value)">
-            <span>일</span>
+          <div class="duration-row">
+            <div class="duration-chip-row" id="rangeChipRow"></div>
+            <span class="duration-custom-inline">
+              <span>직접입력</span>
+              <input type="number" id="rangeDaysCustom" min="1" max="60" placeholder="예: 10" onchange="pickDuration('range', this.value)">
+              <span>일</span>
+            </span>
           </div>
           <div class="duration-end-preview" id="rangeEndPreview"></div>
         </div>
@@ -478,7 +470,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610291325</span>
+    <span style="opacity:0.6;">페이지 버전: 2610291345</span>
   </div>
 </div>
 
@@ -1009,7 +1001,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   let activeSelection = { date: null, startTimeMin: 0, endTimeMin: 0 };
   let selectedWeeks = null;   // 요일반복: 반복 주수
   let selectedDays = null;    // 기간연속: 연속 일수
-  let repeatExpanded = false; // 요일반복 기간 칩 "확장" 토글 상태
 
   function onEmptyCellClick(cell) {
     const date = cell.dataset.date;
@@ -1137,33 +1128,10 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
 
   // repeat는 선택 내용을 별도 박스로 echo하지 않음 — 시간표의 강조 표시와
   // 위쪽 안내문(schedule-hint)만으로 충분해서 중복 정보라 없앴다.
-  const SELECTION_DISPLAY_IDS = {
-    single: { box: 'singleSelectedDisplay', val: 'singleSelectedValue', clearBtn: 'singleClearBtn' },
-    range:  { box: 'rangeSelectedDisplay', val: 'rangeSelectedValue', clearBtn: 'rangeClearBtn' }
-  };
-
-  // 시간표에서 선택한 날짜·시간을 유형별 표시 박스에 반영하고(있는 경우),
-  // 요일반복·기간연속의 기간 칩 영역을 보이거나 숨긴 뒤 미리보기를 갱신한다.
+  // 선택 내용은 더 이상 별도 박스로 echo하지 않는다 — 시간표의 강조 표시와
+  // 위쪽 안내문(schedule-hint)만으로 안내한다. 여기서는 요일반복·기간연속의
+  // 기간 칩 영역을 보이거나 숨기고, 미리보기·강조 표시를 갱신한다.
   function updateSelectionDisplay() {
-    const ids = SELECTION_DISPLAY_IDS[currentType];
-    const box = ids && document.getElementById(ids.box);
-    const val = ids && document.getElementById(ids.val);
-    const clearBtn = ids && document.getElementById(ids.clearBtn);
-    if (box && val) {
-      if (activeSelection.date) {
-        const dow = getDowLabel(activeSelection.date);
-        const startStr = minToTimeStr(activeSelection.startTimeMin);
-        const endStr = minToTimeStr(activeSelection.endTimeMin);
-        val.innerHTML = activeSelection.date + ' (' + dow + ') &nbsp; ' + startStr + ' ~ ' + endStr;
-        box.classList.add('has-value');
-        if (clearBtn) clearBtn.style.display = '';
-      } else {
-        val.textContent = '시간표에서 시작·종료 시간을 클릭하세요.';
-        box.classList.remove('has-value');
-        if (clearBtn) clearBtn.style.display = 'none';
-      }
-    }
-
     const durField = currentType === 'repeat' ? document.getElementById('repeatDurationField')
       : currentType === 'range' ? document.getElementById('rangeDurationField') : null;
     if (durField) durField.style.display = activeSelection.date ? 'block' : 'none';
@@ -1198,7 +1166,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   function renderRepeatChips() {
     const row = document.getElementById('repeatChipRow');
     if (!row) return;
-    const weeksList = repeatExpanded ? [4, 8, 12, 16] : [2, 4];
+    const weeksList = [2, 4];
     let html = '';
     weeksList.forEach(w => {
       const disabled = weeksExceedsLimit(w);
@@ -1206,20 +1174,13 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
         (disabled ? ' disabled title="선택한 시작일 기준으로 신청 가능 기간을 초과합니다"' : '') +
         ' onclick="pickDuration(\'repeat\', ' + w + ')">' + w + '주</button>';
     });
-    html += '<button type="button" class="duration-chip toggle" onclick="toggleRepeatExpand()">' +
-      (repeatExpanded ? '간단히 ▴' : '기간 확장 ▾') + '</button>';
     row.innerHTML = html;
-  }
-
-  function toggleRepeatExpand() {
-    repeatExpanded = !repeatExpanded;
-    renderRepeatChips();
   }
 
   function renderRangeChips() {
     const row = document.getElementById('rangeChipRow');
     if (!row) return;
-    const daysList = [2, 3, 4, 5];
+    const daysList = [2, 3];
     let html = '';
     daysList.forEach(d => {
       const disabled = daysExceedsLimit(d);
