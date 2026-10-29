@@ -161,7 +161,11 @@ textarea { resize: vertical; min-height: 70px; }
 .schedule-grid { display: grid; min-width: 460px; }
 .grid-cell { border-right: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); font-size: 11px; padding: 4px; overflow: hidden; }
 .grid-cell:last-child { border-right: none; }
-.schedule-body .grid-cell { border-right-style: dashed; border-bottom-style: dashed; }
+/* 마지막 칸(가장 오른쪽 열)은 위에서 이미 border-right: none으로 비워뒀으므로 여기서는
+   손대지 않는다 — 이전에는 :not(:last-child) 없이 border-right-style만 덮어써서, 마지막
+   칸에 두께(medium)·색(currentColor)이 기본값으로 되살아나 굵은 흰 점선이 보이는 버그가 있었음. */
+.schedule-body .grid-cell:not(:last-child) { border-right: 1px dashed var(--line-soft); }
+.schedule-body .grid-cell { border-bottom: 1px dashed var(--line-soft); }
 .header-cell { text-align: center; padding: 8px 4px; font-weight: 600; }
 .day-header.holiday-text .day-name, .day-header.holiday-text .day-date { color: var(--danger-line); }
 .day-header.today { background: #f5a623; color: #1b1d21; }
@@ -355,7 +359,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       <div class="section-title section-title-row">
         <span>2. 날짜·시간 선택</span>
         <div class="type-radio-group" role="radiogroup" aria-label="신청 유형">
-          <label class="type-radio active" data-type="single"><input type="radio" name="requestType" value="single" checked onchange="changeType('single')">단회신청</label>
+          <label class="type-radio active" data-type="single"><input type="radio" name="requestType" value="single" checked onchange="changeType('single')">하루이용</label>
           <label class="type-radio" data-type="repeat"><input type="radio" name="requestType" value="repeat" onchange="changeType('repeat')">요일반복</label>
           <label class="type-radio" data-type="range"><input type="radio" name="requestType" value="range" onchange="changeType('range')">기간연속</label>
         </div>
@@ -435,34 +439,34 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
           <input type="text" id="name" placeholder="홍길동">
           <span class="error-msg">성명을 입력해주세요.</span>
         </div>
-        <div class="field" id="field-affiliation">
+        <div class="field" id="field-affiliation" style="display:none;">
           <label>소속 <span class="required">*</span></label>
           <input type="text" id="affiliation" placeholder="컴공과 / OO연구실">
           <span class="error-msg">소속을 입력해주세요.</span>
         </div>
       </div>
-      <div class="row">
-        <div class="field">
-          <label>연락처</label>
-          <input type="tel" id="phone" placeholder="010-0000-0000">
-        </div>
+      <div class="row" id="requiredRestRow" style="display:none;">
         <div class="field" id="field-empNo">
           <label>사번 <span class="required">*</span></label>
           <input type="text" id="empNo" placeholder="교직원 사번 (대소문자 구분)" maxlength="6">
           <span class="error-msg">교직원 사번을 정확히 입력해주세요. (대소문자 구분)</span>
         </div>
-      </div>
-      <div class="row">
         <div class="field" id="field-email">
           <label>이메일 <span class="required">*</span></label>
           <input type="email" id="email" placeholder="결과 통보용 (학교 메일)">
           <span class="error-msg">이메일을 입력해주세요.</span>
         </div>
+      </div>
+      <div class="row" id="optionalRow" style="display:none;">
+        <div class="field">
+          <label>연락처</label>
+          <input type="tel" id="phone" placeholder="010-0000-0000">
+        </div>
         <div class="field"></div>
       </div>
     </div>
 
-    <div class="section">
+    <div class="section" id="purposeSection" style="display:none;">
       <div class="section-title">4. 사용 목적</div>
       <div class="row">
         <div class="field" id="field-purpose">
@@ -473,7 +477,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       </div>
     </div>
 
-    <button class="btn btn-primary" id="submitBtn" onclick="submitForm()">신청하기</button>
+    <button class="btn btn-primary" id="submitBtn" onclick="submitForm()" style="display:none;">신청하기</button>
   </div>
 
   <div style="text-align:center;margin:24px 0 8px;padding-top:20px;border-top:1px solid var(--w15);">
@@ -486,7 +490,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610291920</span>
+    <span style="opacity:0.6;">페이지 버전: 2610292010</span>
   </div>
 </div>
 
@@ -1120,7 +1124,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   // 기간연속은 "이 시간대를 선택한 날짜들에 계속 쓰겠다"는 의미이므로,
   // 연속 기간(selectedDays)까지 정해졌으면 그 기간에 속한 날짜 전부(현재 보이는
   // 주 안에서)에 같은 시간대를 반복해서 하이라이트해 보여준다. 아직 기간을
-  // 고르지 않았다면(또는 단회신청/요일반복이면) 클릭한 그 날 하루만 표시한다.
+  // 고르지 않았다면(또는 하루이용/요일반복이면) 클릭한 그 날 하루만 표시한다.
   function applyActiveSelectionHighlight() {
     document.querySelectorAll('.empty-cell.selected').forEach(c => c.classList.remove('selected', 'first', 'last'));
     if (!activeSelection.date) return;
@@ -1600,6 +1604,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     document.getElementById('email').value = '';
     document.getElementById('purpose').value = '';
     clearAllFieldErrors();
+    updateProgressiveReveal();
 
     changeType('single');
 
@@ -1630,6 +1635,32 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   function clearAllFieldErrors() {
     document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
   }
+  // 신청자 정보를 한꺼번에 다 보여주지 않고, 앞 칸을 채울 때마다 다음 칸이 나타나게 한다.
+  // 성명 → 소속 → (사번·이메일·강의과목/행사명) → (연락처·신청하기) 순서로 단계적 공개.
+  // 한번 나타난 칸은 다시 지워도 숨기지 않는다(입력 중 화면이 들썩이지 않도록).
+  function updateProgressiveReveal() {
+    const name = document.getElementById('name').value.trim();
+    const affiliation = document.getElementById('affiliation').value.trim();
+    const empNo = document.getElementById('empNo').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const purpose = document.getElementById('purpose').value.trim();
+
+    const affField = document.getElementById('field-affiliation');
+    if (affField) affField.style.display = name ? '' : 'none';
+
+    const showRest = !!(name && affiliation);
+    const restRow = document.getElementById('requiredRestRow');
+    const purposeSection = document.getElementById('purposeSection');
+    if (restRow) restRow.style.display = showRest ? '' : 'none';
+    if (purposeSection) purposeSection.style.display = showRest ? '' : 'none';
+
+    const showFinal = !!(name && affiliation && empNo && email && purpose);
+    const optionalRow = document.getElementById('optionalRow');
+    const submitBtn = document.getElementById('submitBtn');
+    if (optionalRow) optionalRow.style.display = showFinal ? '' : 'none';
+    if (submitBtn) submitBtn.style.display = showFinal ? '' : 'none';
+  }
+
   function setupAutoClearErrors() {
     const watchFields = [
       { input: 'name', field: 'field-name' },
@@ -1642,9 +1673,10 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     watchFields.forEach(w => {
       const el = document.getElementById(w.input);
       if (!el) return;
-      el.addEventListener('input', () => { if (el.value.trim()) clearFieldError(w.field); });
-      el.addEventListener('change', () => { if (el.value.trim()) clearFieldError(w.field); });
+      el.addEventListener('input', () => { if (el.value.trim()) clearFieldError(w.field); updateProgressiveReveal(); });
+      el.addEventListener('change', () => { if (el.value.trim()) clearFieldError(w.field); updateProgressiveReveal(); });
     });
+    updateProgressiveReveal();
 
     const phoneEl = document.getElementById('phone');
     if (phoneEl) {
