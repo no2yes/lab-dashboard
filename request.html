@@ -518,7 +518,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610300819</span>
+    <span style="opacity:0.6;">페이지 버전: 2610300829</span>
   </div>
 </div>
 
@@ -1167,7 +1167,13 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     paintSelectionHighlight([activeSelection.date]);
   }
 
+  // 선택한 시간대 중간에 이미 예약(정규수업/예약대기/예약확정)이 끼어 있으면 그
+  // 자리엔 .empty-cell 자체가 없어서(블록 칸으로 대체되어서) 선택 표시가 끊긴다.
+  // 끊긴 구간을 하나로 묶어 첫칸/끝칸 테두리를 그리면 예약 블록을 선택 영역이
+  // 감싸고 있는 것처럼(겹쳐 보이는 것처럼) 보이므로, 연속된 구간별로 나눠
+  // 각 구간마다 따로 첫칸/끝칸 테두리를 그려 예약 블록과 분리되어 보이게 한다.
   function paintSelectionHighlight(targetDates) {
+    const { slotMinutes } = SCHEDULE_CONFIG;
     targetDates.forEach(dateStr => {
       const cells = document.querySelectorAll('.empty-cell[data-date="' + dateStr + '"]');
       const selectedList = [];
@@ -1178,12 +1184,19 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
           selectedList.push({ cell: c, time: t });
         }
       });
-      if (selectedList.length > 0) {
-        selectedList.sort((a, b) => a.time - b.time);
-        selectedList[0].cell.classList.add('first');
-        const lastCell = selectedList[selectedList.length - 1].cell;
-        lastCell.classList.add('last');
-        lastCell.dataset.endTime = minToTimeStr(activeSelection.endTimeMin);
+      if (selectedList.length === 0) return;
+      selectedList.sort((a, b) => a.time - b.time);
+
+      let runStart = 0;
+      for (let i = 1; i <= selectedList.length; i++) {
+        const isBreak = i === selectedList.length || selectedList[i].time !== selectedList[i - 1].time + slotMinutes;
+        if (isBreak) {
+          selectedList[runStart].cell.classList.add('first');
+          const lastCell = selectedList[i - 1].cell;
+          lastCell.classList.add('last');
+          lastCell.dataset.endTime = minToTimeStr(selectedList[i - 1].time + slotMinutes);
+          runStart = i;
+        }
       }
     });
   }
