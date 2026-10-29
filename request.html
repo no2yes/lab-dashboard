@@ -173,7 +173,14 @@ textarea { resize: vertical; min-height: 70px; }
 .empty-cell-readonly { min-height: 20px; }
 .empty-cell-readonly.past-cell { background: repeating-linear-gradient(45deg, var(--w03), var(--w03) 4px, var(--w07) 4px, var(--w07) 8px); }
 .holiday-col-blocked { opacity: 0.5; }
-.readonly-mode .empty-cell { cursor: default; pointer-events: none; }
+.duration-chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.duration-chip { padding: 6px 14px; border-radius: 16px; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.duration-chip:disabled { cursor: not-allowed; opacity: 0.4; }
+.duration-chip.toggle { background: transparent !important; border-style: dashed !important; font-weight: 500; }
+.duration-custom-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; }
+.duration-custom-row input[type="number"] { width: 64px; padding: 5px 8px; }
+.duration-end-preview { margin-top: 8px; font-size: 12.5px; font-weight: 600; min-height: 1px; }
+.duration-end-preview:empty { display: none; margin: 0; }
 .block-cell { padding: 4px 6px; font-size: 10px; overflow: hidden; line-height: 1.3; border-left: 3px solid; animation: blockFadeIn 0.35s ease; }
 .block-cell.regular { background: rgba(248,113,113,0.22); color: var(--danger-text); border-left-color: var(--danger-line); }
 .block-cell.reserved.waiting { background: rgba(245,166,35,0.22); color: var(--warn-text); border-left-color: #f5a623; }
@@ -256,6 +263,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
 .footer { color: var(--w50); }
 .type-radio { background: var(--w08); border: 1px solid var(--w22); color: var(--w75); }
 .type-radio.active { background: var(--knu-primary); border-color: var(--knu-primary); color: var(--on-accent); }
+.duration-chip { background: var(--w08); border: 1px solid var(--w22); color: var(--w75); }
+.duration-chip.active { background: var(--knu-primary); border-color: var(--knu-primary); color: var(--on-accent); }
+.duration-chip.toggle { color: var(--w55); border-color: var(--w25); }
+.duration-custom-row { color: var(--w60); }
+.duration-end-preview { color: var(--knu-primary-light); }
+.duration-end-preview.warn { color: var(--danger-text); }
 .schedule-placeholder { color: var(--w55); background: var(--w04); border: 1px dashed var(--w25); }
 .selected-display { border: 1px solid var(--w18); background: var(--w06); }
 .selected-display.has-value { background: rgba(127,179,255,0.12); border-color: var(--knu-primary-light); }
@@ -373,51 +386,41 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       </div>
 
       <div id="repeat-mode" class="mode-form" style="display:none;">
-        <div class="row">
-          <div class="field">
-            <label>시작일 <span class="required">*</span></label>
-            <input type="date" id="repeat-start">
-          </div>
-          <div class="field">
-            <label>종료일 <span class="required">*</span></label>
-            <input type="date" id="repeat-end">
-          </div>
+        <div class="selected-display" id="repeatSelectedDisplay">
+          <span class="selected-display-label">선택한 요일·시간</span>
+          <span class="selected-display-value" id="repeatDowHintText">👆 위 시간표에서 원하는 요일과 시간을 클릭해 선택하세요.</span>
+          <button type="button" class="selected-clear-btn" id="repeatClearBtn" onclick="clearSingleSelection()" style="display:none;">선택 취소</button>
         </div>
-        <div class="field">
-          <label>반복 요일·시간 <span class="required">*</span></label>
-          <input type="hidden" id="repeatDowValue">
-          <div id="repeatDowHint" class="selected-display" style="margin-top:4px;">
-            <span class="selected-display-label">선택한 요일·시간</span>
-            <span class="selected-display-value" id="repeatDowHintText">👆 위 시간표에서 원하는 요일과 시간을 클릭해 선택하세요.</span>
+        <input type="hidden" id="repeatDowValue">
+        <div class="field" id="repeatDurationField" style="display:none;margin-top:10px;margin-bottom:0;">
+          <label>반복 기간 <span class="required">*</span></label>
+          <div class="duration-chip-row" id="repeatChipRow"></div>
+          <div class="duration-custom-row">
+            <span>직접입력</span>
+            <input type="number" id="repeatWeeksCustom" min="1" max="52" placeholder="예: 6" onchange="pickDuration('repeat', this.value)">
+            <span>주</span>
           </div>
+          <div class="duration-end-preview" id="repeatEndPreview"></div>
         </div>
       </div>
 
       <div id="range-mode" class="mode-form" style="display:none;">
-        <div class="row">
-          <div class="field">
-            <label>시작일 <span class="required">*</span></label>
-            <input type="date" id="range-start">
-          </div>
-          <div class="field">
-            <label>종료일 <span class="required">*</span></label>
-            <input type="date" id="range-end">
-          </div>
+        <div class="selected-display" id="rangeSelectedDisplay">
+          <span class="selected-display-label">선택한 시간</span>
+          <span class="selected-display-value" id="rangeSelectedValue">시간표에서 시작·종료 시간을 클릭하세요.</span>
+          <button type="button" class="selected-clear-btn" id="rangeClearBtn" onclick="clearSingleSelection()" style="display:none;">선택 취소</button>
         </div>
-        <div class="msg msg-info" style="font-size:12px;">시작일부터 종료일까지 매일 같은 시간대로 신청됩니다.</div>
-      </div>
-
-      <div id="timeSelectBlock" style="display:none;margin-top:14px;">
-        <div class="row">
-          <div class="field">
-            <label>시작시간 <span class="required">*</span></label>
-            <select id="startTime"></select>
+        <div class="field" id="rangeDurationField" style="display:none;margin-top:10px;margin-bottom:0;">
+          <label>연속 기간 <span class="required">*</span></label>
+          <div class="duration-chip-row" id="rangeChipRow"></div>
+          <div class="duration-custom-row">
+            <span>직접입력</span>
+            <input type="number" id="rangeDaysCustom" min="1" max="60" placeholder="예: 10" onchange="pickDuration('range', this.value)">
+            <span>일</span>
           </div>
-          <div class="field">
-            <label>종료시간 <span class="required">*</span></label>
-            <select id="endTime"></select>
-          </div>
+          <div class="duration-end-preview" id="rangeEndPreview"></div>
         </div>
+        <div class="msg msg-info" style="font-size:12px;margin-top:10px;">선택한 시간대로 매일 연속 사용됩니다.</div>
       </div>
     </div>
 
@@ -480,7 +483,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610291140</span>
+    <span style="opacity:0.6;">페이지 버전: 2610291205</span>
   </div>
 </div>
 
@@ -504,13 +507,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
 
   const TYPE_DESC = {
     single: '',
-    repeat: '매주 같은 요일 반복 · 시간표에서 요일·시간 클릭 후 아래서 기간 지정',
-    range: '기간 내 매일 연속 사용 · 아래서 기간·시간 지정 (시간표는 참고용)'
+    repeat: '매주 같은 요일 반복 · 시간표에서 요일·시간을 클릭하세요',
+    range: '기간 내 매일 연속 사용 · 시간표에서 시작 시간을 클릭하세요'
   };
 
   window.addEventListener('load', () => {
-    setupTimeOptions();
-    setDefaultDates();
     setupAutoClearErrors();
     changeType('single');
 
@@ -536,8 +537,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     api({ action: 'maxadvancedays' }).then(res => {
       if (res && res.days) {
         maxAdvanceDays = res.days;
-        setDefaultDates();
-        reapplyPreselectFields();
+        refreshDurationLimits();
       }
     });
   });
@@ -566,11 +566,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     const today = new Date(); today.setHours(0, 0, 0, 0);
     if (target < today) return;
 
-    ['repeat-start', 'range-start'].forEach(function(id) {
-      const el = document.getElementById(id);
-      if (el) el.value = ds;
-    });
-
     const monday = function(d) {
       const m = new Date(d);
       m.setDate(m.getDate() - ((m.getDay() + 6) % 7));
@@ -578,18 +573,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     };
     const weeks = Math.round((monday(target) - monday(today)) / (7 * 24 * 3600 * 1000));
     if (weeks > 0) currentWeekOffset = weeks;
-  }
-
-  function reapplyPreselectFields() {
-    const ds = preselectDateStr;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
-    const p = ds.split('-');
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    if (new Date(+p[0], +p[1] - 1, +p[2]) < today) return;
-    ['repeat-start', 'range-start'].forEach(function(id) {
-      const el = document.getElementById(id);
-      if (el) el.value = ds;
-    });
   }
 
   function loadAllRoomsList() {
@@ -1029,10 +1012,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
 
   let pendingStart = null;
   let activeSelection = { date: null, startTimeMin: 0, endTimeMin: 0 };
+  let selectedWeeks = null;   // 요일반복: 반복 주수
+  let selectedDays = null;    // 기간연속: 연속 일수
+  let repeatExpanded = false; // 요일반복 기간 칩 "확장" 토글 상태
 
   function onEmptyCellClick(cell) {
-    if (currentType === 'range') return;
-
     const date = cell.dataset.date;
     const timeMin = timeStrToMin(cell.dataset.time);
 
@@ -1040,7 +1024,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       pendingStart = { date: date, timeMin: timeMin, cellEl: cell };
       activeSelection.date = null;
       applyActiveSelectionHighlight();
-      updateSingleSelectedDisplay();
+      updateSelectionDisplay();
       highlightPendingStart();
       refreshScheduleHint();
 
@@ -1075,23 +1059,16 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     activeSelection.startTimeMin = minTime;
     activeSelection.endTimeMin = endTimeMin;
 
-    pendingStart = null;
-    clearPendingStartHighlight();
-    applyActiveSelectionHighlight();
-    updateSingleSelectedDisplay();
-    refreshScheduleHint();
-
     if (currentType === 'repeat') {
       const dow = ['일','월','화','수','목','금','토'][new Date(date + 'T00:00:00').getDay()];
       document.getElementById('repeatDowValue').value = dow;
-      const hintText = document.getElementById('repeatDowHintText');
-      if (hintText) {
-        hintText.innerHTML = '<strong style="color:var(--accent);">매주 ' + dow + '요일</strong> &nbsp; ' +
-          '<strong style="font-size:16px;color:var(--accent);">' + minToTimeStr(minTime) + '</strong>' +
-          ' ~ ' +
-          '<strong style="font-size:16px;color:var(--accent);">' + minToTimeStr(endTimeMin) + '</strong>';
-      }
     }
+
+    pendingStart = null;
+    clearPendingStartHighlight();
+    applyActiveSelectionHighlight();
+    updateSelectionDisplay();
+    refreshScheduleHint();
   }
 
   function highlightPendingStart() {
@@ -1108,16 +1085,26 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     const hint = document.querySelector('.schedule-hint');
     if (!hint) return;
     hint.classList.remove('waiting-end', 'loading-pulse');
+    if (pendingStart) {
+      hint.classList.add('waiting-end');
+      hint.innerHTML = '👆 <strong>종료 시간을 클릭해주세요.</strong> (같은 칸 다시 클릭 시 해제)';
+      return;
+    }
+    if (activeSelection.date) {
+      if (currentType === 'repeat') {
+        hint.innerHTML = '✅ 선택 완료 · 아래에서 반복 기간을 선택하세요.';
+      } else if (currentType === 'range') {
+        hint.innerHTML = '✅ 선택 완료 · 아래에서 연속 기간을 선택하세요.';
+      } else {
+        hint.innerHTML = '💡 시작 시간을 클릭한 후 종료 시간을 클릭하면 자동으로 입력됩니다.';
+      }
+      return;
+    }
     if (currentType !== 'single') {
       hint.innerHTML = '📋 ' + (TYPE_DESC[currentType] || '');
       return;
     }
-    if (pendingStart) {
-      hint.classList.add('waiting-end');
-      hint.innerHTML = '👆 <strong>종료 시간을 클릭해주세요.</strong> (같은 칸 다시 클릭 시 해제)';
-    } else {
-      hint.innerHTML = '💡 시작 시간을 클릭한 후 종료 시간을 클릭하면 자동으로 입력됩니다.';
-    }
+    hint.innerHTML = '💡 시작 시간을 클릭한 후 종료 시간을 클릭하면 자동으로 입력됩니다.';
   }
 
   function applyActiveSelectionHighlight() {
@@ -1141,22 +1128,49 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     }
   }
 
-  function updateSingleSelectedDisplay() {
-    const box = document.getElementById('singleSelectedDisplay');
-    const val = document.getElementById('singleSelectedValue');
-    const clearBtn = document.getElementById('singleClearBtn');
-    if (activeSelection.date) {
-      const dow = getDowLabel(activeSelection.date);
-      const startStr = minToTimeStr(activeSelection.startTimeMin);
-      const endStr = minToTimeStr(activeSelection.endTimeMin);
-      val.innerHTML = activeSelection.date + ' (' + dow + ') &nbsp; ' + startStr + ' ~ ' + endStr;
-      box.classList.add('has-value');
-      clearBtn.style.display = '';
-    } else {
-      val.textContent = '시간표에서 시작·종료 시간을 클릭하세요.';
-      box.classList.remove('has-value');
-      clearBtn.style.display = 'none';
+  const SELECTION_DISPLAY_IDS = {
+    single: { box: 'singleSelectedDisplay', val: 'singleSelectedValue', clearBtn: 'singleClearBtn' },
+    repeat: { box: 'repeatSelectedDisplay', val: 'repeatDowHintText', clearBtn: 'repeatClearBtn' },
+    range:  { box: 'rangeSelectedDisplay', val: 'rangeSelectedValue', clearBtn: 'rangeClearBtn' }
+  };
+
+  // 시간표에서 선택한 날짜·시간을 각 유형(한 번만/요일반복/기간연속)의 표시 박스에 반영하고,
+  // 요일반복·기간연속의 기간 칩 영역을 보이거나 숨긴 뒤 미리보기를 갱신한다.
+  function updateSelectionDisplay() {
+    const ids = SELECTION_DISPLAY_IDS[currentType];
+    const box = document.getElementById(ids.box);
+    const val = document.getElementById(ids.val);
+    const clearBtn = document.getElementById(ids.clearBtn);
+    if (box && val) {
+      if (activeSelection.date) {
+        const dow = getDowLabel(activeSelection.date);
+        const startStr = minToTimeStr(activeSelection.startTimeMin);
+        const endStr = minToTimeStr(activeSelection.endTimeMin);
+        if (currentType === 'repeat') {
+          val.innerHTML = '<strong style="color:var(--accent);">매주 ' + dow + '요일</strong> &nbsp; ' +
+            '<strong style="font-size:16px;color:var(--accent);">' + startStr + '</strong> ~ ' +
+            '<strong style="font-size:16px;color:var(--accent);">' + endStr + '</strong>';
+        } else {
+          val.innerHTML = activeSelection.date + ' (' + dow + ') &nbsp; ' + startStr + ' ~ ' + endStr;
+        }
+        box.classList.add('has-value');
+        if (clearBtn) clearBtn.style.display = '';
+      } else {
+        val.textContent = currentType === 'repeat'
+          ? '👆 위 시간표에서 원하는 요일과 시간을 클릭해 선택하세요.'
+          : '시간표에서 시작·종료 시간을 클릭하세요.';
+        box.classList.remove('has-value');
+        if (clearBtn) clearBtn.style.display = 'none';
+      }
     }
+
+    const durField = currentType === 'repeat' ? document.getElementById('repeatDurationField')
+      : currentType === 'range' ? document.getElementById('rangeDurationField') : null;
+    if (durField) durField.style.display = activeSelection.date ? 'block' : 'none';
+
+    if (currentType === 'repeat') renderRepeatChips();
+    if (currentType === 'range') renderRangeChips();
+    updateDurationPreview();
   }
 
   function clearSingleSelection() {
@@ -1164,43 +1178,110 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     pendingStart = null;
     clearPendingStartHighlight();
     applyActiveSelectionHighlight();
-    updateSingleSelectedDisplay();
+    selectedWeeks = null;
+    selectedDays = null;
+    updateSelectionDisplay();
     refreshScheduleHint();
   }
 
-  function setupTimeOptions() {
-    const startSel = document.getElementById('startTime');
-    const endSel = document.getElementById('endTime');
-    for (let h = 9; h <= 22; h++) {
-      for (let m = 0; m < 60; m += 30) {
-        if (h === 22 && m > 0) break;
-        const t = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-        startSel.appendChild(new Option(t, t));
-        endSel.appendChild(new Option(t, t));
-      }
-    }
-    startSel.value = '09:00';
-    endSel.value = '18:00';
+  // ── 반복/연속 기간 칩 ──────────────────────────────────────────
+  function weeksExceedsLimit(weeks) {
+    if (!activeSelection.date) return false;
+    return addDaysStr(activeSelection.date, (weeks - 1) * 7) > getMaxDateStr();
+  }
+  function daysExceedsLimit(days) {
+    if (!activeSelection.date) return false;
+    return addDaysStr(activeSelection.date, days - 1) > getMaxDateStr();
   }
 
-  function setDefaultDates() {
-    const todayStr = getTodayStr();
+  function renderRepeatChips() {
+    const row = document.getElementById('repeatChipRow');
+    if (!row) return;
+    const weeksList = repeatExpanded ? [4, 8, 12, 16] : [2, 4];
+    let html = '';
+    weeksList.forEach(w => {
+      const disabled = weeksExceedsLimit(w);
+      html += '<button type="button" class="duration-chip' + (selectedWeeks === w ? ' active' : '') + '"' +
+        (disabled ? ' disabled title="선택한 시작일 기준으로 신청 가능 기간을 초과합니다"' : '') +
+        ' onclick="pickDuration(\'repeat\', ' + w + ')">' + w + '주</button>';
+    });
+    html += '<button type="button" class="duration-chip toggle" onclick="toggleRepeatExpand()">' +
+      (repeatExpanded ? '간단히 ▴' : '기간 확장 ▾') + '</button>';
+    row.innerHTML = html;
+  }
+
+  function toggleRepeatExpand() {
+    repeatExpanded = !repeatExpanded;
+    renderRepeatChips();
+  }
+
+  function renderRangeChips() {
+    const row = document.getElementById('rangeChipRow');
+    if (!row) return;
+    const daysList = [2, 3, 4, 5];
+    let html = '';
+    daysList.forEach(d => {
+      const disabled = daysExceedsLimit(d);
+      html += '<button type="button" class="duration-chip' + (selectedDays === d ? ' active' : '') + '"' +
+        (disabled ? ' disabled title="선택한 시작일 기준으로 신청 가능 기간을 초과합니다"' : '') +
+        ' onclick="pickDuration(\'range\', ' + d + ')">' + d + '일</button>';
+    });
+    row.innerHTML = html;
+  }
+
+  function pickDuration(kind, value) {
+    const n = parseInt(value, 10);
+    if (!n || n < 1) return;
+    if (kind === 'repeat') {
+      if (weeksExceedsLimit(n)) { showMaxDateWarning(); return; }
+      selectedWeeks = n;
+      document.getElementById('repeatWeeksCustom').value = '';
+    } else {
+      if (daysExceedsLimit(n)) { showMaxDateWarning(); return; }
+      selectedDays = n;
+      document.getElementById('rangeDaysCustom').value = '';
+    }
+    updateSelectionDisplay();
+  }
+
+  function showMaxDateWarning() {
+    showResultModal('error', '신청 기간 안내', `신청은 오늘부터 ${maxAdvanceDays}일 이내만 가능합니다.\n(` + getMaxDateStr() + '까지)');
+  }
+
+  function updateDurationPreview() {
+    if (currentType === 'repeat') {
+      const preview = document.getElementById('repeatEndPreview');
+      if (!preview) return;
+      if (!activeSelection.date || !selectedWeeks) { preview.textContent = ''; return; }
+      const end = addDaysStr(activeSelection.date, (selectedWeeks - 1) * 7);
+      preview.textContent = '종료일 ' + end + ' · 총 ' + selectedWeeks + '회';
+    } else if (currentType === 'range') {
+      const preview = document.getElementById('rangeEndPreview');
+      if (!preview) return;
+      if (!activeSelection.date || !selectedDays) { preview.textContent = ''; return; }
+      const end = addDaysStr(activeSelection.date, selectedDays - 1);
+      preview.textContent = '종료일 ' + end + ' · 총 ' + selectedDays + '일';
+    }
+  }
+
+  function getMaxDateStr() {
     const maxD = new Date();
     maxD.setDate(maxD.getDate() + maxAdvanceDays);
-    const maxStr = maxD.getFullYear() + '-' +
+    return maxD.getFullYear() + '-' +
       String(maxD.getMonth() + 1).padStart(2, '0') + '-' +
       String(maxD.getDate()).padStart(2, '0');
+  }
 
-    document.getElementById('repeat-start').value = todayStr;
-    document.getElementById('repeat-start').min = todayStr;
-    document.getElementById('repeat-start').max = maxStr;
-    document.getElementById('repeat-end').min = todayStr;
-    document.getElementById('repeat-end').max = maxStr;
-    document.getElementById('range-start').value = todayStr;
-    document.getElementById('range-start').min = todayStr;
-    document.getElementById('range-start').max = maxStr;
-    document.getElementById('range-end').min = todayStr;
-    document.getElementById('range-end').max = maxStr;
+  function addDaysStr(dateStr, days) {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  // maxAdvanceDays가 서버에서 늦게 도착했을 때, 이미 떠 있는 기간 칩의 비활성화 상태를 다시 계산
+  function refreshDurationLimits() {
+    renderRepeatChips();
+    renderRangeChips();
   }
 
   function changeType(type) {
@@ -1210,25 +1291,16 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     const modeEl = document.getElementById(type + '-mode');
     if (modeEl) modeEl.style.display = 'block';
 
-    document.getElementById('timeSelectBlock').style.display = (type === 'range') ? 'block' : 'none';
+    // 유형을 바꾸면 이전 선택은 비워서 혼동을 막는다 (시간표는 세 유형 모두 클릭으로 동작)
+    activeSelection.date = null;
+    pendingStart = null;
+    selectedWeeks = null;
+    selectedDays = null;
+    clearPendingStartHighlight();
+    applyActiveSelectionHighlight();
 
-    const container = document.getElementById('weeklyScheduleContainer');
-    if (type === 'range') {
-      container.classList.add('readonly-mode');
-      activeSelection.date = null;
-      pendingStart = null;
-      clearPendingStartHighlight();
-      applyActiveSelectionHighlight();
-    } else {
-      container.classList.remove('readonly-mode');
-    }
-    updateSingleSelectedDisplay();
+    updateSelectionDisplay();
     refreshScheduleHint();
-
-    if (type === 'repeat' && !activeSelection.date) {
-      const hintText = document.getElementById('repeatDowHintText');
-      if (hintText) hintText.textContent = '👆 위 시간표에서 원하는 요일과 시간을 클릭해 선택하세요.';
-    }
   }
 
   function onRoomChange(keepWeek) {
@@ -1242,17 +1314,15 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       return activeSelection.date ? [activeSelection.date] : [];
     }
     if (currentType === 'repeat') {
-      const start = document.getElementById('repeat-start').value;
-      const end = document.getElementById('repeat-end').value;
       const dow = document.getElementById('repeatDowValue').value;
-      if (!start || !end || !dow) return [];
-      return generateRepeatDates(start, end, [dow]);
+      if (!activeSelection.date || !dow || !selectedWeeks) return [];
+      const end = addDaysStr(activeSelection.date, (selectedWeeks - 1) * 7);
+      return generateRepeatDates(activeSelection.date, end, [dow]);
     }
     if (currentType === 'range') {
-      const start = document.getElementById('range-start').value;
-      const end = document.getElementById('range-end').value;
-      if (!start || !end) return [];
-      return generateRangeDates(start, end);
+      if (!activeSelection.date || !selectedDays) return [];
+      const end = addDaysStr(activeSelection.date, selectedDays - 1);
+      return generateRangeDates(activeSelection.date, end);
     }
     return [];
   }
@@ -1318,31 +1388,40 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       return;
     }
 
-    let startTime, endTime;
-    if (currentType === 'single' || currentType === 'repeat') {
-      if (!activeSelection.date) {
-        showResultModal('error', '시간을 선택해주세요', '시간표에서 시작 시간과 종료 시간을 클릭해 사용 시간을 선택해주세요.');
-        return;
-      }
-      startTime = minToTimeStr(activeSelection.startTimeMin);
-      endTime = minToTimeStr(activeSelection.endTimeMin);
-    } else {
-      startTime = document.getElementById('startTime').value;
-      endTime = document.getElementById('endTime').value;
+    if (!activeSelection.date) {
+      showResultModal('error', '시간을 선택해주세요', '시간표에서 시작 시간과 종료 시간을 클릭해 사용 시간을 선택해주세요.');
+      return;
     }
+    if (currentType === 'repeat' && !selectedWeeks) {
+      showResultModal('error', '반복 기간을 선택해주세요', '몇 주간 반복할지 선택해주세요.');
+      return;
+    }
+    if (currentType === 'range' && !selectedDays) {
+      showResultModal('error', '연속 기간을 선택해주세요', '며칠간 연속으로 사용할지 선택해주세요.');
+      return;
+    }
+
+    const startTime = minToTimeStr(activeSelection.startTimeMin);
+    const endTime = minToTimeStr(activeSelection.endTimeMin);
 
     const dates = getDatesToApply();
     if (dates.length === 0) {
       showResultModal('error', '날짜를 확인해주세요', '사용 날짜와 (요일반복인 경우 요일을) 정확히 선택해주세요.');
       return;
     }
+    if (dates[dates.length - 1] > getMaxDateStr()) {
+      showMaxDateWarning();
+      return;
+    }
 
     let repeatInfo = '';
     if (currentType === 'repeat') {
       const dow = document.getElementById('repeatDowValue').value;
-      repeatInfo = `${document.getElementById('repeat-start').value}~${document.getElementById('repeat-end').value} 매주 ${dow}`;
+      const end = addDaysStr(activeSelection.date, (selectedWeeks - 1) * 7);
+      repeatInfo = `${activeSelection.date}~${end} 매주 ${dow}`;
     } else if (currentType === 'range') {
-      repeatInfo = `${document.getElementById('range-start').value}~${document.getElementById('range-end').value} 연속`;
+      const end = addDaysStr(activeSelection.date, selectedDays - 1);
+      repeatInfo = `${activeSelection.date}~${end} 연속`;
     }
 
     const payload = {
@@ -1439,15 +1518,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     document.getElementById('email').value = '';
     document.getElementById('purpose').value = '';
     clearAllFieldErrors();
-
-    document.querySelectorAll('#repeat-mode input[type="checkbox"]').forEach(cb => cb.checked = false);
-    setDefaultDates();
-    document.getElementById('startTime').value = '09:00';
-    document.getElementById('endTime').value = '18:00';
-
-    activeSelection.date = null;
-    pendingStart = null;
-    clearPendingStartHighlight();
 
     changeType('single');
 
