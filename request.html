@@ -114,6 +114,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 
 .row { display: flex; gap: 12px; flex-wrap: wrap; }
 .row .field { flex: 1; min-width: 140px; }
 .field { margin-bottom: 14px; }
+.progressive-fade { transition: opacity 0.45s ease, transform 0.45s ease; }
 .field:last-child { margin-bottom: 0; }
 .field label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; }
 .required { color: var(--danger-line); }
@@ -517,7 +518,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610292359</span>
+    <span style="opacity:0.6;">페이지 버전: 2610300000</span>
   </div>
 </div>
 
@@ -1755,7 +1756,19 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
 
   function revealProgressive(id) {
     const el = document.getElementById(id);
-    if (el) el.style.display = '';
+    if (!el) return;
+    el.classList.remove('progressive-fade');
+    el.style.display = '';
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(8px)';
+    // 리플로우를 강제해 opacity/transform 초기값이 먼저 적용되게 한 뒤
+    // 다음 프레임에서 트랜지션을 켜고 최종 값으로 이동시켜 부드럽게 나타나게 함.
+    void el.offsetHeight;
+    requestAnimationFrame(() => {
+      el.classList.add('progressive-fade');
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+    });
   }
 
   function resetProgressiveReveal() {
@@ -1763,7 +1776,14 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     progressiveTimers = { name: null, afterAffiliation: null, email: null, afterPurposeInput: null };
     progressiveShown = { affiliation: false, empNo: false, email: false, purpose: false, final: false };
     ['field-affiliation', 'field-empNo', 'field-email', 'purposeSection', 'optionalRow', 'submitBtn']
-      .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+      .forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('progressive-fade');
+        el.style.display = 'none';
+        el.style.opacity = '';
+        el.style.transform = '';
+      });
   }
 
   function onNameProgressiveInput() {
