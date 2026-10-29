@@ -5603,32 +5603,12 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     }
   }
   function openLabDashboardShortcut() {
-    google.script.run
-      .withSuccessHandler(function(res) {
-        if (res && res.expired) { sessionStorage.removeItem('admin_token'); redirectToLogin(); return; }
-        if (!res || !res.success || !res.url) {
-          showResultModal('error', '링크 없음', '아직 발급된 현황판 링크가 없습니다.\n[실습실 관리] 탭에서 먼저 발급해주세요.');
-          return;
-        }
-        const t = res.url.split('t=')[1];
-        window.open('https://no2yes.github.io/lab-dashboard/dashboard.html?t=' + t, '_blank');
-      })
-      .withFailureHandler(function(err) { showResultModal('error', '서버 오류', err.message); })
-      .getCurrentDashboardLink(token);
+    // 현황판은 토큰 검증이 폐지되어 더 이상 링크 발급이 필요 없음 — 바로 열기
+    window.open('https://no2yes.github.io/lab-dashboard/dashboard.html', '_blank');
   }
   function openSignageShortcut() {
-    google.script.run
-      .withSuccessHandler(function(res) {
-        if (res && res.expired) { sessionStorage.removeItem('admin_token'); redirectToLogin(); return; }
-        if (!res || !res.success || !res.url) {
-          showResultModal('error', '링크 없음', '아직 발급된 현황판 링크가 없습니다.\n[실습실 관리] 탭에서 먼저 발급해주세요.');
-          return;
-        }
-        const t = res.url.split('t=')[1];
-        window.open('https://no2yes.github.io/lab-dashboard/index.html?t=' + t, '_blank');
-      })
-      .withFailureHandler(function(err) { showResultModal('error', '서버 오류', err.message); })
-      .getCurrentDashboardLink(token);
+    // 게시용 현황판도 토큰 검증이 폐지되어 더 이상 링크 발급이 필요 없음 — 바로 열기
+    window.open('https://no2yes.github.io/lab-dashboard/index.html', '_blank');
   }
   function openDoorLockPreview() {
     google.script.run
@@ -6024,19 +6004,8 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 
 
   function openAllRoomsToday() {
-    // 공개용 GitHub 전체 시간표를 연다 (현황판·게시용 현황판과 같은 링크 토큰 사용)
-    google.script.run
-      .withSuccessHandler(function(res) {
-        if (res && res.expired) { sessionStorage.removeItem('admin_token'); redirectToLogin(); return; }
-        if (!res || !res.success || !res.url) {
-          showResultModal('error', '링크 없음', '아직 발급된 현황판 링크가 없습니다.\n[실습실 관리] 탭에서 먼저 발급해주세요.');
-          return;
-        }
-        const t = res.url.split('t=')[1];
-        window.open('https://no2yes.github.io/lab-dashboard/allrooms.html?t=' + t, '_blank');
-      })
-      .withFailureHandler(function(err) { showResultModal('error', '서버 오류', err.message); })
-      .getCurrentDashboardLink(token);
+    // 전체 시간표는 토큰 검증이 폐지되어 더 이상 링크 발급이 필요 없음 — 바로 열기
+    window.open('https://no2yes.github.io/lab-dashboard/allrooms.html', '_blank');
   }
 
   function openMonitor() {
