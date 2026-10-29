@@ -139,10 +139,10 @@ textarea { resize: vertical; min-height: 70px; }
 .header .subtitle { font-size: 12px; }
 .subtitle-short { display: none; }
 @media (max-width: 420px) { .subtitle-full { display: none; } .subtitle-short { display: inline; } .title-campus { display: none; } }
-.type-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
-.type-tab { flex: 1; text-align: center; padding: 9px 4px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; }
-.type-desc { font-size: 12px; padding: 8px 10px; border-radius: 6px; min-height: 1px; }
-.type-desc:empty { display: none; }
+.type-tabs { display: flex; gap: 6px; margin-bottom: 6px; }
+.type-tab { flex: 1; text-align: center; padding: 6px 4px; border-radius: 7px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: background .15s, color .15s; }
+.type-desc { font-size: 11px; line-height: 1.4; padding: 5px 9px; border-radius: 6px; min-height: 1px; }
+.type-desc:empty { display: none; padding: 0; margin: 0; }
 .schedule-placeholder { padding: 30px 16px; text-align: center; font-size: 13px; border-radius: 8px; }
 .schedule-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
 .schedule-title { font-size: 14px; font-weight: 600; }
@@ -327,8 +327,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       <div id="roomSwInfo" style="display:none;"></div>
     </div>
 
-    <div class="section">
-      <div class="section-title">2. 신청 유형</div>
+    <div class="section" style="margin-bottom: 14px;">
+      <div class="section-title" style="margin-bottom: 8px;">2. 신청 유형</div>
       <div class="type-tabs">
         <div class="type-tab active" data-type="single" onclick="changeType('single')">한 번만 신청</div>
         <div class="type-tab" data-type="repeat" onclick="changeType('repeat')">요일반복</div>
@@ -486,7 +486,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610291035</span>
+    <span style="opacity:0.6;">페이지 버전: 2610291055</span>
   </div>
 </div>
 
@@ -510,8 +510,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
 
   const TYPE_DESC = {
     single: '',
-    repeat: '여러 주에 걸쳐 매주 특정 요일에 사용합니다. 시간표에서 원하는 요일의 시작·종료 시간을 클릭해 선택하고, 아래에서 시작일·종료일을 지정하세요.',
-    range: '시작일부터 종료일까지 매일 연속으로 사용합니다. 아래에서 기간·시간을 지정하세요. 시간표는 참고용입니다.'
+    repeat: '매주 같은 요일 반복 · 시간표에서 요일·시간 클릭 후 아래서 기간 지정',
+    range: '기간 내 매일 연속 사용 · 아래서 기간·시간 지정 (시간표는 참고용)'
   };
 
   window.addEventListener('load', () => {
