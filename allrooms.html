@@ -381,36 +381,36 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 </script>
 </head>
 <body>
-  <div class="top">
-    <div class="title">🖥️ 전체 실습실 시간표<span class="sub">강원대학교 강릉캠퍼스 · 오늘 각 실습실의 정규수업·예약 현황을 한눈에 보여줍니다</span></div>
-    <div class="clock">
-      <div class="time" id="clockTime">--:--</div>
-      <div class="date" id="clockDate"></div>
+  <div class="aw-outer">
+    <div class="top">
+      <div class="title">🖥️ 전체 실습실 시간표<span class="sub">강원대학교 강릉캠퍼스 · 오늘 각 실습실의 정규수업·예약 현황을 한눈에 보여줍니다</span></div>
+      <div class="clock">
+        <div class="time" id="clockTime">--:--</div>
+        <div class="date" id="clockDate"></div>
+      </div>
     </div>
-  </div>
 
-  <div class="daybar">
-    <div class="day-nav">
-      <button type="button" class="day-btn" id="btnPrev" onclick="dayPrev()"><span class="fill"></span><span class="label">◀ 전날</span></button>
-      <button type="button" class="day-btn today" id="todayBtn" onclick="dayToday()"><span class="fill"></span><span class="label">오늘</span></button>
-      <button type="button" class="day-btn" id="btnNext" onclick="dayNext()"><span class="fill"></span><span class="label">다음날 ▶</span></button>
-      <div class="date-pick-wrap" id="datePickWrap">
-        <button type="button" class="day-btn" id="datePickBtn" onclick="toggleCalPopup()" title="날짜 선택 (클릭하면 달력이 열립니다)">
-          <span class="fill"></span><span class="label" id="datePickLabel">📅 날짜</span>
-        </button>
-        <div class="cal-popup" id="calPopup">
-          <div class="cal-head">
-            <button type="button" onclick="calPrevMonth(event)">◀</button>
-            <span id="calMonthLabel"></span>
-            <button type="button" onclick="calNextMonth(event)">▶</button>
+    <div class="daybar">
+      <div class="day-nav">
+        <button type="button" class="day-btn" id="btnPrev" onclick="dayPrev()"><span class="fill"></span><span class="label">◀ 전날</span></button>
+        <button type="button" class="day-btn today" id="todayBtn" onclick="dayToday()"><span class="fill"></span><span class="label">오늘</span></button>
+        <button type="button" class="day-btn" id="btnNext" onclick="dayNext()"><span class="fill"></span><span class="label">다음날 ▶</span></button>
+        <div class="date-pick-wrap" id="datePickWrap">
+          <button type="button" class="day-btn" id="datePickBtn" onclick="toggleCalPopup()" title="날짜 선택 (클릭하면 달력이 열립니다)">
+            <span class="fill"></span><span class="label" id="datePickLabel">📅 날짜</span>
+          </button>
+          <div class="cal-popup" id="calPopup">
+            <div class="cal-head">
+              <button type="button" onclick="calPrevMonth(event)">◀</button>
+              <span id="calMonthLabel"></span>
+              <button type="button" onclick="calNextMonth(event)">▶</button>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
           </div>
-          <div class="cal-grid" id="calGrid"></div>
         </div>
       </div>
     </div>
-  </div>
 
-  <div class="aw-outer">
     <div class="aw-topbar">
       <div class="aw-hint"><span>👇 아래 실습실 이름을 누르면, 선택한 날짜로 바로 신청할 수 있어요</span></div>
       <div class="legend">
@@ -423,7 +423,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     </div>
   </div>
 
-  <div class="footer">실습실 현황판으로 돌아가기 · <a class="footer-link" id="backLink" href="dashboard.html">실습실 현황판</a><br><span style="opacity:0.6;font-size:11px;">페이지 버전: 2610292325</span></div>
+  <div class="footer">실습실 현황판으로 돌아가기 · <a class="footer-link" id="backLink" href="dashboard.html">실습실 현황판</a><br><span style="opacity:0.6;font-size:11px;">페이지 버전: 2610292348</span></div>
 
 <script>
   // ▼▼▼ GAS 배포 주소 (dashboard.html / index.html과 동일) ▼▼▼
