@@ -478,7 +478,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610291400</span>
+    <span style="opacity:0.6;">페이지 버전: 2610291345</span>
   </div>
 </div>
 
@@ -679,6 +679,10 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   let currentWeekOffset = 0;
   let currentSchedule = null;
   let scheduleReqSeq = 0;
+  // 주(월요일)별 시간표 응답(Promise) 캐시 — 기간연속에서 화면에 보이지 않는 주의
+  // 공휴일 여부를 조용히 미리 조회해 재사용할 때 쓴다. isHolidayBlocked/isHoliday는
+  // 실습실과 무관하게 정책·공휴일 캘린더로만 정해지므로 실습실이 바뀌어도 그대로 쓸 수 있다.
+  let scheduleWeekCache = {};
 
   const SCHEDULE_CONFIG = { startHour: 9, endHour: 22, slotMinutes: 30 };
 
@@ -835,6 +839,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       return;
     }
     currentSchedule = res.schedule;
+    // 기간연속의 "실제 이용 가능일" 계산(공휴일 건너뛰기)에 재사용하기 위해 캐시
+    scheduleWeekCache[getMondayForOffset(currentWeekOffset)] = Promise.resolve(res.schedule);
     renderSchedule(res.schedule);
   }
 
@@ -1011,6 +1017,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   let selectedDays = null;    // 기간연속: 연속 일수
   let repeatCustomValue = 5;  // 요일반복 "직접입력" 스테퍼의 현재 숫자
   let rangeCustomValue = 4;   // 기간연속 "직접입력" 스테퍼의 현재 숫자
+  let highlightReqSeq = 0;         // applyActiveSelectionHighlight 비동기 경쟁 방지용
+  let durationPreviewReqSeq = 0;   // updateDurationPreview 비동기 경쟁 방지용
 
   function onEmptyCellClick(cell) {
     const date = cell.dataset.date;
@@ -1109,13 +1117,19 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     document.querySelectorAll('.empty-cell.selected').forEach(c => c.classList.remove('selected', 'first', 'last'));
     if (!activeSelection.date) return;
 
-    let targetDates;
     if (currentType === 'range' && selectedDays) {
-      targetDates = generateRangeDates(activeSelection.date, addDaysStr(activeSelection.date, selectedDays - 1));
-    } else {
-      targetDates = [activeSelection.date];
+      // 기간연속은 실제 이용 가능일(공휴일 제외 여부 반영) 기준으로 날짜를 모아야 하므로 비동기 계산
+      const mySeq = ++highlightReqSeq;
+      computeUsableDateRange(activeSelection.date, selectedDays).then(targetDates => {
+        if (mySeq !== highlightReqSeq) return;  // 그 사이 다른 변경이 생겼으면 이 결과는 버림
+        paintSelectionHighlight(targetDates);
+      });
+      return;
     }
+    paintSelectionHighlight([activeSelection.date]);
+  }
 
+  function paintSelectionHighlight(targetDates) {
     targetDates.forEach(dateStr => {
       const cells = document.querySelectorAll('.empty-cell[data-date="' + dateStr + '"]');
       const selectedList = [];
@@ -1252,8 +1266,18 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       const preview = document.getElementById('rangeEndPreview');
       if (!preview) return;
       if (!activeSelection.date || !selectedDays) { preview.textContent = ''; return; }
-      const end = addDaysStr(activeSelection.date, selectedDays - 1);
-      preview.textContent = '종료일 ' + end + ' · 총 ' + selectedDays + '일';
+      preview.textContent = '확인 중...';
+      const mySeq = ++durationPreviewReqSeq;
+      computeUsableDateRange(activeSelection.date, selectedDays).then(dates => {
+        if (mySeq !== durationPreviewReqSeq) return;
+        if (dates.length === 0) { preview.textContent = ''; return; }
+        const end = dates[dates.length - 1];
+        const calendarSpanDays = Math.round((new Date(end + 'T00:00:00') - new Date(activeSelection.date + 'T00:00:00')) / 86400000) + 1;
+        const skipped = calendarSpanDays - selectedDays;
+        preview.textContent = skipped > 0
+          ? '종료일 ' + end + ' · 총 ' + selectedDays + '일 사용 (휴일 ' + skipped + '일 제외)'
+          : '종료일 ' + end + ' · 총 ' + selectedDays + '일';
+      });
     }
   }
 
@@ -1302,22 +1326,23 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     loadWeeklySchedule();
   }
 
+  // getDatesToApply()는 항상 Promise<string[]>를 반환한다 (single/repeat는 즉시 resolve,
+  // range는 공휴일 건너뛰기 계산을 위해 비동기로 서버 시간표를 조회할 수 있음).
   function getDatesToApply() {
     if (currentType === 'single') {
-      return activeSelection.date ? [activeSelection.date] : [];
+      return Promise.resolve(activeSelection.date ? [activeSelection.date] : []);
     }
     if (currentType === 'repeat') {
       const dow = document.getElementById('repeatDowValue').value;
-      if (!activeSelection.date || !dow || !selectedWeeks) return [];
+      if (!activeSelection.date || !dow || !selectedWeeks) return Promise.resolve([]);
       const end = addDaysStr(activeSelection.date, (selectedWeeks - 1) * 7);
-      return generateRepeatDates(activeSelection.date, end, [dow]);
+      return Promise.resolve(generateRepeatDates(activeSelection.date, end, [dow]));
     }
     if (currentType === 'range') {
-      if (!activeSelection.date || !selectedDays) return [];
-      const end = addDaysStr(activeSelection.date, selectedDays - 1);
-      return generateRangeDates(activeSelection.date, end);
+      if (!activeSelection.date || !selectedDays) return Promise.resolve([]);
+      return computeUsableDateRange(activeSelection.date, selectedDays);
     }
-    return [];
+    return Promise.resolve([]);
   }
 
   function generateRepeatDates(start, end, dows) {
@@ -1332,13 +1357,53 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     return result;
   }
 
-  function generateRangeDates(start, end) {
-    const result = [];
-    const s = new Date(start), e = new Date(end);
-    for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
-      result.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'));
+  // ── 기간연속 공휴일(토·일·공휴일) 건너뛰기 ──────────────────────
+  // 관리자가 주말이용을 허용하지 않은 기본 상태에서는 토·일·공휴일을 건너뛰고
+  // "실제 이용 가능한 날" 기준으로 N일을 채운다. 주말이용이 허용된 상태라면
+  // roomschedule API가 내려주는 isHolidayBlocked가 항상 false이므로 결과적으로
+  // 지금까지와 같은 단순 연속 날짜가 된다 (관리자 정책에 따라 자동으로 맞춰짐).
+
+  function mondayOfDate(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const dow = d.getDay();
+    const diff = dow === 0 ? -6 : 1 - dow;
+    d.setDate(d.getDate() + diff);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  // 특정 주(월요일 기준)의 시간표를 캐시에서 찾거나, 없으면 조용히(화면 전환 없이) 조회해 캐시한다.
+  function fetchWeekScheduleCached(monday) {
+    if (scheduleWeekCache[monday]) return scheduleWeekCache[monday];
+    const roomId = document.getElementById('roomId').value;
+    const p = api({ action: 'roomschedule', id: roomId, week: monday })
+      .then(res => (res && res.success) ? res.schedule : [])
+      .catch(() => []);
+    scheduleWeekCache[monday] = p;
+    return p;
+  }
+
+  // 해당 날짜가 "실제로 신청 가능한 날"인지. 평일 공휴일이면서 주말이용이 허용 안 됐으면 false.
+  // 토·일인데 주말이용이 허용 안 돼 화면에서도 빠지는 날이면(스케줄에 아예 없음) false.
+  function isDateUsable(dateStr) {
+    return fetchWeekScheduleCached(mondayOfDate(dateStr)).then(arr => {
+      const day = (arr || []).find(d => d.date === dateStr);
+      if (!day) return false;
+      return !day.isHolidayBlocked;
+    });
+  }
+
+  // 시작일부터 "실제 이용 가능한 날"만 세어 neededCount개를 모을 때까지 하루씩 전진.
+  function computeUsableDateRange(startDate, neededCount) {
+    const collected = [];
+    function step(cursor, guard) {
+      if (guard > 400) return Promise.resolve(collected);  // 공휴일이 비정상적으로 이어지는 경우를 막는 안전장치
+      return isDateUsable(cursor).then(usable => {
+        if (usable) collected.push(cursor);
+        if (collected.length >= neededCount) return collected;
+        return step(addDaysStr(cursor, 1), guard + 1);
+      });
     }
-    return result;
+    return step(startDate, 0);
   }
 
   function submitForm() {
@@ -1397,42 +1462,54 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     const startTime = minToTimeStr(activeSelection.startTimeMin);
     const endTime = minToTimeStr(activeSelection.endTimeMin);
 
-    const dates = getDatesToApply();
-    if (dates.length === 0) {
-      showResultModal('error', '날짜를 확인해주세요', '사용 날짜와 (요일반복인 경우 요일을) 정확히 선택해주세요.');
-      return;
-    }
-    if (dates[dates.length - 1] > getMaxDateStr()) {
-      showMaxDateWarning();
-      return;
-    }
-
-    let repeatInfo = '';
-    if (currentType === 'repeat') {
-      const dow = document.getElementById('repeatDowValue').value;
-      const end = addDaysStr(activeSelection.date, (selectedWeeks - 1) * 7);
-      repeatInfo = `${activeSelection.date}~${end} 매주 ${dow}`;
-    } else if (currentType === 'range') {
-      const end = addDaysStr(activeSelection.date, selectedDays - 1);
-      repeatInfo = `${activeSelection.date}~${end} 연속`;
-    }
-
-    const payload = {
-      name, affiliation, phone, empNo, email,
-      roomId, dates: dates.join(','), startTime, endTime,
-      requestType: currentType === 'single' ? '단회' : (currentType === 'repeat' ? '요일반복' : '기간연속'),
-      repeatInfo, purpose
-    };
-    lastPayload = payload;
-
+    // 기간연속은 공휴일 건너뛰기 계산 때문에 날짜 확정에 서버 조회가 필요할 수 있어 비동기 처리.
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="loading"></span>신청 처리중...';
-    document.getElementById('overlay').classList.add('show');
+    btn.innerHTML = '<span class="loading"></span>확인 중...';
 
-    api(Object.assign({ action: 'requestsubmit' }, payload))
-      .then(onSubmitResult)
-      .catch(onSubmitFail);
+    getDatesToApply().then(dates => {
+      if (dates.length === 0) {
+        btn.disabled = false;
+        btn.textContent = '신청하기';
+        showResultModal('error', '날짜를 확인해주세요', '사용 날짜와 (요일반복인 경우 요일을) 정확히 선택해주세요.');
+        return;
+      }
+      if (dates[dates.length - 1] > getMaxDateStr()) {
+        btn.disabled = false;
+        btn.textContent = '신청하기';
+        showMaxDateWarning();
+        return;
+      }
+
+      let repeatInfo = '';
+      if (currentType === 'repeat') {
+        const dow = document.getElementById('repeatDowValue').value;
+        const end = addDaysStr(activeSelection.date, (selectedWeeks - 1) * 7);
+        repeatInfo = `${activeSelection.date}~${end} 매주 ${dow}`;
+      } else if (currentType === 'range') {
+        const end = dates[dates.length - 1];  // 공휴일 건너뛰기를 반영한 실제 종료일
+        repeatInfo = `${activeSelection.date}~${end} 연속`;
+      }
+
+      const payload = {
+        name, affiliation, phone, empNo, email,
+        roomId, dates: dates.join(','), startTime, endTime,
+        requestType: currentType === 'single' ? '단회' : (currentType === 'repeat' ? '요일반복' : '기간연속'),
+        repeatInfo, purpose
+      };
+      lastPayload = payload;
+
+      btn.innerHTML = '<span class="loading"></span>신청 처리중...';
+      document.getElementById('overlay').classList.add('show');
+
+      api(Object.assign({ action: 'requestsubmit' }, payload))
+        .then(onSubmitResult)
+        .catch(onSubmitFail);
+    }).catch(() => {
+      btn.disabled = false;
+      btn.textContent = '신청하기';
+      showResultModal('error', '오류', '날짜 확인 중 문제가 발생했습니다. 다시 시도해주세요.');
+    });
   }
 
   let lastPayload = null;
