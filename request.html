@@ -177,7 +177,12 @@ textarea { resize: vertical; min-height: 70px; }
 .schedule-row { display: contents; }
 .time-cell { text-align: center; font-size: 11px; padding: 4px 2px; line-height: 1; min-height: 20px; }
 .empty-cell { min-height: 20px; cursor: pointer; }
-.empty-cell.start-selected { background: rgba(245,166,35,0.35) !important; outline: 2px solid #f5a623; }
+/* outline은 레이아웃 박스 바깥쪽에 그려져서, 칸 높이가 얇은 모바일 해상도에서는
+   그 2px가 바로 위/아래로 붙어 있는 옆 칸(예: 초록색 .selected)을 침범해 칠해버린다.
+   칸이 클 땐 2px가 미미해 안 보이지만, 모바일처럼 한 칸이 20px 안팎으로 얇아지면
+   전체 높이의 10%가 넘는 띠로 보여서 "두 색이 겹쳐 보이는" 원인이 됨.
+   박스 안쪽에서만 그려지는 inset box-shadow로 바꿔 옆 칸을 절대 침범하지 않게 함. */
+.empty-cell.start-selected { background: rgba(245,166,35,0.35) !important; box-shadow: inset 0 0 0 2px #f5a623; }
 .empty-cell.selected { background: rgba(74,222,128,0.25) !important; }
 .empty-cell.selected.first { border-top: 2px solid var(--ok-strong); }
 .empty-cell.selected.last { border-bottom: 2px solid var(--ok-strong); }
@@ -518,7 +523,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610300837</span>
+    <span style="opacity:0.6;">페이지 버전: 2610300851</span>
   </div>
 </div>
 
