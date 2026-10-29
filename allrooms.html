@@ -41,7 +41,7 @@
   .daybar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 12px;
@@ -110,13 +110,28 @@
   .legend .dot.regular { background: var(--danger-line); }
   .legend .dot.reserved { background: #60a5fa; }
 
+  .aw-outer {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: fit-content;
+    max-width: 100%;
+    align-self: center;
+    margin: 0 auto;
+  }
+  .aw-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 4px 0 10px;
+  }
   .aw-wrap {
     background: var(--w05);
     border: 1px solid var(--w12);
     border-radius: 14px;
     padding: 14px;
     overflow-x: auto;
-    flex: 1;
   }
   .aw-grid { display: grid; gap: 4px; min-width: max-content; }
   .aw-room-header {
@@ -137,7 +152,7 @@
     color: var(--accent); background: var(--knu-primary-soft);
     border-radius: 8px; white-space: nowrap; vertical-align: 1px;
   }
-  .aw-hint { text-align: center; margin: 4px 0 10px; }
+  .aw-hint { text-align: left; }
   .aw-hint span { display: inline-block; background: rgba(127,179,255,0.16); border: 1px solid rgba(127,179,255,0.45); color: var(--accent-soft); font-size: 13px; font-weight: 700; padding: 7px 16px; border-radius: 20px; }
   .aw-room-link { display: block; text-decoration: none; cursor: pointer; transition: background .15s, border-color .15s; }
   .aw-room-link:hover { background: rgba(127,179,255,0.28); border-color: rgba(127,179,255,0.7); }
@@ -178,7 +193,7 @@
 
   @media (max-width: 480px) {
     .daybar { flex-direction: column; align-items: stretch; }
-    .legend { order: 3; }
+    .aw-topbar { flex-direction: column; align-items: flex-start; gap: 6px; }
   }
 </style>
 <style id="labThemeCss">
@@ -393,19 +408,22 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         </div>
       </div>
     </div>
-    <div class="legend">
-      <span class="sw"><span class="dot regular"></span>정규수업</span>
-      <span class="sw"><span class="dot reserved"></span>예약됨</span>
+  </div>
+
+  <div class="aw-outer">
+    <div class="aw-topbar">
+      <div class="aw-hint"><span>👇 아래 실습실 이름을 누르면, 선택한 날짜로 바로 신청할 수 있어요</span></div>
+      <div class="legend">
+        <span class="sw"><span class="dot regular"></span>정규수업</span>
+        <span class="sw"><span class="dot reserved"></span>예약됨</span>
+      </div>
+    </div>
+    <div class="aw-wrap">
+      <div id="arArea" class="aw-loading">불러오는 중...</div>
     </div>
   </div>
 
-  <div class="aw-hint"><span>👇 아래 실습실 이름을 누르면, 선택한 날짜로 바로 신청할 수 있어요</span></div>
-
-  <div class="aw-wrap">
-    <div id="arArea" class="aw-loading">불러오는 중...</div>
-  </div>
-
-  <div class="footer">실습실 현황판으로 돌아가기 · <a class="footer-link" id="backLink" href="dashboard.html">실습실 현황판</a><br><span style="opacity:0.6;font-size:11px;">페이지 버전: 2610292312</span></div>
+  <div class="footer">실습실 현황판으로 돌아가기 · <a class="footer-link" id="backLink" href="dashboard.html">실습실 현황판</a><br><span style="opacity:0.6;font-size:11px;">페이지 버전: 2610292325</span></div>
 
 <script>
   // ▼▼▼ GAS 배포 주소 (dashboard.html / index.html과 동일) ▼▼▼
