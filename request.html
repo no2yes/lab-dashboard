@@ -386,11 +386,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       </div>
 
       <div id="repeat-mode" class="mode-form" style="display:none;">
-        <div class="selected-display" id="repeatSelectedDisplay">
-          <span class="selected-display-label">선택한 요일·시간</span>
-          <span class="selected-display-value" id="repeatDowHintText">👆 위 시간표에서 원하는 요일과 시간을 클릭해 선택하세요.</span>
-          <button type="button" class="selected-clear-btn" id="repeatClearBtn" onclick="clearSingleSelection()" style="display:none;">선택 취소</button>
-        </div>
         <input type="hidden" id="repeatDowValue">
         <div class="field" id="repeatDurationField" style="display:none;margin-top:10px;margin-bottom:0;">
           <label>반복 기간 <span class="required">*</span></label>
@@ -483,7 +478,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610291205</span>
+    <span style="opacity:0.6;">페이지 버전: 2610291315</span>
   </div>
 </div>
 
@@ -1030,8 +1025,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
 
       if (currentType === 'repeat') {
         document.getElementById('repeatDowValue').value = '';
-        const hintText = document.getElementById('repeatDowHintText');
-        if (hintText) hintText.innerHTML = '⏳ 종료 시간을 클릭해 완료하세요... (시작 ' + minToTimeStr(timeMin) + ')';
       }
       return;
     }
@@ -1128,37 +1121,30 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     }
   }
 
+  // repeat는 선택 내용을 별도 박스로 echo하지 않음 — 시간표의 강조 표시와
+  // 위쪽 안내문(schedule-hint)만으로 충분해서 중복 정보라 없앴다.
   const SELECTION_DISPLAY_IDS = {
     single: { box: 'singleSelectedDisplay', val: 'singleSelectedValue', clearBtn: 'singleClearBtn' },
-    repeat: { box: 'repeatSelectedDisplay', val: 'repeatDowHintText', clearBtn: 'repeatClearBtn' },
     range:  { box: 'rangeSelectedDisplay', val: 'rangeSelectedValue', clearBtn: 'rangeClearBtn' }
   };
 
-  // 시간표에서 선택한 날짜·시간을 각 유형(한 번만/요일반복/기간연속)의 표시 박스에 반영하고,
+  // 시간표에서 선택한 날짜·시간을 유형별 표시 박스에 반영하고(있는 경우),
   // 요일반복·기간연속의 기간 칩 영역을 보이거나 숨긴 뒤 미리보기를 갱신한다.
   function updateSelectionDisplay() {
     const ids = SELECTION_DISPLAY_IDS[currentType];
-    const box = document.getElementById(ids.box);
-    const val = document.getElementById(ids.val);
-    const clearBtn = document.getElementById(ids.clearBtn);
+    const box = ids && document.getElementById(ids.box);
+    const val = ids && document.getElementById(ids.val);
+    const clearBtn = ids && document.getElementById(ids.clearBtn);
     if (box && val) {
       if (activeSelection.date) {
         const dow = getDowLabel(activeSelection.date);
         const startStr = minToTimeStr(activeSelection.startTimeMin);
         const endStr = minToTimeStr(activeSelection.endTimeMin);
-        if (currentType === 'repeat') {
-          val.innerHTML = '<strong style="color:var(--accent);">매주 ' + dow + '요일</strong> &nbsp; ' +
-            '<strong style="font-size:16px;color:var(--accent);">' + startStr + '</strong> ~ ' +
-            '<strong style="font-size:16px;color:var(--accent);">' + endStr + '</strong>';
-        } else {
-          val.innerHTML = activeSelection.date + ' (' + dow + ') &nbsp; ' + startStr + ' ~ ' + endStr;
-        }
+        val.innerHTML = activeSelection.date + ' (' + dow + ') &nbsp; ' + startStr + ' ~ ' + endStr;
         box.classList.add('has-value');
         if (clearBtn) clearBtn.style.display = '';
       } else {
-        val.textContent = currentType === 'repeat'
-          ? '👆 위 시간표에서 원하는 요일과 시간을 클릭해 선택하세요.'
-          : '시간표에서 시작·종료 시간을 클릭하세요.';
+        val.textContent = '시간표에서 시작·종료 시간을 클릭하세요.';
         box.classList.remove('has-value');
         if (clearBtn) clearBtn.style.display = 'none';
       }
