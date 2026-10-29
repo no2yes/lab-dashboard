@@ -478,7 +478,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610291345</span>
+    <span style="opacity:0.6;">페이지 버전: 2610291755</span>
   </div>
 </div>
 
@@ -1120,7 +1120,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     if (currentType === 'range' && selectedDays) {
       // 기간연속은 실제 이용 가능일(공휴일 제외 여부 반영) 기준으로 날짜를 모아야 하므로 비동기 계산
       const mySeq = ++highlightReqSeq;
-      computeUsableDateRange(activeSelection.date, selectedDays).then(targetDates => {
+      computeRangeDatesWithHolidayFilter(activeSelection.date, selectedDays).then(targetDates => {
         if (mySeq !== highlightReqSeq) return;  // 그 사이 다른 변경이 생겼으면 이 결과는 버림
         paintSelectionHighlight(targetDates);
       });
@@ -1268,14 +1268,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       if (!activeSelection.date || !selectedDays) { preview.textContent = ''; return; }
       preview.textContent = '확인 중...';
       const mySeq = ++durationPreviewReqSeq;
-      computeUsableDateRange(activeSelection.date, selectedDays).then(dates => {
+      const end = addDaysStr(activeSelection.date, selectedDays - 1);  // 기간(달력) 자체는 고른 N일 그대로
+      computeRangeDatesWithHolidayFilter(activeSelection.date, selectedDays).then(dates => {
         if (mySeq !== durationPreviewReqSeq) return;
-        if (dates.length === 0) { preview.textContent = ''; return; }
-        const end = dates[dates.length - 1];
-        const calendarSpanDays = Math.round((new Date(end + 'T00:00:00') - new Date(activeSelection.date + 'T00:00:00')) / 86400000) + 1;
-        const skipped = calendarSpanDays - selectedDays;
+        const skipped = selectedDays - dates.length;
         preview.textContent = skipped > 0
-          ? '종료일 ' + end + ' · 총 ' + selectedDays + '일 사용 (휴일 ' + skipped + '일 제외)'
+          ? '종료일 ' + end + ' · 신청 ' + dates.length + '일 (휴일 ' + skipped + '일 제외)'
           : '종료일 ' + end + ' · 총 ' + selectedDays + '일';
       });
     }
@@ -1340,7 +1338,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     }
     if (currentType === 'range') {
       if (!activeSelection.date || !selectedDays) return Promise.resolve([]);
-      return computeUsableDateRange(activeSelection.date, selectedDays);
+      return computeRangeDatesWithHolidayFilter(activeSelection.date, selectedDays);
     }
     return Promise.resolve([]);
   }
@@ -1392,18 +1390,16 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     });
   }
 
-  // 시작일부터 "실제 이용 가능한 날"만 세어 neededCount개를 모을 때까지 하루씩 전진.
-  function computeUsableDateRange(startDate, neededCount) {
-    const collected = [];
-    function step(cursor, guard) {
-      if (guard > 400) return Promise.resolve(collected);  // 공휴일이 비정상적으로 이어지는 경우를 막는 안전장치
-      return isDateUsable(cursor).then(usable => {
-        if (usable) collected.push(cursor);
-        if (collected.length >= neededCount) return collected;
-        return step(addDaysStr(cursor, 1), guard + 1);
-      });
-    }
-    return step(startDate, 0);
+  // 시작일부터 totalDays일(달력 기준, 선택한 기간 그대로)을 살펴보고, 그 안에서
+  // 휴일(토·일·공휴일)인 날짜만 제외한 "실제 신청일" 목록을 돌려준다.
+  // 즉 "8일"을 골랐는데 그 안에 휴일이 4일 있으면 기간은 그대로 8일째까지이고,
+  // 실제 신청되는 날은 4일로 줄어든다 — 기간을 늘려서 8일을 채우지 않음.
+  function computeRangeDatesWithHolidayFilter(startDate, totalDays) {
+    const calendarDates = [];
+    for (let i = 0; i < totalDays; i++) calendarDates.push(addDaysStr(startDate, i));
+    return Promise.all(calendarDates.map(isDateUsable)).then(usableFlags => {
+      return calendarDates.filter((d, i) => usableFlags[i]);
+    });
   }
 
   function submitForm() {
@@ -1474,7 +1470,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
         showResultModal('error', '날짜를 확인해주세요', '사용 날짜와 (요일반복인 경우 요일을) 정확히 선택해주세요.');
         return;
       }
-      if (dates[dates.length - 1] > getMaxDateStr()) {
+      // range는 고른 기간(달력 기준) 자체가 한도를 넘는지로 판단 — 휴일 제외로 실제 신청일이
+      // 줄어도 "고른 기간"이 한도를 넘으면 그대로 안내해야 의미가 맞는다.
+      const lastRelevantDate = currentType === 'range'
+        ? addDaysStr(activeSelection.date, selectedDays - 1)
+        : dates[dates.length - 1];
+      if (lastRelevantDate > getMaxDateStr()) {
         btn.disabled = false;
         btn.textContent = '신청하기';
         showMaxDateWarning();
@@ -1487,8 +1488,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
         const end = addDaysStr(activeSelection.date, (selectedWeeks - 1) * 7);
         repeatInfo = `${activeSelection.date}~${end} 매주 ${dow}`;
       } else if (currentType === 'range') {
-        const end = dates[dates.length - 1];  // 공휴일 건너뛰기를 반영한 실제 종료일
-        repeatInfo = `${activeSelection.date}~${end} 연속`;
+        const end = addDaysStr(activeSelection.date, selectedDays - 1);  // 고른 기간 자체(달력 기준)
+        const excluded = selectedDays - dates.length;
+        repeatInfo = excluded > 0
+          ? `${activeSelection.date}~${end} 연속 (휴일 ${excluded}일 제외, 신청 ${dates.length}일)`
+          : `${activeSelection.date}~${end} 연속`;
       }
 
       const payload = {
