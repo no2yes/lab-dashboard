@@ -154,6 +154,7 @@ textarea { resize: vertical; min-height: 70px; }
 .schedule-grid { display: grid; min-width: 460px; }
 .grid-cell { border-right: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); font-size: 11px; padding: 4px; overflow: hidden; }
 .grid-cell:last-child { border-right: none; }
+.schedule-body .grid-cell { border-right-style: dashed; border-bottom-style: dashed; }
 .header-cell { text-align: center; padding: 8px 4px; font-weight: 600; }
 .day-header.holiday-text .day-name, .day-header.holiday-text .day-date { color: var(--danger-line); }
 .day-header.today { background: #f5a623; color: #1b1d21; }
@@ -161,13 +162,13 @@ textarea { resize: vertical; min-height: 70px; }
 .day-date { font-size: 10px; opacity: 0.85; }
 .schedule-body { display: grid; grid-template-columns: 50px repeat(7, 1fr); min-width: 580px; }
 .schedule-row { display: contents; }
-.time-cell { text-align: center; font-size: 11px; padding: 5px 2px; line-height: 1.2; min-height: 32px; }
-.empty-cell { min-height: 32px; cursor: pointer; }
+.time-cell { text-align: center; font-size: 11px; padding: 4px 2px; line-height: 1; min-height: 20px; }
+.empty-cell { min-height: 20px; cursor: pointer; }
 .empty-cell.start-selected { background: rgba(245,166,35,0.35) !important; outline: 2px solid #f5a623; }
 .empty-cell.selected { background: rgba(74,222,128,0.25) !important; }
 .empty-cell.selected.first { border-top: 2px solid var(--ok-strong); }
 .empty-cell.selected.last { border-bottom: 2px solid var(--ok-strong); }
-.empty-cell-readonly { min-height: 32px; }
+.empty-cell-readonly { min-height: 20px; }
 .empty-cell-readonly.past-cell { background: repeating-linear-gradient(45deg, var(--w03), var(--w03) 4px, var(--w07) 4px, var(--w07) 8px); }
 .holiday-col-blocked { opacity: 0.5; }
 .readonly-mode .empty-cell { cursor: default; pointer-events: none; }
@@ -485,7 +486,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610290930</span>
+    <span style="opacity:0.6;">페이지 버전: 2610291035</span>
   </div>
 </div>
 
