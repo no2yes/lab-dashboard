@@ -523,7 +523,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2610300851</span>
+    <span style="opacity:0.6;">페이지 버전: 2610300935</span>
   </div>
 </div>
 
@@ -1116,14 +1116,29 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     refreshScheduleHint();
   }
 
+  // iOS Safari는 `.schedule-row { display: contents; }` 구조(행 래퍼가 레이아웃에서
+  // 빠지고 실제 셀들만 grid 아이템이 되는 방식) 위에서 classList 변경 후 리페인트를
+  // 누락하는 경우가 있다(알려진 WebKit display:contents 리페인트 버그). 그 결과 실제
+  // DOM의 class는 이미 올바르게 바뀌었는데도(activeSelection/pendingStart 값은 정상)
+  // 화면에는 이전 선택의 초록색 칠이 일부 그대로 "눌어붙어" 남아 보이는 증상이 생긴다
+  // (특히 다른 요일 칸에서 새 선택을 시작하는 순간 발생). querySelectorAll로 클래스를
+  // 지운 직후 레이아웃 속성을 강제로 읽어(reflow) 브라우저가 그 시점의 변경 사항을
+  // 확실히 반영하도록 만들어 이 잔상을 없앤다.
+  function forceScheduleRepaint() {
+    const grid = document.getElementById('weeklyScheduleGrid');
+    if (grid) void grid.offsetHeight;
+  }
+
   function highlightPendingStart() {
     clearPendingStartHighlight();
     if (pendingStart && pendingStart.cellEl) {
       pendingStart.cellEl.classList.add('start-selected');
     }
+    forceScheduleRepaint();
   }
   function clearPendingStartHighlight() {
     document.querySelectorAll('.empty-cell.start-selected').forEach(c => c.classList.remove('start-selected'));
+    forceScheduleRepaint();
   }
 
   function refreshScheduleHint() {
@@ -1164,6 +1179,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     // 방금 지운 초록 선택 표시가 새 시작점(주황) 위에 다시 덧칠되는 겹침 버그가 있었다.
     const mySeq = ++highlightReqSeq;
     document.querySelectorAll('.empty-cell.selected').forEach(c => c.classList.remove('selected', 'first', 'last'));
+    forceScheduleRepaint();
     if (!activeSelection.date) return;
 
     if (currentType === 'range' && selectedDays) {
@@ -1209,6 +1225,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
         }
       }
     });
+    forceScheduleRepaint();
   }
 
   // repeat는 선택 내용을 별도 박스로 echo하지 않음 — 시간표의 강조 표시와
