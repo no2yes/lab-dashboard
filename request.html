@@ -545,7 +545,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2611012141</span>
+    <span style="opacity:0.6;">페이지 버전: 2611012147</span>
   </div>
 </div>
 
@@ -741,6 +741,26 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     if (s == null) return '';
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // 테스트용 "오늘" 가짜 지정 — URL에 ?simToday=YYYY-MM-DD를 붙이면 그 날짜를 "오늘"로
+  // 가정하고 화면을 그린다 (예: 주말에도 평일 기준 동작을 미리 확인할 때). 실제 신청
+  // 가능 기간(maxAdvanceDays) 계산에는 쓰지 않고, "오늘" 표시와 이번주 롤링 표시 확인용으로만 씀.
+  const SIM_TODAY = (function() {
+    try {
+      const m = /simToday=(\d{4}-\d{2}-\d{2})/.exec(location.search);
+      return m ? m[1] : null;
+    } catch (e) { return null; }
+  })();
+  function simNow() {
+    return SIM_TODAY ? new Date(SIM_TODAY + 'T00:00:00') : new Date();
+  }
+  if (SIM_TODAY && document.body) {
+    const banner = document.createElement('div');
+    banner.textContent = '⚠ 테스트 모드: 오늘을 ' + SIM_TODAY + '로 가정하고 표시 중 (주소의 simToday 파라미터 제거하면 해제)';
+    banner.style.cssText = 'position:sticky;top:0;z-index:999;background:#f5a623;color:#1a1a1a;' +
+      'font-size:12px;font-weight:700;text-align:center;padding:6px 10px;';
+    document.body.insertBefore(banner, document.body.firstChild);
   }
 
   let currentWeekOffset = 0;
@@ -939,7 +959,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   }
 
   function getMondayForOffset(weekOffset) {
-    const today = new Date();
+    const today = simNow();
     const dayOfWeek = today.getDay();
     const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     const monday = new Date(today);
@@ -1101,7 +1121,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   }
 
   function getTodayStr() {
-    const d = new Date();
+    const d = simNow();
     return d.getFullYear() + '-' +
       String(d.getMonth() + 1).padStart(2, '0') + '-' +
       String(d.getDate()).padStart(2, '0');
