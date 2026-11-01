@@ -145,7 +145,12 @@ input[type="date"] {
   appearance: none;
 }
 input[type="date"]::-webkit-date-and-time-value { text-align: center; }
-input[type="date"] { text-align: center; font-weight: 700; font-size: 14.5px; }
+/* webkit은 date input 안의 값(pseudo-element)이 플렉스 아이템일 때만 세로가운데가
+   먹는다 — 그냥 line-height로는 appearance:none 상태에서 가운데로 안 내려옴. */
+input[type="date"] {
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; font-weight: 700; font-size: 16px;
+}
 input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-primary); }
 
 .search-go-btn {
@@ -248,7 +253,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     <a class="alt-btn" href="javascript:void(0)" onclick="goToManual()">❓ 이용 안내 보기</a>
   </div>
 
-  <div class="page-version">페이지 버전: 2611020815</div>
+  <div class="page-version">페이지 버전: 2611020817</div>
 </div>
 
 <!-- 이용 안내(매뉴얼) 모달 -->
