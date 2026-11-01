@@ -128,6 +128,8 @@ body {
 .search-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
 .search-row:last-of-type { margin-bottom: 0; }
 .field { flex: 1; min-width: 110px; }
+.field-date { flex: 1 1 100%; }
+.search-row-time .field { min-width: 0; }
 .field label { display: block; font-size: 11.5px; font-weight: 600; color: var(--t3); margin-bottom: 5px; }
 .field label .opt { font-weight: 500; color: var(--t4); }
 input[type="date"], select {
@@ -199,10 +201,12 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
   <div class="search-card">
     <div class="search-card-title">언제 사용하실 건가요?</div>
     <div class="search-row">
-      <div class="field">
+      <div class="field field-date">
         <label>날짜</label>
         <input type="date" id="searchDate">
       </div>
+    </div>
+    <div class="search-row search-row-time">
       <div class="field">
         <label>시작 시간</label>
         <select id="searchStart"></select>
@@ -233,7 +237,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     <a class="alt-btn" href="javascript:void(0)" onclick="goToManual()">❓ 이용 안내 보기</a>
   </div>
 
-  <div class="page-version">페이지 버전: 2611012239</div>
+  <div class="page-version">페이지 버전: 2611012254</div>
 </div>
 
 <!-- 이용 안내(매뉴얼) 모달 -->
