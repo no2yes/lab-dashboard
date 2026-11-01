@@ -216,6 +216,7 @@ textarea { resize: vertical; min-height: 70px; }
   padding: 10px; box-shadow: 0 12px 32px rgba(var(--sh),calc(0.45 * var(--shk))); display: none;
 }
 .cal-popup.open { display: block; }
+.week-cal-popup { left: auto; right: 0; }
 .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-weight: 700; }
 .cal-head button { background: transparent; border: none; color: var(--text); cursor: pointer; font-size: 13px; padding: 3px 9px; border-radius: 6px; font-family: inherit; }
 .cal-head button:hover { background: var(--w14); }
@@ -408,6 +409,17 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
             <button type="button" class="week-nav-btn" id="weekPrevBtn" onclick="weekPrev()"><span class="week-nav-btn-gauge reverse" id="weekPrevGauge"></span><span class="week-nav-btn-label">◀ 이전</span></button>
             <button type="button" class="week-nav-btn" id="weekTodayBtn" onclick="goToThisWeek()"><span class="week-nav-btn-gauge center" id="weekTodayGauge"></span><span class="week-nav-btn-label">이번주</span></button>
             <button type="button" class="week-nav-btn" id="weekNextBtn" onclick="weekNext()"><span class="week-nav-btn-gauge" id="weekNextGauge"></span><span class="week-nav-btn-label">다음 ▶</span></button>
+            <div class="enddate-pick-wrap" id="weekCalWrap">
+              <button type="button" class="enddate-btn" id="weekCalBtn" onclick="toggleWeekCal(event)">📅 날짜 선택</button>
+              <div class="cal-popup week-cal-popup" id="weekCalPopup">
+                <div class="cal-head">
+                  <button type="button" onclick="weekCalPrevMonth(event)">◀</button>
+                  <span id="weekCalMonthLabel"></span>
+                  <button type="button" onclick="weekCalNextMonth(event)">▶</button>
+                </div>
+                <div class="cal-grid" id="weekCalGrid"></div>
+              </div>
+            </div>
           </div>
         </div>
         <div class="schedule-hint">
@@ -533,7 +545,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2611012140</span>
+    <span style="opacity:0.6;">페이지 버전: 2611012141</span>
   </div>
 </div>
 
@@ -1518,6 +1530,92 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       pickDuration('range', days);
     }
     closeEndDateCal();
+  }
+
+  // ── 달력으로 날짜 직접 이동 (다음주/지난주를 여러 번 누르지 않고 바로 그 주로) ──
+  let weekCalViewDate = new Date();
+  let weekCalOpen = false;
+
+  function toggleWeekCal(e) {
+    if (e) e.stopPropagation();
+    const popup = document.getElementById('weekCalPopup');
+    if (!popup) return;
+    if (weekCalOpen) { closeWeekCal(); return; }
+    weekCalOpen = true;
+    weekCalViewDate = new Date();
+    renderWeekCalGrid();
+    popup.classList.add('open');
+  }
+  function closeWeekCal() {
+    if (!weekCalOpen) return;
+    const popup = document.getElementById('weekCalPopup');
+    if (popup) popup.classList.remove('open');
+    weekCalOpen = false;
+  }
+  document.addEventListener('click', function(e) {
+    if (!weekCalOpen) return;
+    const wrap = document.getElementById('weekCalWrap');
+    if (wrap && !wrap.contains(e.target)) closeWeekCal();
+  });
+  function weekCalPrevMonth(e) { e.stopPropagation(); weekCalViewDate.setMonth(weekCalViewDate.getMonth() - 1); renderWeekCalGrid(); }
+  function weekCalNextMonth(e) { e.stopPropagation(); weekCalViewDate.setMonth(weekCalViewDate.getMonth() + 1); renderWeekCalGrid(); }
+
+  function renderWeekCalGrid() {
+    const year = weekCalViewDate.getFullYear(), month = weekCalViewDate.getMonth();
+    const monthLabelEl = document.getElementById('weekCalMonthLabel');
+    if (monthLabelEl) monthLabelEl.textContent = year + '년 ' + (month + 1) + '월';
+
+    const today0 = new Date(); today0.setHours(0, 0, 0, 0);
+    const todayStr = getTodayStr();
+    const maxDateStr = getMaxDateStr();
+    const curMonday = getMondayForOffset(currentWeekOffset);
+    const curSunday = addDaysStr(curMonday, 6);
+
+    const firstDow = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+    const cells = [];
+    for (let i = 0; i < firstDow; i++) {
+      const d = daysInPrevMonth - firstDow + 1 + i;
+      cells.push({ day: d, other: true, dateObj: new Date(year, month - 1, d) });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push({ day: d, other: false, dateObj: new Date(year, month, d) });
+    }
+    let nextDay = 1;
+    while (cells.length < 42) {
+      cells.push({ day: nextDay, other: true, dateObj: new Date(year, month + 1, nextDay) });
+      nextDay++;
+    }
+
+    let html = ['일', '월', '화', '수', '목', '금', '토'].map(d => '<div class="cal-dow">' + d + '</div>').join('');
+    cells.forEach(c => {
+      const dStr = formatLocalISODate(c.dateObj);
+      const cls = ['cal-day'];
+      if (c.other) cls.push('other-month');
+      if (dStr === formatLocalISODate(today0)) cls.push('today');
+      // 지금 보고 있는 주(currentWeekOffset)에 속한 날짜는 선택된 것처럼 표시
+      if (dStr >= curMonday && dStr <= curSunday) cls.push('selected');
+      // 지난 날짜나, 신청 가능 기간(maxDateStr)을 넘는 날짜는 선택 불가
+      if (dStr < todayStr || dStr > maxDateStr) cls.push('disabled');
+      html += '<div class="' + cls.join(' ') + '" data-date="' + dStr + '">' + c.day + '</div>';
+    });
+    const gridEl = document.getElementById('weekCalGrid');
+    gridEl.innerHTML = html;
+    gridEl.querySelectorAll('.cal-day:not(.disabled)').forEach(el => {
+      el.addEventListener('click', function() { pickWeekDate(this.dataset.date); });
+    });
+  }
+
+  function pickWeekDate(dateStr) {
+    const monday = mondayOfDate(dateStr);
+    const offset = Math.round(daysBetween(getMondayForOffset(0), monday) / 7);
+    closeWeekCal();
+    if (offset === currentWeekOffset) return;
+    clearSingleSelection();
+    currentWeekOffset = offset;
+    loadWeeklySchedule();
   }
 
   function showMaxDateWarning() {
