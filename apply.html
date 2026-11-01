@@ -246,7 +246,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     <a class="alt-btn" href="javascript:void(0)" onclick="goToManual()">❓ 이용 안내 보기</a>
   </div>
 
-  <div class="page-version">페이지 버전: 2611020041</div>
+  <div class="page-version">페이지 버전: 2611020046</div>
 </div>
 
 <!-- 이용 안내(매뉴얼) 모달 -->
@@ -388,7 +388,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     PUBLIC_BUILDINGS.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko')).forEach(b => {
       const opt = document.createElement('option');
       opt.value = b.code;
-      opt.textContent = b.name;
+      opt.textContent = b.name + '(' + b.code + ')';
       nearSel.appendChild(opt);
     });
   }
