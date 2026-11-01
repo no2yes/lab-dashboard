@@ -158,10 +158,6 @@ textarea { resize: vertical; min-height: 70px; }
 .schedule-hint .duration-line { margin-top: 0; }
 .schedule-hint .duration-row { margin-top: 0; }
 .schedule-hint .duration-end-preview { width: auto; }
-.single-extra-list { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 10px; }
-.single-extra-chip { display: inline-flex; align-items: center; gap: 6px; background: rgba(76,175,80,0.14); border: 1px solid rgba(76,175,80,0.45); color: var(--w90); border-radius: 14px; padding: 4px 6px 4px 10px; font-size: 11px; }
-.single-extra-chip .x-btn { background: none; border: none; color: inherit; cursor: pointer; font-size: 13px; line-height: 1; padding: 2px 4px; font-family: inherit; opacity: 0.75; }
-.single-extra-chip .x-btn:hover { opacity: 1; }
 .schedule-grid-wrapper { overflow-x: auto; border-radius: 6px; margin-bottom: 8px; }
 .schedule-loading { padding: 40px 20px; text-align: center; font-size: 14px; font-weight: 600; }
 .schedule-loading .spinner-icon { display:inline-block;width:18px;height:18px;border:3px solid var(--bd1);border-top-color:var(--knu-primary);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px; }
@@ -452,7 +448,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
             </div>
           </div>
         </div>
-        <div id="singleExtraList" class="single-extra-list" style="display:none;"></div>
         <div id="weeklyScheduleGrid" class="schedule-grid-wrapper">
           <div class="schedule-loading"><span class="spinner-icon"></span>시간표 불러오는 중입니다...</div>
         </div>
@@ -534,7 +529,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2611012220</span>
+    <span style="opacity:0.6;">페이지 버전: 2611012222</span>
   </div>
 </div>
 
@@ -1285,49 +1280,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     updateEndDateButtonLabel('range');
     updateDurationPreview();
     applyActiveSelectionHighlight();
-    renderSingleExtraList();
-  }
-
-  // 한주 내 선택(single)에서 고른 선택들을 작은 칩 목록으로 보여주고, 칩의 ✕로 개별 취소할 수
-  // 있게 한다. extraSelections(먼저 고른 것들)뿐 아니라 아직 extraSelections로 넘어가지 않은
-  // "마지막(현재)" activeSelection도 함께 보여줘야 목록에서 빠지지 않는다.
-  function renderSingleExtraList() {
-    const wrap = document.getElementById('singleExtraList');
-    if (!wrap) return;
-    const all = (currentType === 'single')
-      ? extraSelections.concat(activeSelection.date ? [{
-          date: activeSelection.date,
-          startTimeMin: activeSelection.startTimeMin,
-          endTimeMin: activeSelection.endTimeMin
-        }] : [])
-      : [];
-    if (all.length === 0) {
-      wrap.style.display = 'none';
-      wrap.innerHTML = '';
-      return;
-    }
-    const dowMap = ['일', '월', '화', '수', '목', '금', '토'];
-    wrap.innerHTML = all.map((sel, idx) => {
-      const d = new Date(sel.date + 'T00:00:00');
-      const label = (d.getMonth() + 1) + '/' + d.getDate() + '(' + dowMap[d.getDay()] + ') ' +
-        minToTimeStr(sel.startTimeMin) + '~' + minToTimeStr(sel.endTimeMin);
-      return '<span class="single-extra-chip">' + escapeHtml(label) +
-        '<button type="button" class="x-btn" onclick="removeSelectionAt(' + idx + ')" title="이 선택 취소">✕</button></span>';
-    }).join('');
-    wrap.style.display = 'flex';
-  }
-
-  // idx가 extraSelections 범위 안이면 그 항목을, 범위를 넘어서면(=마지막 하나) 현재
-  // activeSelection을 취소한다 — renderSingleExtraList가 만든 목록 순서와 일치.
-  function removeSelectionAt(idx) {
-    if (idx < extraSelections.length) {
-      extraSelections.splice(idx, 1);
-    } else {
-      activeSelection.date = null;
-    }
-    applyActiveSelectionHighlight();
-    updateSelectionDisplay();
-    refreshScheduleHint();
   }
 
   function clearSingleSelection() {
