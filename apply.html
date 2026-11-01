@@ -229,7 +229,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     <button type="button" class="search-go-btn" id="searchGoBtn" onclick="runSearch()">🔍 사용 가능한 실습실 찾기</button>
   </div>
 
-  <div id="resultsArea"></div>
+  <div id="resultsArea"><div class="results-empty">날짜·시간을 고르고 "사용 가능한 실습실 찾기"를 눌러주세요.</div></div>
 
   <div class="alt-paths">
     <a class="alt-btn" href="request.html">✏️ 실습실을 직접 선택해서 신청</a>
@@ -237,7 +237,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     <a class="alt-btn" href="javascript:void(0)" onclick="goToManual()">❓ 이용 안내 보기</a>
   </div>
 
-  <div class="page-version">페이지 버전: 2611012254</div>
+  <div class="page-version">페이지 버전: 2611012320</div>
 </div>
 
 <!-- 이용 안내(매뉴얼) 모달 -->
@@ -287,26 +287,6 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
       if (totalMin === defaultMin) opt.selected = true;
       selectEl.appendChild(opt);
     }
-  }
-
-  // 지금 시각 기준으로 "다음으로 고를 만한" 날짜·시간을 기본값으로 채워준다
-  // (이미 영업시간이 지났으면 내일 09시부터로 넘어감) — 처음 열었을 때부터 바로 결과를 보여주기 위함.
-  function computeDefaultSlot() {
-    const now = new Date();
-    const dateObj = new Date(now); dateObj.setHours(0, 0, 0, 0);
-    let minutesNow = now.getHours() * 60 + now.getMinutes();
-    const dayStart = START_HOUR * 60, dayEnd = END_HOUR * 60;
-    let startMin;
-    if (minutesNow >= dayEnd - 30) {
-      dateObj.setDate(dateObj.getDate() + 1);
-      startMin = dayStart;
-    } else if (minutesNow < dayStart) {
-      startMin = dayStart;
-    } else {
-      startMin = Math.ceil(minutesNow / SLOT_MIN) * SLOT_MIN;
-    }
-    const endMin = Math.min(dayEnd, startMin + 60);
-    return { dateStr: formatLocalISODate(dateObj), startMin, endMin };
   }
 
   // 건물코드 → [위도, 경도] ("가까운 건물" 조건의 직선거리 계산용 — allrooms.html과 동일)
@@ -496,14 +476,14 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
   }
 
   // ── 초기화 ──
+  // 날짜·시간은 사용자가 직접 고르기 전까지 비워둔다(기본값을 넣지 않음) — 그래서
+  // 여기서는 검색을 미리 실행하지 않고, 조건 선택지(SW·건물 목록)만 조용히 채워둔다.
   (function init() {
-    const def = computeDefaultSlot();
     const dateInput = document.getElementById('searchDate');
-    dateInput.value = def.dateStr;
     dateInput.min = formatLocalISODate(new Date());
 
-    fillTimeSelect(document.getElementById('searchStart'), def.startMin);
-    fillTimeSelect(document.getElementById('searchEnd'), def.endMin);
+    fillTimeSelect(document.getElementById('searchStart'));
+    fillTimeSelect(document.getElementById('searchEnd'));
 
     api({ action: 'maxadvancedays' }).then(res => {
       if (res && res.days) {
@@ -513,10 +493,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
       }
     }).catch(() => {});
 
-    loadRoomsMeta().then(runSearch).catch(err => {
-      document.getElementById('resultsArea').innerHTML =
-        '<div class="results-empty">실습실 정보를 불러오지 못했습니다: ' + escapeHtml(err.message || String(err)) + '</div>';
-    });
+    loadRoomsMeta().catch(() => {});
   })();
 </script>
 </body>
