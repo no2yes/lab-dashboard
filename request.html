@@ -545,7 +545,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2611012147</span>
+    <span style="opacity:0.6;">페이지 버전: 2611012200</span>
   </div>
 </div>
 
@@ -625,7 +625,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
     const p = ds.split('-');
     const target = new Date(+p[0], +p[1] - 1, +p[2]);
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = simNow(); today.setHours(0, 0, 0, 0);
     if (target < today) return;
 
     const monday = function(d) {
