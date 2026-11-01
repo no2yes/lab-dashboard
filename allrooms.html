@@ -156,6 +156,7 @@
   .aw-hint span { display: inline-block; background: rgba(127,179,255,0.16); border: 1px solid rgba(127,179,255,0.45); color: var(--accent-soft); font-size: 13px; font-weight: 700; padding: 7px 16px; border-radius: 20px; }
   .aw-room-link { display: block; text-decoration: none; cursor: pointer; transition: background .15s, border-color .15s; }
   .aw-room-link:hover { background: rgba(127,179,255,0.28); border-color: rgba(127,179,255,0.7); }
+  .aw-col-link:hover { background: rgba(127,179,255,0.12); }
   .aw-time-col { width: 44px; font-size: 10px; color: var(--w55); text-align: center; }
   .aw-col { width: 130px; position: relative; border: 1px solid var(--line-soft); background: var(--w03); border-radius: 4px; }
   .aw-cell { height: 20px; border-bottom: 1px dashed var(--line-soft); }
@@ -190,6 +191,45 @@
   .footer { text-align: center; font-size: 11px; opacity: 0.5; margin-top: 14px; }
   .footer-link { color: inherit; text-decoration: none; }
   .footer-link:hover { text-decoration: underline; }
+
+  /* 조건 검색 패널 */
+  .search-toggle-btn {
+    background: var(--w08); border: 1px solid var(--w18); color: var(--w90);
+    border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  .search-toggle-btn:hover { background: var(--w16); border-color: var(--w35); }
+  .search-toggle-btn.active { background: rgba(138,180,248,0.22); border-color: var(--accent); color: var(--accent-soft); }
+  .search-panel {
+    display: none;
+    background: var(--w05); border: 1px solid var(--w14); border-radius: 12px;
+    padding: 14px; margin-bottom: 12px;
+  }
+  .search-panel.open { display: block; }
+  .search-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .search-field { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--t3); }
+  .search-field select {
+    background: var(--surface-1); color: var(--text); border: 1px solid var(--bd1);
+    border-radius: 8px; padding: 6px 8px; font-size: 12px; font-family: inherit; min-width: 110px;
+  }
+  .search-go-btn {
+    background: var(--accent-strong); color: #fff; border: none; border-radius: 8px;
+    padding: 7px 18px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .search-go-btn:hover { opacity: 0.88; }
+  .search-hint { font-size: 11px; color: var(--t3); margin-top: 8px; }
+  .search-results { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .search-result-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--surface-1); border: 1px solid var(--bd1); border-radius: 8px;
+    padding: 8px 12px; font-size: 12px; text-decoration: none; color: var(--text);
+  }
+  .search-result-item:hover { border-color: var(--accent); background: rgba(138,180,248,0.12); }
+  .search-result-item .r-name { font-weight: 700; }
+  .search-result-item .r-meta { color: var(--t3); font-size: 11px; }
+  .search-empty { font-size: 12px; color: var(--t3); padding: 10px 2px; }
+  .aw-col.aw-col-match { outline: 2px solid var(--ok-strong); outline-offset: -1px; }
+  .aw-col.aw-col-dim { opacity: 0.35; }
 
   @media (max-width: 480px) {
     .daybar { flex-direction: column; align-items: stretch; }
@@ -408,7 +448,32 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
             <div class="cal-grid" id="calGrid"></div>
           </div>
         </div>
+        <button type="button" class="search-toggle-btn" id="searchToggleBtn" onclick="toggleSearchPanel()">🔍 조건으로 찾기</button>
       </div>
+    </div>
+
+    <div class="search-panel" id="searchPanel">
+      <div class="search-row">
+        <div class="search-field">
+          <label for="searchStart">시작 시간</label>
+          <select id="searchStart"></select>
+        </div>
+        <div class="search-field">
+          <label for="searchEnd">종료 시간</label>
+          <select id="searchEnd"></select>
+        </div>
+        <div class="search-field">
+          <label for="searchSw">사용 소프트웨어 (선택)</label>
+          <select id="searchSw"><option value="">전체</option></select>
+        </div>
+        <div class="search-field">
+          <label for="searchNear">가까운 곳 우선 (선택)</label>
+          <select id="searchNear"><option value="">상관없음</option></select>
+        </div>
+        <button type="button" class="search-go-btn" onclick="runRoomSearch()">검색</button>
+      </div>
+      <div class="search-hint">현재 보고 있는 날짜(<span id="searchDateLabel"></span>) 기준으로 찾아요. 날짜를 바꾸려면 위 날짜 버튼으로 먼저 이동한 뒤 다시 검색해주세요.</div>
+      <div class="search-results" id="searchResults"></div>
     </div>
 
     <div class="aw-topbar">
@@ -423,7 +488,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     </div>
   </div>
 
-  <div class="footer">실습실 현황판으로 돌아가기 · <a class="footer-link" id="backLink" href="dashboard.html">실습실 현황판</a><br><span style="opacity:0.6;font-size:11px;">페이지 버전: 2610292348</span></div>
+  <div class="footer">실습실 현황판으로 돌아가기 · <a class="footer-link" id="backLink" href="dashboard.html">실습실 현황판</a><br><span style="opacity:0.6;font-size:11px;">페이지 버전: 2611012126</span></div>
 
 <script>
   // ▼▼▼ GAS 배포 주소 (dashboard.html / index.html과 동일) ▼▼▼
@@ -437,6 +502,183 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   const START_HOUR = 9, END_HOUR = 22, SLOT_MIN = 30;
   let dayOffset = 0;
   let autoRefreshTimer = null;
+  let lastRoomsData = null;   // 현재 화면에 표시된 날짜의 res.rooms (조건 검색이 이 날짜 기준으로 동작)
+
+  // 건물코드 → [위도, 경도] (dashboard.html의 BUILDING_COORDS와 동일 — "가까운 곳" 정렬용 직선거리 계산에 사용)
+  const BUILDING_COORDS = {
+    N1: [37.77037, 128.87368], N2: [37.77140, 128.87322], N4: [37.77282, 128.87335],
+    N5: [37.77089, 128.87146], N6: [37.77155, 128.87178], N7: [37.77194, 128.87219],
+    N8: [37.77104, 128.87070], N9: [37.77156, 128.87091], N10: [37.77140, 128.87040],
+    N11: [37.77201, 128.86813], N12: [37.77187, 128.86954], N13: [37.77079, 128.86883],
+    N14: [37.77055, 128.86746], N15: [37.77041, 128.86698], N16: [37.77089, 128.86691],
+    N17: [37.77073, 128.86609], N18: [37.77219, 128.86690], N20: [37.77155, 128.86828],
+    C1: [37.76978, 128.87320], C2: [37.76870, 128.87226], C3: [37.76885, 128.87128],
+    C4: [37.76885, 128.87081], C5: [37.76968, 128.87022], C6: [37.77016, 128.86897],
+    C7: [37.76911, 128.86939], C8: [37.76907, 128.86993], C9: [37.76829, 128.87007],
+    C10: [37.76832, 128.86831], C11: [37.76883, 128.86919], C12: [37.76767, 128.86931],
+    C13: [37.76699, 128.86847], C14: [37.76688, 128.86888], C15: [37.76615, 128.86852],
+    C16: [37.76739, 128.86725], C17: [37.76756, 128.87108],
+    D3: [37.76694, 128.87129], D4: [37.76670, 128.87188], D5: [37.76617, 128.87217],
+    D6: [37.76703, 128.87261], D7: [37.76494, 128.87158], D8: [37.76747, 128.87185],
+    D9: [37.76630, 128.87066],
+    S1: [37.76525, 128.87031], S2: [37.76566, 128.86985], S3: [37.76515, 128.86957],
+    S4: [37.76455, 128.87099]
+  };
+  fetch(GAS_URL + '?page=api&action=buildingcoords&t=' + encodeURIComponent(TOKEN))
+    .then(r => r.json())
+    .then(res => { if (res && res.success && res.coords) Object.keys(res.coords).forEach(c => { BUILDING_COORDS[c] = res.coords[c]; }); })
+    .catch(() => {});
+  function parseBuildingCode(roomId) { return String(roomId || '').split('-')[0] || ''; }
+  function haversineM(lat1, lng1, lat2, lng2) {
+    const R = 6371000, toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  // 조건 검색에 쓰는 실습실 메타(건물코드·설치SW) — 시간표와는 별도로 한 번만 불러옴
+  let ROOM_META = {};         // { roomId: { building, software:[{code,name}], name } }
+  let SW_OPTIONS = [];        // [{code,name}] 중복 제거 + 이름순
+  let BUILDING_LABELS = {};   // { code: '건물명(코드)' }
+  let roomMetaLoaded = false;
+  function loadRoomMeta() {
+    if (roomMetaLoaded) return Promise.resolve();
+    return fetch(GAS_URL + '?page=api&action=rooms&t=' + encodeURIComponent(TOKEN))
+      .then(r => r.json())
+      .then(res => {
+        if (!res || !res.success || !res.rooms) return;
+        const swSeen = {};
+        res.rooms.forEach(r => {
+          ROOM_META[r.id] = { building: r.building || parseBuildingCode(r.id), software: r.software || [], name: r.name };
+          (r.software || []).forEach(sw => { if (sw && sw.code && !swSeen[sw.code]) { swSeen[sw.code] = true; SW_OPTIONS.push(sw); } });
+          const code = r.building || parseBuildingCode(r.id);
+          if (code && !BUILDING_LABELS[code]) {
+            const m = String(r.name || '').match(/^(.+?\))/);
+            BUILDING_LABELS[code] = m ? m[1] : code;
+          }
+        });
+        SW_OPTIONS.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+        roomMetaLoaded = true;
+        fillSearchOptions();
+      })
+      .catch(() => {});
+  }
+
+  function fillSearchOptions() {
+    const swSel = document.getElementById('searchSw');
+    SW_OPTIONS.forEach(sw => {
+      const opt = document.createElement('option');
+      opt.value = sw.code;
+      opt.textContent = sw.name + (sw.version ? ' ' + sw.version : '');
+      swSel.appendChild(opt);
+    });
+    const nearSel = document.getElementById('searchNear');
+    Object.keys(BUILDING_LABELS).filter(c => BUILDING_COORDS[c]).sort((a, b) => BUILDING_LABELS[a].localeCompare(BUILDING_LABELS[b])).forEach(code => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = BUILDING_LABELS[code];
+      nearSel.appendChild(opt);
+    });
+  }
+
+  function fillTimeSelect(selectEl, defaultMin) {
+    const totalSlots = ((END_HOUR - START_HOUR) * 60) / SLOT_MIN;
+    for (let s = 0; s <= totalSlots; s++) {
+      const totalMin = START_HOUR * 60 + s * SLOT_MIN;
+      const h = Math.floor(totalMin / 60), m = totalMin % 60;
+      const label = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+      const opt = document.createElement('option');
+      opt.value = String(totalMin);
+      opt.textContent = label;
+      if (totalMin === defaultMin) opt.selected = true;
+      selectEl.appendChild(opt);
+    }
+  }
+
+  function toggleSearchPanel() {
+    const panel = document.getElementById('searchPanel');
+    const btn = document.getElementById('searchToggleBtn');
+    const open = !panel.classList.contains('open');
+    panel.classList.toggle('open', open);
+    btn.classList.toggle('active', open);
+    if (open) loadRoomMeta();
+  }
+
+  function clearSearchHighlight() {
+    document.querySelectorAll('.aw-col').forEach(el => { el.classList.remove('aw-col-match', 'aw-col-dim'); });
+  }
+
+  function runRoomSearch() {
+    if (!lastRoomsData || !lastRoomsData.length) {
+      document.getElementById('searchResults').innerHTML = '<div class="search-empty">아직 시간표를 불러오는 중이에요. 잠시 후 다시 눌러주세요.</div>';
+      return;
+    }
+    const startMin = parseInt(document.getElementById('searchStart').value, 10);
+    const endMin = parseInt(document.getElementById('searchEnd').value, 10);
+    const swCode = document.getElementById('searchSw').value;
+    const nearCode = document.getElementById('searchNear').value;
+    if (!(endMin > startMin)) {
+      document.getElementById('searchResults').innerHTML = '<div class="search-empty">종료 시간은 시작 시간보다 늦어야 해요.</div>';
+      return;
+    }
+
+    const results = [];
+    lastRoomsData.forEach(r => {
+      const overlap = (r.blocks || []).some(b => t2m(b.start) < endMin && t2m(b.end) > startMin);
+      if (overlap) return;
+      const meta = ROOM_META[r.id] || {};
+      if (swCode) {
+        const has = (meta.software || []).some(sw => sw.code === swCode);
+        if (!has) return;
+      }
+      const building = meta.building || parseBuildingCode(r.id);
+      let distM = null;
+      if (nearCode && BUILDING_COORDS[nearCode] && BUILDING_COORDS[building]) {
+        const a = BUILDING_COORDS[nearCode], b = BUILDING_COORDS[building];
+        distM = haversineM(a[0], a[1], b[0], b[1]);
+      }
+      results.push({ id: r.id, name: r.name, seats: r.seats, building: building, distM: distM });
+    });
+
+    if (nearCode) {
+      results.sort((x, y) => {
+        const dx = x.distM === null ? Infinity : x.distM, dy = y.distM === null ? Infinity : y.distM;
+        return dx - dy;
+      });
+    }
+
+    renderSearchResults(results, startMin, endMin);
+  }
+
+  function renderSearchResults(results, startMin, endMin) {
+    clearSearchHighlight();
+    const box = document.getElementById('searchResults');
+    if (!results.length) {
+      box.innerHTML = '<div class="search-empty">조건에 맞는 빈 실습실이 없어요.</div>';
+      return;
+    }
+    const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + dayOffset);
+    const dateStr = formatLocalISODate(d);
+    const m2t = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    box.innerHTML = results.map(r => {
+      const link = 'request.html?room=' + encodeURIComponent(r.id) + '&date=' + dateStr +
+        '&name=' + encodeURIComponent(r.name) + (r.seats ? '&seats=' + encodeURIComponent(r.seats) : '') +
+        '&start=' + m2t(startMin) + '&end=' + m2t(endMin);
+      const distTxt = (r.distM !== null && r.distM !== undefined) ? Math.round(r.distM) + 'm' : '';
+      return '<a class="search-result-item" href="' + link + '" target="_blank" rel="noopener" data-room="' + escapeHtml(r.id) + '">' +
+        '<span class="r-name">' + escapeHtml(r.name) + '</span>' +
+        '<span class="r-meta">' + (r.seats ? r.seats + '석 · ' : '') + distTxt + '</span></a>';
+    }).join('');
+
+    const matchIds = {};
+    results.forEach(r => { matchIds[r.id] = true; });
+    document.querySelectorAll('.aw-col-link').forEach(el => {
+      const link = el.getAttribute('data-link') || '';
+      const m = link.match(/room=([^&]+)/);
+      const rid = m ? decodeURIComponent(m[1]) : '';
+      el.classList.add(matchIds[rid] ? 'aw-col-match' : 'aw-col-dim');
+    });
+  }
 
   function escapeHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function t2m(t) { const p = t.split(':'); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
@@ -632,6 +874,11 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     if (!el) return;
     const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + dayOffset);
     el.textContent = '📅 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (' + ['일', '월', '화', '수', '목', '금', '토'][d.getDay()] + ')';
+    const searchDateEl = document.getElementById('searchDateLabel');
+    if (searchDateEl) searchDateEl.textContent = (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
+    clearSearchHighlight();
+    const resultsEl = document.getElementById('searchResults');
+    if (resultsEl) resultsEl.innerHTML = '';
   }
 
   // 마우스/터치를 누르고 있는 동안은 실습실 링크 화면을 교체하지 않음.
@@ -662,6 +909,14 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   document.addEventListener('mouseup', releasePointer, true);
   document.addEventListener('touchend', releasePointer, true);
   document.addEventListener('touchcancel', releasePointer, true);
+
+  // 시간표 세로 칸(.aw-col-link) 클릭 → 그 실습실 신청 화면으로 새 탭 이동 (헤더 클릭과 동일하게 동작)
+  document.getElementById('arArea').addEventListener('click', function(e) {
+    const col = e.target.closest('.aw-col-link');
+    if (!col) return;
+    const link = col.getAttribute('data-link');
+    if (link) window.open(link, '_blank', 'noopener');
+  });
 
   let loadSeq = 0;   // 조회 순번: 날짜를 빠르게 넘길 때 늦게 도착한 이전 날짜 응답이 화면을 덮어쓰지 않게
   function load() {
@@ -700,6 +955,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     document.getElementById('todayBtn').classList.toggle('today', !!res.isToday);
 
     const rooms = res.rooms;
+    lastRoomsData = rooms;   // 조건 검색이 참조하는 "현재 보고 있는 날짜"의 시간표
     const totalSlots = ((END_HOUR - START_HOUR) * 60) / SLOT_MIN;
     const gridCols = '44px repeat(' + rooms.length + ', 130px)';
 
@@ -731,7 +987,11 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     html += '</div>';
 
     rooms.forEach(r => {
-      html += '<div class="aw-col" style="height:' + (totalSlots * 20) + 'px;">';
+      // 헤더(실습실명)뿐 아니라 시간표 내용 영역(세로 칸) 어디를 눌러도 그 실습실 신청 화면으로 이동
+      const roomLink = 'request.html?room=' + encodeURIComponent(r.id) + '&date=' + selDateStr +
+              '&name=' + encodeURIComponent(r.name) + (r.seats ? '&seats=' + encodeURIComponent(r.seats) : '');
+      html += '<div class="aw-col aw-col-link" style="height:' + (totalSlots * 20) + 'px;cursor:pointer;" ' +
+              'data-link="' + escapeHtml(roomLink) + '" title="이 실습실 신청하기">';
       for (let s = 0; s < totalSlots; s++) html += '<div class="aw-cell"></div>';
       r.blocks.forEach(b => {
         const bs = t2m(b.start), be = t2m(b.end);
@@ -772,6 +1032,9 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       cols[0].appendChild(label);
     }
   }
+
+  fillTimeSelect(document.getElementById('searchStart'), 9 * 60);
+  fillTimeSelect(document.getElementById('searchEnd'), 10 * 60);
 
   setActiveNavBtn('todayBtn');
   load();
