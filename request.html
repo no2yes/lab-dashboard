@@ -553,7 +553,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2611020732</span>
+    <span style="opacity:0.6;">페이지 버전: 2611020740</span>
   </div>
 </div>
 
@@ -949,6 +949,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     updateSelectionDisplay();
     refreshScheduleHint();
     scrollToSelectedDay(preselectDateStr);
+    // 선택된 요일을 눈으로 확인할 시간을 준 뒤, 자연스럽게 신청자 정보 입력으로 이동
+    setTimeout(focusApplicantName, 1400);
   }
 
   // 모바일처럼 한 화면에 모든 요일이 다 안 보일 때, 미리 선택되어 들어온 날짜의
@@ -961,6 +963,15 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     requestAnimationFrame(() => {
       header.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     });
+  }
+
+  // 시간 자동선택을 확인했을 때쯤, 화면을 성명 입력칸까지 천천히 스크롤하고 포커스를 준다.
+  function focusApplicantName() {
+    const nameInput = document.getElementById('name');
+    if (!nameInput) return;
+    nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // 스크롤 애니메이션이 끝날 때쯤 포커스를 줘야 화면이 중간에 튀지 않는다.
+    setTimeout(() => nameInput.focus(), 500);
   }
 
   // 데이터가 오기 전, 요일/날짜만으로 먼저 그릴 수 있는 틀(요일 헤더 + 빈 시간칸).
