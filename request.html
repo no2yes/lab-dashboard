@@ -219,6 +219,10 @@ textarea { resize: vertical; min-height: 70px; }
 .duration-end-preview { margin-top: 8px; font-size: 12.5px; font-weight: 600; min-height: 1px; }
 .duration-end-preview:empty { display: none; margin: 0; }
 .enddate-pick-wrap { position: relative; flex-shrink: 0; }
+/* 요일반복/기간연속에서 시작 시간대를 막 고른 참이면, "마지막 날짜 선택" 버튼을
+   화면 위쪽 고정 위치 대신 방금 선택한 칸 바로 옆으로 띄운다 — 위치가
+   예측 가능하도록(JS가 top/left를 계산해 넣음, 이 클래스는 겹침 순서만 맡음). */
+.enddate-pick-wrap.floating-near-selection { z-index: 40; filter: drop-shadow(0 4px 14px rgba(var(--sh),calc(0.4 * var(--shk)))); }
 .enddate-btn {
   padding: 6px 14px; border-radius: 16px; font-size: 12.5px; font-weight: 600;
   cursor: pointer; white-space: nowrap; font-family: inherit;
@@ -549,7 +553,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2611012314</span>
+    <span style="opacity:0.6;">페이지 버전: 2611012348</span>
   </div>
 </div>
 
@@ -1267,7 +1271,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       });
     }
 
-    if (!activeSelection.date) return;
+    if (!activeSelection.date) { repositionEndDateWrap(); return; }
 
     if (currentType === 'range' && selectedDays) {
       // 기간연속은 실제 이용 가능일(공휴일 제외 여부 반영) 기준으로 날짜를 모아야 하므로 비동기 계산
@@ -1313,7 +1317,41 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       }
     });
     forceScheduleRepaint();
+    repositionEndDateWrap();
   }
+
+  // 요일반복/기간연속에서 "마지막 날짜 선택" 버튼(+ 그 안의 달력 팝업)을 방금 고른
+  // 시작 요일의 첫 칸 바로 옆에 띄운다. 화면 위쪽 고정 위치는 선택한 영역이 아래로
+  // 멀리 있을 때 사용자 입장에서 위치를 예측하기 어렵다는 피드백에 따른 것.
+  function repositionEndDateWrap() {
+    if (currentType !== 'repeat' && currentType !== 'range') return;
+    const wrap = document.getElementById(currentType === 'repeat' ? 'repeatEndDateWrap' : 'rangeEndDateWrap');
+    if (!wrap) return;
+    const firstCell = activeSelection.date
+      ? document.querySelector('.empty-cell.selected.first[data-date="' + activeSelection.date + '"]')
+      : null;
+    if (!firstCell) {
+      wrap.classList.remove('floating-near-selection');
+      wrap.style.position = '';
+      wrap.style.left = '';
+      wrap.style.top = '';
+      return;
+    }
+    const rect = firstCell.getBoundingClientRect();
+    const margin = 6;
+    const estWidth = wrap.offsetWidth || 160;
+    let left = rect.right + margin;
+    if (left + estWidth > window.innerWidth - 8) left = Math.max(8, rect.left - margin - estWidth);
+    let top = rect.top;
+    if (top + 44 > window.innerHeight) top = Math.max(8, window.innerHeight - 48);
+    wrap.classList.add('floating-near-selection');
+    wrap.style.position = 'fixed';
+    wrap.style.left = Math.round(left) + 'px';
+    wrap.style.top = Math.round(top) + 'px';
+  }
+  // 선택 영역은 그대로인데 화면/그리드가 스크롤되는 경우도 따라가도록(모바일 좌우 스크롤 포함)
+  window.addEventListener('scroll', repositionEndDateWrap, true);
+  window.addEventListener('resize', repositionEndDateWrap);
 
   // repeat는 선택 내용을 별도 박스로 echo하지 않음 — 시간표의 강조 표시와
   // 위쪽 안내문(schedule-hint)만으로 충분해서 중복 정보라 없앴다.
