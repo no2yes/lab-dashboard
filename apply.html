@@ -237,7 +237,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     <a class="alt-btn" href="javascript:void(0)" onclick="goToManual()">❓ 이용 안내 보기</a>
   </div>
 
-  <div class="page-version">페이지 버전: 2611012320</div>
+  <div class="page-version">페이지 버전: 2611012322</div>
 </div>
 
 <!-- 이용 안내(매뉴얼) 모달 -->
@@ -333,7 +333,9 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
       const swSeen = {};
       ALL_ROOMS.forEach(r => {
         (r.software || []).forEach(sw => { if (sw && sw.code && !swSeen[sw.code]) { swSeen[sw.code] = true; SW_OPTIONS.push(sw); } });
-        const code = r.building || parseBuildingCode(r.id);
+        // r.building은 시트에 적힌 건물 "이름"(예: 사회과학관)이라 좌표표(BUILDING_COORDS)의
+        // 키("C1" 같은 코드)와 맞지 않음 — 좌표/선택지 매칭에는 실습실ID에서 뽑은 코드를 써야 함.
+        const code = parseBuildingCode(r.id);
         if (code && !BUILDING_LABELS[code]) {
           const m = String(r.name || '').match(/^(.+?\))/);
           BUILDING_LABELS[code] = m ? m[1] : code;
@@ -410,7 +412,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
           const has = (room.software || []).some(sw => sw.code === swCode);
           if (!has) return;
         }
-        const building = room.building || parseBuildingCode(room.id);
+        const building = parseBuildingCode(room.id);
         let distM = null;
         if (nearCode && BUILDING_COORDS[nearCode] && BUILDING_COORDS[building]) {
           const a = BUILDING_COORDS[nearCode], b = BUILDING_COORDS[building];
