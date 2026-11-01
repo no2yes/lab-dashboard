@@ -246,7 +246,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     <a class="alt-btn" href="javascript:void(0)" onclick="goToManual()">❓ 이용 안내 보기</a>
   </div>
 
-  <div class="page-version">페이지 버전: 2611020017</div>
+  <div class="page-version">페이지 버전: 2611020041</div>
 </div>
 
 <!-- 이용 안내(매뉴얼) 모달 -->
@@ -323,7 +323,9 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     .then(res => {
       if (res && res.success && res.buildings) {
         PUBLIC_BUILDINGS = res.buildings;
-        PUBLIC_BUILDINGS.forEach(b => { BUILDING_COORDS[b.code] = [b.lat, b.lng]; });
+        // 현장조사가 끝난 건물만 좌표를 내려주므로, 그 경우만 덮어쓰고 나머지는
+        // 위 하드코딩 근사 좌표표(BUILDING_COORDS)를 그대로 쓴다.
+        PUBLIC_BUILDINGS.forEach(b => { if (b.lat != null && b.lng != null) BUILDING_COORDS[b.code] = [b.lat, b.lng]; });
         fillNearBuildingOptions();
       }
     })
