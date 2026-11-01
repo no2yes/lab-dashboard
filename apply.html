@@ -133,9 +133,13 @@ body {
 .field label { display: block; font-size: 11.5px; font-weight: 600; color: var(--t3); margin-bottom: 5px; }
 .field label .opt { font-weight: 500; color: var(--t4); }
 input[type="date"], select {
-  width: 100%; padding: 10px 10px; border-radius: 8px; font-size: 13.5px; font-family: inherit;
+  width: 100%; height: 42px; padding: 0 10px; border-radius: 8px; font-size: 13.5px; font-family: inherit;
   background: var(--surface-pop); color: var(--text); border: 1px solid var(--bd1);
+  line-height: 40px; vertical-align: middle;
 }
+/* 값이 비어 있는 iOS Safari date input은 기본적으로 다른 입력칸보다 눈에 띄게
+   커 보여서(placeholder 세그먼트 렌더링 방식 때문) 높이를 명시적으로 고정해 맞춘다. */
+input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-primary); }
 
 .search-go-btn {
@@ -237,7 +241,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     <a class="alt-btn" href="javascript:void(0)" onclick="goToManual()">❓ 이용 안내 보기</a>
   </div>
 
-  <div class="page-version">페이지 버전: 2611012338</div>
+  <div class="page-version">페이지 버전: 2611012358</div>
 </div>
 
 <!-- 이용 안내(매뉴얼) 모달 -->
