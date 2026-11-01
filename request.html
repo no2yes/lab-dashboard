@@ -553,7 +553,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2611020024</span>
+    <span style="opacity:0.6;">페이지 버전: 2611020732</span>
   </div>
 </div>
 
@@ -948,6 +948,19 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     applyActiveSelectionHighlight();
     updateSelectionDisplay();
     refreshScheduleHint();
+    scrollToSelectedDay(preselectDateStr);
+  }
+
+  // 모바일처럼 한 화면에 모든 요일이 다 안 보일 때, 미리 선택되어 들어온 날짜의
+  // 요일 칸이 화면 가운데 오도록 가로로 자연스럽게 스크롤해준다.
+  function scrollToSelectedDay(dateStr) {
+    const wrapper = document.getElementById('weeklyScheduleGrid');
+    if (!wrapper) return;
+    const header = wrapper.querySelector('.day-header[data-date="' + dateStr + '"]');
+    if (!header) return;
+    requestAnimationFrame(() => {
+      header.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    });
   }
 
   // 데이터가 오기 전, 요일/날짜만으로 먼저 그릴 수 있는 틀(요일 헤더 + 빈 시간칸).
@@ -1004,7 +1017,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       const dayDate = day.date.slice(5).replace('-', '/');
       const holidayCls = day.isHolidayBlocked ? ' holiday-blocked' : '';
       const holidayTextCls = day.isHoliday ? ' holiday-text' : '';
-      html += `<div class="grid-cell header-cell day-header${isToday ? ' today' : ''}${holidayCls}${holidayTextCls}">
+      html += `<div class="grid-cell header-cell day-header${isToday ? ' today' : ''}${holidayCls}${holidayTextCls}" data-date="${day.date}">
         <div class="day-name">${day.dayOfWeek}</div>
         <div class="day-date">${dayDate}</div>
       </div>`;
