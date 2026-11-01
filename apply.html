@@ -246,7 +246,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     <a class="alt-btn" href="javascript:void(0)" onclick="goToManual()">❓ 이용 안내 보기</a>
   </div>
 
-  <div class="page-version">페이지 버전: 2611020000</div>
+  <div class="page-version">페이지 버전: 2611020017</div>
 </div>
 
 <!-- 이용 안내(매뉴얼) 모달 -->
@@ -318,8 +318,15 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     S1: [37.76525, 128.87031], S2: [37.76566, 128.86985], S3: [37.76515, 128.86957],
     S4: [37.76455, 128.87099]
   };
-  api({ action: 'buildingcoords' })
-    .then(res => { if (res && res.success && res.coords) Object.keys(res.coords).forEach(c => { BUILDING_COORDS[c] = res.coords[c]; }); })
+  let PUBLIC_BUILDINGS = [];   // [{code,name,lat,lng}] — 게이트·등산로를 제외한 전체 건물(실습실 유무와 무관)
+  api({ action: 'buildinglist' })
+    .then(res => {
+      if (res && res.success && res.buildings) {
+        PUBLIC_BUILDINGS = res.buildings;
+        PUBLIC_BUILDINGS.forEach(b => { BUILDING_COORDS[b.code] = [b.lat, b.lng]; });
+        fillNearBuildingOptions();
+      }
+    })
     .catch(() => {});
 
   function parseBuildingCode(roomId) { return String(roomId || '').split('-')[0] || ''; }
@@ -332,7 +339,6 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
 
   let ALL_ROOMS = [];         // action=rooms 응답 전체(메타: 건물·SW 등)
   let SW_OPTIONS = [];
-  let BUILDING_LABELS = {};   // { code: '건물명(코드)' }
   let roomsLoaded = false;
   let COMMON_SW_CODES = {};   // 거의 모든 실습실에 깔려있는(Windows·한글·MS Office 같은) "공통 SW" 코드
 
@@ -348,13 +354,6 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
           if (!swSeen[sw.code]) { swSeen[sw.code] = true; SW_OPTIONS.push(sw); }
           swUsageCount[sw.code] = (swUsageCount[sw.code] || 0) + 1;
         });
-        // r.building은 시트에 적힌 건물 "이름"(예: 사회과학관)이라 좌표표(BUILDING_COORDS)의
-        // 키("C1" 같은 코드)와 맞지 않음 — 좌표/선택지 매칭에는 실습실ID에서 뽑은 코드를 써야 함.
-        const code = parseBuildingCode(r.id);
-        if (code && !BUILDING_LABELS[code]) {
-          const m = String(r.name || '').match(/^(.+?\))/);
-          BUILDING_LABELS[code] = m ? m[1] : code;
-        }
       });
       // 실습실의 90% 이상에 깔려있으면 "공통 SW"로 본다 (1~2곳 예외는 눈감아줌).
       const commonThreshold = Math.ceil(ALL_ROOMS.length * 0.9);
@@ -375,11 +374,19 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
       opt.textContent = sw.name + (sw.version ? ' ' + sw.version : '');
       swSel.appendChild(opt);
     });
+  }
+
+  // "가까운 건물"은 실습실이 있는 건물만이 아니라, 신청자가 지금 있는 곳(대학본부 등
+  // 실습실 없는 건물 포함)을 기준점으로 고를 수 있어야 하므로 서버가 내려주는 전체
+  // 건물 목록(게이트·등산로 지점은 제외)으로 채운다.
+  function fillNearBuildingOptions() {
     const nearSel = document.getElementById('searchNear');
-    Object.keys(BUILDING_LABELS).filter(c => BUILDING_COORDS[c]).sort((a, b) => BUILDING_LABELS[a].localeCompare(BUILDING_LABELS[b])).forEach(code => {
+    if (!nearSel) return;
+    nearSel.innerHTML = '<option value="">상관없음</option>';
+    PUBLIC_BUILDINGS.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko')).forEach(b => {
       const opt = document.createElement('option');
-      opt.value = code;
-      opt.textContent = BUILDING_LABELS[code];
+      opt.value = b.code;
+      opt.textContent = b.name;
       nearSel.appendChild(opt);
     });
   }
