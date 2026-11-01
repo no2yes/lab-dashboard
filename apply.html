@@ -254,7 +254,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     <a class="alt-btn" href="javascript:void(0)" onclick="goToManual()">❓ 이용 안내 보기</a>
   </div>
 
-  <div class="page-version">페이지 버전: 2611020829</div>
+  <div class="page-version">페이지 버전: 2611020834</div>
 </div>
 
 <!-- 이용 안내(매뉴얼) 모달 -->
@@ -477,6 +477,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     if (results.length === 0) {
       resultsEl.innerHTML = '<div class="results-head">' + escapeHtml(dateLabel) + '</div>' +
         '<div class="results-empty">조건에 맞는 빈 실습실이 없어요.<br>시간대를 바꾸거나 조건을 줄여서 다시 찾아보세요.</div>';
+      scrollToResults();
       return;
     }
 
@@ -508,6 +509,36 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
 
     resultsEl.innerHTML = '<div class="results-head">' + escapeHtml(dateLabel) + ' · ' + results.length + '곳 가능</div>' +
       '<div class="results-list">' + items + '</div>';
+    scrollToResults();
+  }
+
+  // 검색 버튼을 누른 자리에서 결과가 바로 눈에 들어오도록, 결과 영역이 화면
+  // 위쪽에 오게 천천히 스크롤해준다.
+  function scrollToResults() {
+    const resultsEl = document.getElementById('resultsArea');
+    if (!resultsEl) return;
+    requestAnimationFrame(() => {
+      const rect = resultsEl.getBoundingClientRect();
+      const targetY = (window.scrollY || window.pageYOffset) + rect.top - 16;
+      smoothScrollTo(Math.max(0, targetY), 900);
+    });
+  }
+
+  // request.html과 동일한 방식 — 기본 smooth scroll은 순식간에 끝나버려
+  // "휙" 넘어가는 느낌이 나므로 직접 ease 애니메이션으로 천천히 내려간다.
+  function smoothScrollTo(targetY, duration) {
+    const startX = window.scrollX || window.pageXOffset;
+    const startY = window.scrollY || window.pageYOffset;
+    const diff = targetY - startY;
+    if (Math.abs(diff) < 2) return;
+    const startTime = performance.now();
+    function step(now) {
+      const t = Math.min(1, (now - startTime) / duration);
+      const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;   // easeInOutQuad
+      window.scrollTo(startX, startY + diff * eased);
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
   }
 
   function goToMypage() { window.location.href = 'mypage.html'; }
