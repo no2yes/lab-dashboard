@@ -237,7 +237,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     <a class="alt-btn" href="javascript:void(0)" onclick="goToManual()">❓ 이용 안내 보기</a>
   </div>
 
-  <div class="page-version">페이지 버전: 2611012322</div>
+  <div class="page-version">페이지 버전: 2611012326</div>
 </div>
 
 <!-- 이용 안내(매뉴얼) 모달 -->
@@ -451,8 +451,11 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
       if (room.seats) metaParts.push(room.seats + '석');
       if (distM !== null && distM !== undefined) metaParts.push(Math.round(distM) + 'm');
       let metaHtml = metaParts.map(escapeHtml).join(' <span class="sep">·</span> ');
-      if (room.software && room.software.length > 0) {
-        metaHtml += (metaHtml ? ' ' : '') + room.software.slice(0, 2).map(sw => '<span class="result-sw">' + escapeHtml(sw.name) + '</span>').join(' ');
+      // Windows/MS Office 같은 공통 SW는 굳이 안 보여주고, SW마스터 "분류"가 유료로
+      // 표시된 특별한(유료) SW만 뱃지로 보여준다 — 그게 실습실을 고르는 실제 변별 요인이라.
+      const paidSw = (room.software || []).filter(sw => String(sw.category || '').indexOf('유료') !== -1);
+      if (paidSw.length > 0) {
+        metaHtml += (metaHtml ? ' ' : '') + paidSw.slice(0, 2).map(sw => '<span class="result-sw">' + escapeHtml(sw.name) + '</span>').join(' ');
       }
       return '<a class="result-card" href="' + link + '" target="_blank" rel="noopener">' +
         '<div class="result-main">' +
