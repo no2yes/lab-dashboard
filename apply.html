@@ -237,7 +237,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     <a class="alt-btn" href="javascript:void(0)" onclick="goToManual()">❓ 이용 안내 보기</a>
   </div>
 
-  <div class="page-version">페이지 버전: 2611012336</div>
+  <div class="page-version">페이지 버전: 2611012338</div>
 </div>
 
 <!-- 이용 안내(매뉴얼) 모달 -->
@@ -352,7 +352,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
       Object.keys(swUsageCount).forEach(code => {
         if (swUsageCount[code] >= commonThreshold) COMMON_SW_CODES[code] = true;
       });
-      SW_OPTIONS.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+      SW_OPTIONS.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko'));
       roomsLoaded = true;
       fillConditionOptions();
     });
