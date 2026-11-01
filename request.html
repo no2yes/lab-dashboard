@@ -145,7 +145,7 @@ textarea { resize: vertical; min-height: 70px; }
 .type-radio { display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 14px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .type-radio input[type="radio"] { width: 13px; height: 13px; margin: 0; cursor: pointer; accent-color: var(--knu-primary); }
 .schedule-placeholder { padding: 30px 16px; text-align: center; font-size: 13px; border-radius: 8px; }
-.schedule-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+.schedule-header { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 8px; gap: 6px; }
 .schedule-title-wrap { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 .schedule-title { font-size: 14px; font-weight: 600; }
 .schedule-range-note { font-size: 11px; color: var(--knu-primary-light); font-weight: 600; background: rgba(138,180,248,0.14); border-radius: 10px; padding: 2px 8px; }
@@ -534,7 +534,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   <div class="footer">
     본 시스템은 강원대학교 강릉캠퍼스 자체 운영 시스템입니다.<br>
     관리: 강릉행정지원과 전산팀<br>
-    <span style="opacity:0.6;">페이지 버전: 2611012208</span>
+    <span style="opacity:0.6;">페이지 버전: 2611012212</span>
   </div>
 </div>
 
@@ -1072,6 +1072,14 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       const hitIdx = extraSelections.findIndex(sel => sel.date === date && timeMin >= sel.startTimeMin && timeMin < sel.endTimeMin);
       if (hitIdx >= 0) {
         extraSelections.splice(hitIdx, 1);
+        applyActiveSelectionHighlight();
+        updateSelectionDisplay();
+        refreshScheduleHint();
+        return;
+      }
+      // 가장 마지막(아직 extraSelections로 넘어가지 않은 현재) 선택 영역을 다시 클릭해도 취소되게.
+      if (activeSelection.date === date && timeMin >= activeSelection.startTimeMin && timeMin < activeSelection.endTimeMin) {
+        activeSelection.date = null;
         applyActiveSelectionHighlight();
         updateSelectionDisplay();
         refreshScheduleHint();
