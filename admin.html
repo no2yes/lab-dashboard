@@ -4057,15 +4057,41 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 </div>
 <script>
   // ===== google.script.run → fetch(Web App API) 대체용 shim (GitHub 이전 준비) =====
+  // 세션 관련 4개 함수(verifySession/requestMobileLoginQr/extendSessionForMonitor/logout)는
+  // Cloud Run 로그인 서비스로 직접 보내고, 나머지는 기존처럼 GAS로 보냄.
   (function() {
     var API_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec?action=adminApi';
-    var WHITELIST = ['addAdmin','applyGeminiModel','calcWorkerSlots','checkSuperAdmin','checkTimetableConflictsWithReservations','commitTimetable','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteRoom','deleteWorker','extendSessionForMonitor','extractPcNumbersFromNotes','fillAdminRequestPII','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getAcademicCalendar','getAdminList','getAdminRequests','getAdvanceLimitStatus','getBackupSettings','getCleanWebAppUrl','getCurrentDashboardLink','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getRoomList','getRoomListForAdmin','getRoomSwCodes','getRoomTimetable','getSwMasterList','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeekendPolicy','getWeeklyReportSummary','getWeeklySchedule','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDashboardLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','logout','manualBackupNow','markModelExhausted','parseTimetableFile','processRequestAuth','processRequestsBulk','rejectInspection','removeAdmin','requestAuthCode','requestMobileLoginQr','resolveInspection','resolveIssueItem','returnLostFoundItem','revealApplicantInfo','saveAcademicCalendar','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveRoom','saveRoomSwCodes','saveSwMaster','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','setAdvanceLimitExtension','setWeekendPolicy','switchGeminiModel','uploadFaqImage','verifyAuthCode','verifySession'];
+    var CLOUD_RUN_URL = 'https://haeram-login-service-94518684657.asia-northeast3.run.app';
+    var WHITELIST = ['addAdmin','applyGeminiModel','calcWorkerSlots','checkSuperAdmin','checkTimetableConflictsWithReservations','commitTimetable','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteRoom','deleteWorker','extractPcNumbersFromNotes','fillAdminRequestPII','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getAcademicCalendar','getAdminList','getAdminRequests','getAdvanceLimitStatus','getBackupSettings','getCleanWebAppUrl','getCurrentDashboardLink','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getRoomList','getRoomListForAdmin','getRoomSwCodes','getRoomTimetable','getSwMasterList','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeekendPolicy','getWeeklyReportSummary','getWeeklySchedule','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDashboardLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','manualBackupNow','markModelExhausted','parseTimetableFile','processRequestAuth','processRequestsBulk','rejectInspection','removeAdmin','requestAuthCode','resolveInspection','resolveIssueItem','returnLostFoundItem','revealApplicantInfo','saveAcademicCalendar','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveRoom','saveRoomSwCodes','saveSwMaster','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','setAdvanceLimitExtension','setWeekendPolicy','switchGeminiModel','uploadFaqImage','verifyAuthCode'];
+
+    function callCloudRun(path, body, successFn, failureFn) {
+      fetch(CLOUD_RUN_URL + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) { if (successFn) successFn(data); })
+        .catch(function(err) { if (failureFn) failureFn(err); });
+    }
 
     function makeChain(successFn, failureFn) {
       var chain = {
         withSuccessHandler: function(fn) { return makeChain(fn, failureFn); },
         withFailureHandler: function(fn) { return makeChain(successFn, fn); },
-        withUserObject: function() { return chain; }
+        withUserObject: function() { return chain; },
+        verifySession: function(token) {
+          callCloudRun('/auth/verify-session', { token: token }, successFn, failureFn);
+        },
+        requestMobileLoginQr: function(token) {
+          callCloudRun('/auth/mobile-qr/request', { token: token }, successFn, failureFn);
+        },
+        extendSessionForMonitor: function(token) {
+          callCloudRun('/auth/extend-monitor', { token: token }, successFn, failureFn);
+        },
+        logout: function(token) {
+          callCloudRun('/auth/logout', { token: token }, successFn, failureFn);
+        }
       };
       WHITELIST.forEach(function(name) {
         chain[name] = function() {

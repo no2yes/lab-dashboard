@@ -1468,30 +1468,39 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 </div>
 
 <script>
-  // ===== google.script.run → fetch(Web App API) 대체용 shim (GitHub 이전 준비) =====
+  // ===== 로그인/세션 — Cloud Run 로그인 서비스 직접 호출 (GAS 경유 안 함) =====
   (function() {
-    var API_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec?action=adminApi';
-    var WHITELIST = ['requestAuthCode','verifyAuthCode','verifySession','verifyMobileQrToken'];
+    var CLOUD_RUN_URL = 'https://haeram-login-service-94518684657.asia-northeast3.run.app';
+
+    function callCloudRun(path, body, successFn, failureFn) {
+      fetch(CLOUD_RUN_URL + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) { if (successFn) successFn(data); })
+        .catch(function(err) { if (failureFn) failureFn(err); });
+    }
 
     function makeChain(successFn, failureFn) {
-      var chain = {
+      return {
         withSuccessHandler: function(fn) { return makeChain(fn, failureFn); },
         withFailureHandler: function(fn) { return makeChain(successFn, fn); },
-        withUserObject: function() { return chain; }
+        withUserObject: function() { return makeChain(successFn, failureFn); },
+        requestAuthCode: function(email) {
+          callCloudRun('/auth/request-code', { email: email }, successFn, failureFn);
+        },
+        verifyAuthCode: function(email, code) {
+          callCloudRun('/auth/verify-code', { email: email, code: code }, successFn, failureFn);
+        },
+        verifySession: function(token) {
+          callCloudRun('/auth/verify-session', { token: token }, successFn, failureFn);
+        },
+        verifyMobileQrToken: function(mobileToken) {
+          callCloudRun('/auth/mobile-qr/verify', { mobileToken: mobileToken }, successFn, failureFn);
+        }
       };
-      WHITELIST.forEach(function(name) {
-        chain[name] = function() {
-          var args = Array.prototype.slice.call(arguments);
-          fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn: name, args: args }) })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-              if (data && data.__ok) { if (successFn) successFn(data.result); }
-              else { if (failureFn) failureFn(new Error((data && data.message) || '서버 오류')); }
-            })
-            .catch(function(err) { if (failureFn) failureFn(err); });
-        };
-      });
-      return chain;
     }
     window.google = window.google || {};
     window.google.script = { run: makeChain(null, null) };
