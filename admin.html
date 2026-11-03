@@ -4064,7 +4064,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     var API_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec?action=adminApi';
     var CLOUD_RUN_URL = 'https://haeram-login-service-94518684657.asia-northeast3.run.app';
     var REQUESTS_URL = 'https://haeram-requests-service-94518684657.asia-northeast3.run.app';
-    var WHITELIST = ['addAdmin','applyGeminiModel','calcWorkerSlots','checkSuperAdmin','checkTimetableConflictsWithReservations','commitTimetable','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteRoom','deleteWorker','extractPcNumbersFromNotes','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getAcademicCalendar','getAdminList','getAdvanceLimitStatus','getBackupSettings','getCleanWebAppUrl','getCurrentDashboardLink','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getRoomList','getRoomListForAdmin','getRoomSwCodes','getRoomTimetable','getSwMasterList','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeekendPolicy','getWeeklyReportSummary','getWeeklySchedule','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDashboardLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','manualBackupNow','markModelExhausted','parseTimetableFile','rejectInspection','removeAdmin','requestAuthCode','resolveInspection','resolveIssueItem','returnLostFoundItem','saveAcademicCalendar','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveRoom','saveRoomSwCodes','saveSwMaster','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','setAdvanceLimitExtension','setWeekendPolicy','switchGeminiModel','uploadFaqImage','verifyAuthCode'];
+    var WHITELIST = ['addAdmin','applyGeminiModel','calcWorkerSlots','checkSuperAdmin','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteRoom','deleteWorker','extractPcNumbersFromNotes','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getAdminList','getBackupSettings','getCleanWebAppUrl','getCurrentDashboardLink','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getRoomList','getRoomListForAdmin','getRoomSwCodes','getSwMasterList','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeeklyReportSummary','getWeeklySchedule','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDashboardLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','manualBackupNow','markModelExhausted','rejectInspection','removeAdmin','requestAuthCode','resolveInspection','resolveIssueItem','returnLostFoundItem','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveRoom','saveRoomSwCodes','saveSwMaster','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','switchGeminiModel','uploadFaqImage','verifyAuthCode'];
 
     function callCloudRun(url, path, body, successFn, failureFn) {
       fetch(url + path, {
@@ -4108,6 +4108,36 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         },
         processRequestsBulk: function(token, reqIds, action, memo) {
           callCloudRun(REQUESTS_URL, '/requests/process-bulk', { token: token, reqIds: reqIds, action: action, memo: memo }, successFn, failureFn);
+        },
+        getWeekendPolicy: function(token) {
+          callCloudRun(REQUESTS_URL, '/admin/policy/weekend-status', { token: token }, successFn, failureFn);
+        },
+        setWeekendPolicy: function(token, allowed, minutes) {
+          callCloudRun(REQUESTS_URL, '/admin/policy/weekend', { token: token, allowed: allowed, minutes: minutes }, successFn, failureFn);
+        },
+        getAcademicCalendar: function(token) {
+          callCloudRun(REQUESTS_URL, '/admin/policy/academic-status', { token: token }, successFn, failureFn);
+        },
+        saveAcademicCalendar: function(token, summer, winter) {
+          callCloudRun(REQUESTS_URL, '/admin/policy/academic', { token: token, summer: summer, winter: winter }, successFn, failureFn);
+        },
+        getAdvanceLimitStatus: function(token) {
+          callCloudRun(REQUESTS_URL, '/admin/policy/advance-limit-status', { token: token }, successFn, failureFn);
+        },
+        setAdvanceLimitExtension: function(token, allowed, minutes, extendedDays) {
+          callCloudRun(REQUESTS_URL, '/admin/policy/advance-limit', { token: token, allowed: allowed, minutes: minutes, extendedDays: extendedDays }, successFn, failureFn);
+        },
+        getRoomTimetable: function(token, roomId) {
+          callCloudRun(REQUESTS_URL, '/admin/regular-classes/get', { token: token, roomId: roomId }, successFn, failureFn);
+        },
+        parseTimetableFile: function(token, base64Data, fileName) {
+          callCloudRun(REQUESTS_URL, '/admin/timetable/parse', { token: token, base64Data: base64Data, fileName: fileName }, successFn, failureFn);
+        },
+        checkTimetableConflictsWithReservations: function(token, roomId, classes) {
+          callCloudRun(REQUESTS_URL, '/admin/regular-classes/check-conflicts', { token: token, roomId: roomId, classes: classes }, successFn, failureFn);
+        },
+        commitTimetable: function(token, roomId, classes) {
+          callCloudRun(REQUESTS_URL, '/admin/regular-classes/commit', { token: token, roomId: roomId, classes: classes }, successFn, failureFn);
         }
       };
       WHITELIST.forEach(function(name) {
