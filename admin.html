@@ -4058,14 +4058,16 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 <script>
   // ===== google.script.run → fetch(Web App API) 대체용 shim (GitHub 이전 준비) =====
   // 세션 관련 4개 함수(verifySession/requestMobileLoginQr/extendSessionForMonitor/logout)는
-  // Cloud Run 로그인 서비스로 직접 보내고, 나머지는 기존처럼 GAS로 보냄.
+  // Cloud Run 로그인 서비스로, 신청 처리 관련 5개 함수는 Cloud Run 신청 처리 서비스로 직접 보내고,
+  // 나머지는 기존처럼 GAS로 보냄.
   (function() {
     var API_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec?action=adminApi';
     var CLOUD_RUN_URL = 'https://haeram-login-service-94518684657.asia-northeast3.run.app';
-    var WHITELIST = ['addAdmin','applyGeminiModel','calcWorkerSlots','checkSuperAdmin','checkTimetableConflictsWithReservations','commitTimetable','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteRoom','deleteWorker','extractPcNumbersFromNotes','fillAdminRequestPII','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getAcademicCalendar','getAdminList','getAdminRequests','getAdvanceLimitStatus','getBackupSettings','getCleanWebAppUrl','getCurrentDashboardLink','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getRoomList','getRoomListForAdmin','getRoomSwCodes','getRoomTimetable','getSwMasterList','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeekendPolicy','getWeeklyReportSummary','getWeeklySchedule','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDashboardLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','manualBackupNow','markModelExhausted','parseTimetableFile','processRequestAuth','processRequestsBulk','rejectInspection','removeAdmin','requestAuthCode','resolveInspection','resolveIssueItem','returnLostFoundItem','revealApplicantInfo','saveAcademicCalendar','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveRoom','saveRoomSwCodes','saveSwMaster','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','setAdvanceLimitExtension','setWeekendPolicy','switchGeminiModel','uploadFaqImage','verifyAuthCode'];
+    var REQUESTS_URL = 'https://haeram-requests-service-94518684657.asia-northeast3.run.app';
+    var WHITELIST = ['addAdmin','applyGeminiModel','calcWorkerSlots','checkSuperAdmin','checkTimetableConflictsWithReservations','commitTimetable','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteRoom','deleteWorker','extractPcNumbersFromNotes','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getAcademicCalendar','getAdminList','getAdvanceLimitStatus','getBackupSettings','getCleanWebAppUrl','getCurrentDashboardLink','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getRoomList','getRoomListForAdmin','getRoomSwCodes','getRoomTimetable','getSwMasterList','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeekendPolicy','getWeeklyReportSummary','getWeeklySchedule','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDashboardLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','manualBackupNow','markModelExhausted','parseTimetableFile','rejectInspection','removeAdmin','requestAuthCode','resolveInspection','resolveIssueItem','returnLostFoundItem','saveAcademicCalendar','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveRoom','saveRoomSwCodes','saveSwMaster','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','setAdvanceLimitExtension','setWeekendPolicy','switchGeminiModel','uploadFaqImage','verifyAuthCode'];
 
-    function callCloudRun(path, body, successFn, failureFn) {
-      fetch(CLOUD_RUN_URL + path, {
+    function callCloudRun(url, path, body, successFn, failureFn) {
+      fetch(url + path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -4081,16 +4083,31 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         withFailureHandler: function(fn) { return makeChain(successFn, fn); },
         withUserObject: function() { return chain; },
         verifySession: function(token) {
-          callCloudRun('/auth/verify-session', { token: token }, successFn, failureFn);
+          callCloudRun(CLOUD_RUN_URL, '/auth/verify-session', { token: token }, successFn, failureFn);
         },
         requestMobileLoginQr: function(token) {
-          callCloudRun('/auth/mobile-qr/request', { token: token }, successFn, failureFn);
+          callCloudRun(CLOUD_RUN_URL, '/auth/mobile-qr/request', { token: token }, successFn, failureFn);
         },
         extendSessionForMonitor: function(token) {
-          callCloudRun('/auth/extend-monitor', { token: token }, successFn, failureFn);
+          callCloudRun(CLOUD_RUN_URL, '/auth/extend-monitor', { token: token }, successFn, failureFn);
         },
         logout: function(token) {
-          callCloudRun('/auth/logout', { token: token }, successFn, failureFn);
+          callCloudRun(CLOUD_RUN_URL, '/auth/logout', { token: token }, successFn, failureFn);
+        },
+        getAdminRequests: function(token, filter) {
+          callCloudRun(REQUESTS_URL, '/requests/admin-list', { token: token, filter: filter }, successFn, failureFn);
+        },
+        fillAdminRequestPII: function(token, ids) {
+          callCloudRun(REQUESTS_URL, '/requests/admin-fill-pii', { token: token, ids: ids }, successFn, failureFn);
+        },
+        revealApplicantInfo: function(token, reqId) {
+          callCloudRun(REQUESTS_URL, '/requests/reveal', { token: token, reqId: reqId }, successFn, failureFn);
+        },
+        processRequestAuth: function(token, reqId, action, memo) {
+          callCloudRun(REQUESTS_URL, '/requests/process', { token: token, reqId: reqId, action: action, memo: memo }, successFn, failureFn);
+        },
+        processRequestsBulk: function(token, reqIds, action, memo) {
+          callCloudRun(REQUESTS_URL, '/requests/process-bulk', { token: token, reqIds: reqIds, action: action, memo: memo }, successFn, failureFn);
         }
       };
       WHITELIST.forEach(function(name) {
@@ -8480,7 +8497,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   function openBulkProcessModal(action) {
     const checked = Array.from(document.querySelectorAll('.bulk-chk:checked'));
     if (checked.length === 0) { showResultModal('error','선택 확인','처리할 신청을 하나 이상 선택해주세요.'); return; }
-    bulkAction = { action, rowIndices: checked.map(c => parseInt(c.dataset.rowindex, 10)) };
+    bulkAction = { action, reqIds: checked.map(c => c.dataset.reqid) };
 
     const title = action === 'approve' ? '선택한 신청을 일괄 승인합니다' : '선택한 신청을 일괄 반려합니다';
     const titleEl = document.getElementById('processTitle');
@@ -8501,7 +8518,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   function confirmBulkProcess() {
     if (!bulkAction) return;
     const memo = document.getElementById('processMemo').value.trim();
-    const { action, rowIndices } = bulkAction;
+    const { action, reqIds } = bulkAction;
 
     document.getElementById('processModal').classList.remove('show');
     showOverlay(action === 'approve' ? '일괄 승인 처리 중...' : '일괄 반려 처리 중...');
@@ -8526,7 +8543,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         bulkAction = null;
         document.getElementById('processConfirmBtn').onclick = confirmProcess;
       })
-      .processRequestsBulk(token, rowIndices, action, memo);
+      .processRequestsBulk(token, reqIds, action, memo);
   }
 
   let piiFetching = false;
@@ -8544,7 +8561,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       .withSuccessHandler(function(res) {
         if (res && res.success) {
           need.forEach(r => {
-            const v = res.map[r.rowIndex];
+            const v = res.map[r.id];
             if (v) { r.name = v.name; r.phone = v.phone; r.email = v.email; r.empNo = v.empNo; }
           });
         } else {
@@ -8556,7 +8573,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         need.forEach(r => { r.name = '(조회 실패)'; });
         finish();
       })
-      .fillAdminRequestPII(token, need.map(r => r.rowIndex));
+      .fillAdminRequestPII(token, need.map(r => r.id));
   }
 
   function goPage(p) {
@@ -8608,7 +8625,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     }
     
     const checkboxHtml = (r.status === '대기')
-      ? '<input type="checkbox" class="bulk-chk" data-rowindex="' + r.rowIndex + '" onchange="updateBulkBar()" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">'
+      ? '<input type="checkbox" class="bulk-chk" data-reqid="' + r.id + '" onchange="updateBulkBar()" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">'
       : '';
 
     return (
@@ -8634,10 +8651,6 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         '</div>' +
         '<div class="req-detail">' +
           '<strong>' + r.roomId + '</strong> · ' + dateInfo + ' · ' + r.startTime + '~' + r.endTime +
-          (r.expectedPeople ? ' · 예상 ' + r.expectedPeople + '명' +
-            (r.roomSeats && parseInt(r.expectedPeople, 10) > parseInt(r.roomSeats, 10)
-              ? ' <span style="background:#dc3545;color:#fff;border-radius:8px;padding:1px 7px;font-size:11px;font-weight:600;">⚠ 정원(' + r.roomSeats + '석) 초과</span>'
-              : '') : '') +
           (r.empNo ? ' · 사번 <strong>' + escapeHtml(r.empNo) + '</strong>' : '') +
         '</div>' +
         '<div class="req-purpose">📋 ' + escapeHtml(r.purpose || '-') + '</div>' +
@@ -8681,7 +8694,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         r.email = res.email;
       })
       .withFailureHandler(onError)
-      .revealApplicantInfo(token, r.rowIndex);
+      .revealApplicantInfo(token, r.id);
   }
   
   function changeTab(filter) {
@@ -8695,7 +8708,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   
   function openProcessModal(idx, action) {
     const r = currentRequests[idx];
-    currentProcessing = { rowIndex: r.rowIndex, action: action, request: r };
+    currentProcessing = { reqId: r.id, action: action, request: r };
     
     const title = action === 'approve' ? '신청을 승인합니다' : '신청을 반려합니다';
     const titleEl = document.getElementById('processTitle');
@@ -8728,7 +8741,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     if (!currentProcessing) return;
     
     const memo = document.getElementById('processMemo').value.trim();
-    const { rowIndex, action } = currentProcessing;
+    const { reqId, action } = currentProcessing;
     
     closeProcessModal();
     showOverlay(action === 'approve' ? '승인 처리 중...' : '반려 처리 중...');
@@ -8751,7 +8764,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         }
       })
       .withFailureHandler(onError)
-      .processRequestAuth(token, rowIndex, action, memo);
+      .processRequestAuth(token, reqId, action, memo);
   }
   
   function doLogout() {
