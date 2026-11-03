@@ -576,6 +576,14 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     return fetch(GAS_URL + '?page=api&' + q + '&_=' + Date.now()).then(r => r.json());
   }
 
+  // 신청 제출/시간표 조회는 Cloud Run 신청 처리 서비스로 직접 호출 (실습실 목록 등 나머지는 그대로 GAS)
+  const REQUESTS_URL = 'https://haeram-requests-service-94518684657.asia-northeast3.run.app';
+  function requestsApi(path, body) {
+    return fetch(REQUESTS_URL + path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    }).then(r => r.json());
+  }
+
   let rooms = [];
   let currentType = 'single';
   const qs = new URLSearchParams(location.search);
@@ -879,7 +887,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     }
 
     const mySeq = ++scheduleReqSeq;
-    Promise.all(mondays.map(monday => api({ action: 'roomschedule', id: roomId, week: monday })))
+    Promise.all(mondays.map(monday => requestsApi('/requests/schedule', { roomId: roomId, week: monday })))
       .then(function(resList) {
         if (mySeq !== scheduleReqSeq) return;
         const failed = resList.find(res => !res || !res.success);
@@ -1852,7 +1860,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   function fetchWeekScheduleCached(monday) {
     if (scheduleWeekCache[monday]) return scheduleWeekCache[monday];
     const roomId = document.getElementById('roomId').value;
-    const p = api({ action: 'roomschedule', id: roomId, week: monday })
+    const p = requestsApi('/requests/schedule', { roomId: roomId, week: monday })
       .then(res => (res && res.success) ? res.schedule : [])
       .catch(() => []);
     scheduleWeekCache[monday] = p;
@@ -1999,7 +2007,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
 
       const payload = {
         name, affiliation, phone, empNo, email,
-        roomId, dates: dates.join(','), startTime, endTime,
+        roomId, dates: dates, startTime, endTime,
         requestType: currentType === 'single' ? '단회' : (currentType === 'repeat' ? '요일반복' : '기간연속'),
         repeatInfo, purpose
       };
@@ -2008,7 +2016,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       btn.innerHTML = '<span class="loading"></span>신청 처리중...';
       document.getElementById('overlay').classList.add('show');
 
-      api(Object.assign({ action: 'requestsubmit' }, payload))
+      requestsApi('/requests/submit', payload)
         .then(onSubmitResult)
         .catch(onSubmitFail);
     }).catch(() => {
@@ -2038,7 +2046,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
         btn.disabled = true;
         btn.innerHTML = '<span class="loading"></span>신청 처리중...';
         document.getElementById('overlay').classList.add('show');
-        api(Object.assign({ action: 'requestsubmit' }, lastPayload))
+        requestsApi('/requests/submit', lastPayload)
           .then(onSubmitResult)
           .catch(onSubmitFail);
       }
@@ -2070,13 +2078,13 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
     slots.forEach(sel => {
       chain = chain.then(() => {
         const payload = Object.assign({}, basePayload, {
-          dates: sel.date,
+          dates: [sel.date],
           startTime: minToTimeStr(sel.startTimeMin),
           endTime: minToTimeStr(sel.endTimeMin),
           requestType: '단회',
           repeatInfo: ''
         });
-        return api(Object.assign({ action: 'requestsubmit' }, payload))
+        return requestsApi('/requests/submit', payload)
           .then(res => { results.push({ sel: sel, res: res }); })
           .catch(err => { results.push({ sel: sel, res: { success: false, message: err.message || String(err) } }); });
       });

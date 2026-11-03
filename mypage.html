@@ -212,6 +212,14 @@ input:focus { outline: none; border-color: var(--knu-primary); box-shadow: 0 0 0
     return fetch(GAS_URL + '?page=api&' + q + '&_=' + Date.now()).then(r => r.json());
   }
 
+  // 신청 조회/취소는 Cloud Run 신청 처리 서비스로 직접 호출 (실습실 목록 등은 그대로 GAS)
+  const REQUESTS_URL = 'https://haeram-requests-service-94518684657.asia-northeast3.run.app';
+  function requestsApi(path, body) {
+    return fetch(REQUESTS_URL + path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    }).then(r => r.json());
+  }
+
   let roomMap = {};
   let lookupEmail = '';
 
@@ -263,7 +271,7 @@ input:focus { outline: none; border-color: var(--knu-primary); box-shadow: 0 0 0
     btn.disabled = true;
     btn.innerHTML = '<span class="loading"></span>조회 중...';
 
-    api({ action: 'mypage_lookup', reqId: reqId, email: email })
+    requestsApi('/requests/lookup', { reqId: reqId, email: email })
       .then(function(res) {
         btn.disabled = false;
         btn.textContent = '조회하기';
@@ -364,12 +372,12 @@ input:focus { outline: none; border-color: var(--knu-primary); box-shadow: 0 0 0
     const ids = Array.from(selectedCancelIds);
     if (!confirm('선택한 ' + ids.length + '건의 신청을 취소하시겠습니까?\n\n취소하면 해당 시간이 다시 신청 가능 상태가 됩니다.')) return;
 
-    api({ action: 'mypage_bulkcancel', reqIds: ids.join(','), email: lookupEmail })
+    requestsApi('/requests/cancel-bulk', { reqIds: ids, email: lookupEmail })
       .then(function(res) {
         if (res.success) {
           showResultModal('success', '취소 처리 완료', res.message);
           const reqId2 = document.getElementById('lookupReqId').value.trim();
-          api({ action: 'mypage_lookup', reqId: reqId2, email: lookupEmail }).then(function(r2) {
+          requestsApi('/requests/lookup', { reqId: reqId2, email: lookupEmail }).then(function(r2) {
             if (r2.success) renderResults(r2.requests);
           });
         } else {
@@ -384,12 +392,12 @@ input:focus { outline: none; border-color: var(--knu-primary); box-shadow: 0 0 0
   function doCancel(reqId) {
     if (!confirm('이 신청을 취소하시겠습니까?\n신청번호: ' + reqId + '\n\n취소하면 해당 시간이 다시 신청 가능 상태가 됩니다.')) return;
 
-    api({ action: 'mypage_cancel', reqId: reqId, email: lookupEmail })
+    requestsApi('/requests/cancel', { reqId: reqId, email: lookupEmail })
       .then(function(res) {
         if (res.success) {
           showResultModal('success', '취소 완료', res.message);
           const reqId2 = document.getElementById('lookupReqId').value.trim();
-          api({ action: 'mypage_lookup', reqId: reqId2, email: lookupEmail }).then(function(r2) {
+          requestsApi('/requests/lookup', { reqId: reqId2, email: lookupEmail }).then(function(r2) {
             if (r2.success) renderResults(r2.requests);
           });
         } else {
