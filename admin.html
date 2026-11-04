@@ -4287,6 +4287,24 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 
   let weekendAllowed = false;
   let weekendExpiresAt = '';
+  const weekendRecheckTimer = { id: null };
+  const advRecheckTimer = { id: null };
+
+  // 한시 허용(주말허용/기간확장)에 만료시각이 있으면, 그 시각에 새로고침 없이
+  // 조용히 상태를 다시 조회해 화면을 갱신한다 (최대 1시간 단위로 다시 계산해서
+  // setTimeout의 32비트 지연시간 한계를 피함).
+  function scheduleStatusRecheck(expiresAtStr, timer, refreshFn) {
+    if (timer.id) { clearTimeout(timer.id); timer.id = null; }
+    if (!expiresAtStr) return;
+    const target = new Date(String(expiresAtStr).trim().replace(' ', 'T') + '+09:00').getTime();
+    if (isNaN(target) || target <= Date.now()) return;
+    (function tick() {
+      const remain = target - Date.now();
+      if (remain <= 0) { refreshFn(); return; }
+      timer.id = setTimeout(tick, Math.min(remain + 1000, 60 * 60 * 1000));
+    })();
+  }
+
   function initWeekendPolicy() {
     google.script.run
       .withSuccessHandler(function(res) {
@@ -4294,6 +4312,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
           weekendAllowed = res.allowed;
           weekendExpiresAt = res.expiresAt || '';
           renderWeekendUI();
+          scheduleStatusRecheck(weekendExpiresAt, weekendRecheckTimer, initWeekendPolicy);
         } else if (res && res.expired) {
           redirectToLogin();
         }
@@ -4337,6 +4356,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
           advDefaultDays = res.defaultDays;
           document.getElementById('advDefaultDaysText').textContent = advDefaultDays;
           renderAdvanceLimitUI(res.extendedDays);
+          scheduleStatusRecheck(advExpiresAt, advRecheckTimer, initAdvanceLimit);
         } else if (res && res.expired) {
           redirectToLogin();
         }
@@ -4390,6 +4410,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
           advAllowed = res.allowed;
           advExpiresAt = res.expiresAt || '';
           renderAdvanceLimitUI(res.extendedDays || advDefaultDays);
+          scheduleStatusRecheck(advExpiresAt, advRecheckTimer, initAdvanceLimit);
           showResultModal('success', '변경 완료', res.message);
         } else if (res && res.expired) {
           redirectToLogin();
@@ -4436,6 +4457,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
           weekendAllowed = res.allowed;
           weekendExpiresAt = res.expiresAt || '';
           renderWeekendUI();
+          scheduleStatusRecheck(weekendExpiresAt, weekendRecheckTimer, initWeekendPolicy);
           showResultModal('success', '변경 완료', res.message);
         } else if (res && res.expired) {
           redirectToLogin();
