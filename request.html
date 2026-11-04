@@ -630,8 +630,27 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
         maxAdvanceDays = res.days;
         refreshDurationLimits();
       }
+      scheduleForcedReload([res && res.advanceExpiresAt, res && res.weekendExpiresAt]);
     });
   });
+
+  // 관리자가 "기간 한시 확장" / "주말 한시 허용"을 시간제한으로 켜둔 경우, 그 시각이 지나면
+  // 열어둔 채로 있는 이 페이지를 강제로 새로고침한다. 새로고침 없이는 이미 받아온 날짜제한/
+  // 요일제한 값이 화면에 남아있어서, 실제로는 서버가 막는데도 화면은 계속 허용된 것처럼 보일 수 있다.
+  function scheduleForcedReload(expiresAtList) {
+    const times = (expiresAtList || []).filter(Boolean)
+      .map(s => new Date(String(s).trim().replace(' ', 'T') + '+09:00').getTime())
+      .filter(t => !isNaN(t) && t > Date.now());
+    if (!times.length) return;
+    const target = Math.min(...times);
+    (function tick() {
+      const remain = target - Date.now();
+      if (remain <= 0) { location.reload(); return; }
+      // setTimeout의 지연시간이 32비트 정수 범위를 넘으면 즉시 발화해버릴 수 있어서,
+      // 한 번에 최대 1시간 단위로만 기다렸다가 남은 시간을 다시 계산한다.
+      setTimeout(tick, Math.min(remain + 1000, 60 * 60 * 1000));
+    })();
+  }
 
   function goToMypage() {
     window.location.href = 'mypage.html';

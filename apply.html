@@ -573,10 +573,26 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
         const maxD = new Date(); maxD.setDate(maxD.getDate() + maxAdvanceDays);
         dateInput.max = formatLocalISODate(maxD);
       }
+      scheduleForcedReload([res && res.advanceExpiresAt, res && res.weekendExpiresAt]);
     }).catch(() => {});
 
     loadRoomsMeta().catch(() => {});
   })();
+
+  // 관리자가 "기간 한시 확장" / "주말 한시 허용"을 시간제한으로 켜둔 경우, 그 시각이 지나면
+  // 열어둔 채로 있는 이 페이지를 강제로 새로고침한다. (request.html과 동일 로직)
+  function scheduleForcedReload(expiresAtList) {
+    const times = (expiresAtList || []).filter(Boolean)
+      .map(s => new Date(String(s).trim().replace(' ', 'T') + '+09:00').getTime())
+      .filter(t => !isNaN(t) && t > Date.now());
+    if (!times.length) return;
+    const target = Math.min(...times);
+    (function tick() {
+      const remain = target - Date.now();
+      if (remain <= 0) { location.reload(); return; }
+      setTimeout(tick, Math.min(remain + 1000, 60 * 60 * 1000));
+    })();
+  }
 </script>
 </body>
 </html>
