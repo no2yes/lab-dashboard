@@ -4064,9 +4064,11 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     var API_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec?action=adminApi';
     var CLOUD_RUN_URL = 'https://haeram-login-service-94518684657.asia-northeast3.run.app';
     var REQUESTS_URL = 'https://haeram-requests-service-94518684657.asia-northeast3.run.app';
-    var WHITELIST = ['addAdmin','applyGeminiModel','calcWorkerSlots','checkSuperAdmin','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteWorker','extractPcNumbersFromNotes','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getAdminList','getBackupSettings','getCleanWebAppUrl','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeeklyReportSummary','getWeeklySchedule','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','manualBackupNow','markModelExhausted','rejectInspection','removeAdmin','requestAuthCode','resolveInspection','resolveIssueItem','returnLostFoundItem','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','switchGeminiModel','uploadFaqImage','verifyAuthCode'];
+    var WHITELIST = ['applyGeminiModel','calcWorkerSlots','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteWorker','extractPcNumbersFromNotes','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getBackupSettings','getCleanWebAppUrl','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeeklyReportSummary','getWeeklySchedule','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','manualBackupNow','markModelExhausted','rejectInspection','resolveInspection','resolveIssueItem','returnLostFoundItem','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','switchGeminiModel','uploadFaqImage'];
     // getCurrentDashboardLink/issueDashboardLink(GAS)는 더 이상 사용하지 않음 — 현황판 공개에 토큰이 필요 없어졌고,
     // 긴급 차단은 이제 Cloud Run의 /admin/dashboard/kill-switch/* 로 처리함(위 chain에 추가됨).
+    // addAdmin/checkSuperAdmin/getAdminList/removeAdmin/requestAuthCode/verifyAuthCode(GAS)도 더 이상 사용하지 않음 —
+    // 관리자 계정 데이터가 Firestore 'admins' 컬렉션으로 이전되어 로그인 서비스(CLOUD_RUN_URL)로 직접 라우팅함.
 
     function callCloudRun(url, path, body, successFn, failureFn) {
       fetch(url + path, {
@@ -4095,6 +4097,24 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         },
         logout: function(token) {
           callCloudRun(CLOUD_RUN_URL, '/auth/logout', { token: token }, successFn, failureFn);
+        },
+        requestAuthCode: function(email) {
+          callCloudRun(CLOUD_RUN_URL, '/auth/request-code', { email: email }, successFn, failureFn);
+        },
+        verifyAuthCode: function(email, code) {
+          callCloudRun(CLOUD_RUN_URL, '/auth/verify-code', { email: email, code: code }, successFn, failureFn);
+        },
+        checkSuperAdmin: function(token) {
+          callCloudRun(CLOUD_RUN_URL, '/admin/accounts/check-super', { token: token }, successFn, failureFn);
+        },
+        getAdminList: function(token) {
+          callCloudRun(CLOUD_RUN_URL, '/admin/accounts/list', { token: token }, successFn, failureFn);
+        },
+        addAdmin: function(token, email, name) {
+          callCloudRun(CLOUD_RUN_URL, '/admin/accounts/add', { token: token, email: email, name: name }, successFn, failureFn);
+        },
+        removeAdmin: function(token, email) {
+          callCloudRun(CLOUD_RUN_URL, '/admin/accounts/remove', { token: token, email: email }, successFn, failureFn);
         },
         getAdminRequests: function(token, filter) {
           callCloudRun(REQUESTS_URL, '/requests/admin-list', { token: token, filter: filter }, successFn, failureFn);
