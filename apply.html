@@ -273,6 +273,12 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     const q = Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&');
     return fetch(GAS_URL + '?page=api&' + q + '&_=' + Date.now()).then(r => r.json());
   }
+  const REQUESTS_URL = 'https://haeram-requests-service-94518684657.asia-northeast3.run.app';
+  function requestsApi(path, body) {
+    return fetch(REQUESTS_URL + path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {})
+    }).then(r => r.json());
+  }
 
   const START_HOUR = 9, END_HOUR = 22, SLOT_MIN = 30;
   let maxAdvanceDays = 30;
@@ -353,7 +359,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
   let COMMON_SW_CODES = {};   // 거의 모든 실습실에 깔려있는(Windows·한글·MS Office 같은) "공통 SW" 코드
 
   function loadRoomsMeta() {
-    return api({ action: 'rooms' }).then(res => {
+    return requestsApi('/rooms/list', {}).then(res => {
       if (!res || !res.success || !res.rooms) throw new Error((res && res.message) || '실습실 목록을 불러오지 못했습니다.');
       ALL_ROOMS = res.rooms;
       const swSeen = {};
@@ -406,7 +412,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
   //  이 페이지는 누구나 바로 쓸 수 있도록 request.html과 같은 공개 API만 사용한다.)
   function fetchRoomDay(room, dateStr) {
     const monday = mondayOfDate(dateStr);
-    return api({ action: 'roomschedule', id: room.id, week: monday })
+    return requestsApi('/requests/schedule', { roomId: room.id, week: monday })
       .then(res => {
         if (!res || !res.success) return null;
         return (res.schedule || []).find(d => d.date === dateStr) || null;
@@ -561,7 +567,7 @@ input[type="date"]:focus, select:focus { outline: none; border-color: var(--knu-
     fillTimeSelect(document.getElementById('searchStart'));
     fillTimeSelect(document.getElementById('searchEnd'));
 
-    api({ action: 'maxadvancedays' }).then(res => {
+    requestsApi('/policy/max-advance-days', {}).then(res => {
       if (res && res.days) {
         maxAdvanceDays = res.days;
         const maxD = new Date(); maxD.setDate(maxD.getDate() + maxAdvanceDays);
