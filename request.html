@@ -610,7 +610,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       // 전체 시간표 링크에 이름·좌석수가 이미 담겨 와서, 서버 응답을 기다릴 필요 없이 즉시 화면을 띄운다.
       // (설치 SW 목록만 뒤에서 조용히 받아와 보완 — 화면이 뜨는 걸 막지 않음)
       singleRoomLoaded({ id: preselectRoomId, name: preselectRoomName, seats: preselectRoomSeats, software: [] });
-      api({ action: 'roominfo', id: preselectRoomId }).then(res => {
+      requestsApi('/rooms/get', { id: preselectRoomId }).then(res => {
         if (res && res.success && res.room && rooms[0] && rooms[0].id === preselectRoomId) {
           rooms[0] = res.room;
           updateRoomSwInfo();
@@ -618,14 +618,14 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
       }).catch(() => {});
     } else if (preselectRoomId) {
       // 이름·좌석수 없이 실습실 id만 있는 구형 링크: 전체 목록을 만들 필요 없이 그 실습실 정보만 받아온다.
-      api({ action: 'roominfo', id: preselectRoomId }).then(res => {
+      requestsApi('/rooms/get', { id: preselectRoomId }).then(res => {
         if (res && res.success && res.room) singleRoomLoaded(res.room);
         else loadAllRoomsList();
       }).catch(() => loadAllRoomsList());
     } else {
       loadAllRoomsList();
     }
-    api({ action: 'maxadvancedays' }).then(res => {
+    requestsApi('/policy/max-advance-days', {}).then(res => {
       if (res && res.days) {
         maxAdvanceDays = res.days;
         refreshDurationLimits();
@@ -667,7 +667,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--k
   }
 
   function loadAllRoomsList() {
-    api({ action: 'rooms' }).then(res => roomsLoaded((res && res.rooms) || []))
+    requestsApi('/rooms/list', {}).then(res => roomsLoaded((res && res.rooms) || []))
       .catch(() => roomsLoaded([], true));
   }
 

@@ -4064,7 +4064,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     var API_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec?action=adminApi';
     var CLOUD_RUN_URL = 'https://haeram-login-service-94518684657.asia-northeast3.run.app';
     var REQUESTS_URL = 'https://haeram-requests-service-94518684657.asia-northeast3.run.app';
-    var WHITELIST = ['addAdmin','applyGeminiModel','calcWorkerSlots','checkSuperAdmin','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteRoom','deleteWorker','extractPcNumbersFromNotes','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getAdminList','getBackupSettings','getCleanWebAppUrl','getCurrentDashboardLink','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getRoomList','getRoomListForAdmin','getRoomSwCodes','getSwMasterList','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeeklyReportSummary','getWeeklySchedule','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDashboardLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','manualBackupNow','markModelExhausted','rejectInspection','removeAdmin','requestAuthCode','resolveInspection','resolveIssueItem','returnLostFoundItem','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveRoom','saveRoomSwCodes','saveSwMaster','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','switchGeminiModel','uploadFaqImage','verifyAuthCode'];
+    var WHITELIST = ['addAdmin','applyGeminiModel','calcWorkerSlots','checkSuperAdmin','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteWorker','extractPcNumbersFromNotes','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getAdminList','getBackupSettings','getCleanWebAppUrl','getCurrentDashboardLink','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeeklyReportSummary','getWeeklySchedule','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDashboardLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','manualBackupNow','markModelExhausted','rejectInspection','removeAdmin','requestAuthCode','resolveInspection','resolveIssueItem','returnLostFoundItem','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','switchGeminiModel','uploadFaqImage','verifyAuthCode'];
 
     function callCloudRun(url, path, body, successFn, failureFn) {
       fetch(url + path, {
@@ -4138,6 +4138,33 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         },
         commitTimetable: function(token, roomId, classes) {
           callCloudRun(REQUESTS_URL, '/admin/regular-classes/commit', { token: token, roomId: roomId, classes: classes }, successFn, failureFn);
+        },
+        getRoomList: function() {
+          // 과거 GAS 버전은 배열을 바로 반환했으므로, 응답을 그대로 언랩해서 호환 유지
+          callCloudRun(REQUESTS_URL, '/rooms/list', {}, function(data) {
+            if (successFn) successFn((data && data.rooms) || []);
+          }, failureFn);
+        },
+        getRoomListForAdmin: function(token) {
+          callCloudRun(REQUESTS_URL, '/admin/rooms/list-admin', { token: token }, successFn, failureFn);
+        },
+        saveRoom: function(token, room) {
+          callCloudRun(REQUESTS_URL, '/admin/rooms/save', { token: token, room: room }, successFn, failureFn);
+        },
+        deleteRoom: function(token, roomId) {
+          callCloudRun(REQUESTS_URL, '/admin/rooms/delete', { token: token, roomId: roomId }, successFn, failureFn);
+        },
+        getRoomSwCodes: function(token, roomId) {
+          callCloudRun(REQUESTS_URL, '/admin/rooms/sw-codes/get', { token: token, roomId: roomId }, successFn, failureFn);
+        },
+        saveRoomSwCodes: function(token, roomId, codes) {
+          callCloudRun(REQUESTS_URL, '/admin/rooms/sw-codes/save', { token: token, roomId: roomId, codes: codes }, successFn, failureFn);
+        },
+        getSwMasterList: function(token) {
+          callCloudRun(REQUESTS_URL, '/admin/sw-master/list', { token: token }, successFn, failureFn);
+        },
+        saveSwMaster: function(token, items) {
+          callCloudRun(REQUESTS_URL, '/admin/sw-master/save', { token: token, items: items }, successFn, failureFn);
         }
       };
       WHITELIST.forEach(function(name) {
