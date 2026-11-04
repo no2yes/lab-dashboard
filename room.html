@@ -367,12 +367,13 @@
 
 <script>
   // 정적 페이지(GitHub Pages)에서 직접 GAS JSON API를 호출 — google.script.run 대신 fetch 사용
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
+  const REQUESTS_URL = 'https://haeram-requests-service-94518684657.asia-northeast3.run.app';
   const ROOM_ID = new URLSearchParams(location.search).get('id') || '';
 
-  function api(params) {
-    const q = Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&');
-    return fetch(GAS_URL + '?page=api&' + q + '&_=' + Date.now()).then(r => r.json());
+  function requestsApi(path, body) {
+    return fetch(REQUESTS_URL + path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {})
+    }).then(r => r.json());
   }
 
   // 시간표 설정
@@ -396,7 +397,7 @@
 
   function init() {
     // 실습실 정보 + 시간표 동시 로딩
-    api({ action: 'roominfo', id: ROOM_ID })
+    requestsApi('/rooms/get', { id: ROOM_ID })
       .then(res => {
         if (!res || !res.success || !res.room) {
           showError('실습실을 찾을 수 없습니다.', 'ID: ' + ROOM_ID);
@@ -579,7 +580,7 @@
         '<div class="schedule-loading"><span class="loading"></span> 시간표 불러오는 중...</div>';
     }
 
-    api({ action: 'roomschedule', id: ROOM_ID, week: monday })
+    requestsApi('/requests/schedule', { roomId: ROOM_ID, week: monday })
       .then(function(res) {
         finishActiveGauge();
         onScheduleLoaded(res);
@@ -729,8 +730,7 @@
   }
 
   function goToRequest() {
-    // 더 이상 iframe 안에서 돌지 않으므로(순수 정적 페이지), 바로 이동
-    window.location.href = GAS_URL + '?room=' + encodeURIComponent(ROOM_ID);
+    window.location.href = 'request.html?room=' + encodeURIComponent(ROOM_ID);
   }
 
   function showError(title, msg) {

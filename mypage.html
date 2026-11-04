@@ -205,14 +205,7 @@ input:focus { outline: none; border-color: var(--knu-primary); box-shadow: 0 0 0
 </div>
 
 <script>
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
-
-  function api(params) {
-    const q = Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&');
-    return fetch(GAS_URL + '?page=api&' + q + '&_=' + Date.now()).then(r => r.json());
-  }
-
-  // 신청 조회/취소는 Cloud Run 신청 처리 서비스로 직접 호출 (실습실 목록 등은 그대로 GAS)
+  // 이 페이지는 더 이상 GAS를 호출하지 않음 — 전부 Cloud Run 신청 처리 서비스로 직접 호출
   const REQUESTS_URL = 'https://haeram-requests-service-94518684657.asia-northeast3.run.app';
   function requestsApi(path, body) {
     return fetch(REQUESTS_URL + path, {
@@ -228,7 +221,7 @@ input:focus { outline: none; border-color: var(--knu-primary); box-shadow: 0 0 0
   const PREFILL_EMAIL = qs.get('email') || '';
 
   window.addEventListener('load', () => {
-    api({ action: 'rooms' }).then(res => {
+    requestsApi('/rooms/list', {}).then(res => {
       ((res && res.rooms) || []).forEach(r => { roomMap[r.id] = r.name; });
     });
 
