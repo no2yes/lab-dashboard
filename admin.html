@@ -3710,22 +3710,22 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       <div class="admin-tools" id="dashboardCard" style="flex-direction:column;align-items:stretch;">
         <div class="tool-info" style="margin-bottom:10px;">
           <strong>🖥️ 컴퓨터실습실 현황판</strong>
-          <span class="tool-desc">로그인 없이 실습실 가용 현황을 실시간으로 보여주는 공개 화면입니다. 복도 모니터·태블릿 등에 띄워두기 좋습니다.</span>
+          <span class="tool-desc">로그인 없이 실습실 가용 현황을 실시간으로 보여주는 공개 화면입니다. 복도 모니터·태블릿 등에 띄워두기 좋습니다. 더 이상 토큰 발급이 필요 없고, 아래 주소는 고정되어 있습니다.</span>
         </div>
         <div class="subcard subcard-column">
-          <div id="dashboardLinkArea" style="font-size:12px;color:var(--t4);">현재 링크 확인 중...</div>
-          <button class="tool-btn tool-btn-wide" onclick="copyDashboardLinkUI(false)">대시보드 링크복사</button>
-          <button class="tool-btn tool-btn-wide" onclick="copyDashboardLinkUI(true)">전광판게시용 대시보드 링크복사</button>
+          <button class="tool-btn tool-btn-wide" onclick="copyDashboardLinkUI(false)">학생용 현황판 링크복사</button>
+          <button class="tool-btn tool-btn-wide" onclick="copyDashboardLinkUI(true)">전광판게시용(DID) 링크복사</button>
         </div>
       </div>
 
-      <!-- 실습실 현황판 — 긴급 조치 (평소엔 건드리지 않음) -->
+      <!-- 실습실 현황판 — 공개 긴급 차단 -->
       <div class="admin-tools" id="dashboardDangerCard" style="flex-direction:column;align-items:stretch;border:1px solid rgba(248,113,113,0.4);background:rgba(248,113,113,0.1);">
         <div class="tool-info" style="margin-bottom:10px;">
-          <strong style="color:var(--danger-text);">🚨 현황판 링크 긴급 차단</strong>
-          <span class="tool-desc">토큰 유출·오남용이 실제로 의심되는 <b>비상 상황에서만</b> 사용하세요. 실행하는 순간 지금 게시 중인 모든 전광판과 학생들이 쓰고 있는 링크가 전부 즉시 끊깁니다. 평소 정기 교체 용도가 아닙니다.</span>
+          <strong style="color:var(--danger-text);">🚨 현황판 공개 긴급 차단</strong>
+          <span class="tool-desc">오남용·과도한 호출이 의심되는 비상 상황에서, 아래 스위치 하나로 현황판 3종(학생용·DID·전체 시간표)의 공개를 즉시 켜고 끌 수 있습니다. 링크 재발급이 필요 없고, 다시 켜면 그 즉시 복구됩니다.</span>
         </div>
-        <button class="tool-btn tool-btn-wide" style="background:rgba(248,113,113,0.18);border-color:rgba(248,113,113,0.5);color:var(--danger-text);" onclick="issueDashboardLinkUI()">비상 재발급 (모든 기존 링크 즉시 차단)</button>
+        <div id="dashboardKillStatusText" style="font-size:12px;color:var(--t3);margin-bottom:8px;">상태 확인 중...</div>
+        <button class="tool-btn tool-btn-wide" id="dashboardKillToggleBtn" onclick="onToggleDashboardKillSwitch()" style="display:none;">불러오는 중</button>
       </div>
     </div>
 
@@ -4064,7 +4064,9 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     var API_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec?action=adminApi';
     var CLOUD_RUN_URL = 'https://haeram-login-service-94518684657.asia-northeast3.run.app';
     var REQUESTS_URL = 'https://haeram-requests-service-94518684657.asia-northeast3.run.app';
-    var WHITELIST = ['addAdmin','applyGeminiModel','calcWorkerSlots','checkSuperAdmin','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteWorker','extractPcNumbersFromNotes','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getAdminList','getBackupSettings','getCleanWebAppUrl','getCurrentDashboardLink','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeeklyReportSummary','getWeeklySchedule','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDashboardLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','manualBackupNow','markModelExhausted','rejectInspection','removeAdmin','requestAuthCode','resolveInspection','resolveIssueItem','returnLostFoundItem','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','switchGeminiModel','uploadFaqImage','verifyAuthCode'];
+    var WHITELIST = ['addAdmin','applyGeminiModel','calcWorkerSlots','checkSuperAdmin','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteWorker','extractPcNumbersFromNotes','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getAdminList','getBackupSettings','getCleanWebAppUrl','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeeklyReportSummary','getWeeklySchedule','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','manualBackupNow','markModelExhausted','rejectInspection','removeAdmin','requestAuthCode','resolveInspection','resolveIssueItem','returnLostFoundItem','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','switchGeminiModel','uploadFaqImage','verifyAuthCode'];
+    // getCurrentDashboardLink/issueDashboardLink(GAS)는 더 이상 사용하지 않음 — 현황판 공개에 토큰이 필요 없어졌고,
+    // 긴급 차단은 이제 Cloud Run의 /admin/dashboard/kill-switch/* 로 처리함(위 chain에 추가됨).
 
     function callCloudRun(url, path, body, successFn, failureFn) {
       fetch(url + path, {
@@ -4165,6 +4167,12 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         },
         saveSwMaster: function(token, items) {
           callCloudRun(REQUESTS_URL, '/admin/sw-master/save', { token: token, items: items }, successFn, failureFn);
+        },
+        getDashboardKillSwitch: function(token) {
+          callCloudRun(REQUESTS_URL, '/admin/dashboard/kill-switch/get', { token: token }, successFn, failureFn);
+        },
+        setDashboardKillSwitch: function(token, blocked) {
+          callCloudRun(REQUESTS_URL, '/admin/dashboard/kill-switch/set', { token: token, blocked: blocked }, successFn, failureFn);
         }
       };
       WHITELIST.forEach(function(name) {
@@ -4240,7 +4248,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     initAdvanceLimit();
     initDoorLockSettings();
     loadDoorLockNotices();
-    loadDashboardLink();
+    initDashboardKillSwitch();
   }
 
   let academicLoaded = false;
@@ -5589,59 +5597,74 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
       .getCurrentDoorLockLink(token);
   }
 
-  function loadDashboardLink() {
-    google.script.run
-      .withSuccessHandler(function(res) {
-        const el = document.getElementById('dashboardLinkArea');
-        if (!el) return;
-        if (res && res.expired) { sessionStorage.removeItem('admin_token'); redirectToLogin(); return; }
-        if (!res || !res.success) { el.textContent = '현재 링크를 불러오지 못했습니다.'; return; }
-        if (!res.url) {
-          window._dashboardBaseUrl = '';
-          el.textContent = '아직 발급된 링크가 없습니다. 아래 "긴급 차단" 카드의 버튼으로 최초 발급해주세요.';
-          return;
-        }
-        window._dashboardBaseUrl = res.url;
-        el.innerHTML = '<div style="font-size:12px;color:var(--t4);">✅ 토큰 발급됨 — 아래 버튼으로 복사해서 사용하세요.</div>';
-      })
-      .withFailureHandler(function(err) { console.error('현황판 링크 조회 실패:', err); })
-      .getCurrentDashboardLink(token);
-  }
-
   function copyDashboardLinkUI(isDid) {
-    const base = window._dashboardBaseUrl || '';
-    if (!base) { alert('아직 발급된 링크가 없습니다. 아래 "긴급 차단" 카드의 버튼으로 먼저 발급해주세요.'); return; }
-    const m = base.match(/[?&]t=([^&]+)/);
-    const tok = m ? m[1] : '';
     const page = isDid ? '' : 'dashboard.html';
-    const url = 'https://no2yes.github.io/lab-dashboard/' + page + '?t=' + tok;
+    const url = 'https://no2yes.github.io/lab-dashboard/' + page;
     copyDoorLockLink(url);
   }
 
-  function issueDashboardLinkUI() {
-    const typed = prompt(
-      '⚠️ 지금 게시 중인 모든 전광판(DID)과 학생들이 쓰고 있는 현황판 링크가 이 순간 즉시 끊깁니다.\n\n' +
-      '이 기능은 평소 정기 교체용이 아니라, 토큰 유출·오남용이 실제로 의심되는 비상 상황에서만 사용하세요.\n\n' +
-      '계속하려면 아래에 정확히 "재발급"이라고 입력하세요.'
-    );
-    if (typed !== '재발급') {
-      if (typed !== null) alert('입력이 일치하지 않아 취소되었습니다.');
-      return;
-    }
-    showOverlay('발급 중...');
+  let dashboardBlocked = false;
+
+  function initDashboardKillSwitch() {
     google.script.run
       .withSuccessHandler(function(res) {
-        hideOverlay();
-        if (res && res.expired) { sessionStorage.removeItem('admin_token'); redirectToLogin(); return; }
         if (res && res.success) {
-          showResultModal('success', '발급 완료', res.message);
-          loadDashboardLink();
-        } else {
-          showResultModal('error', '발급 실패', (res && res.message) || '실패했습니다.');
+          dashboardBlocked = !!res.blocked;
+          renderDashboardKillSwitchUI();
+        } else if (res && res.expired) {
+          redirectToLogin();
         }
       })
-      .withFailureHandler(function(err) { hideOverlay(); showResultModal('error', '서버 오류', err.message); })
-      .issueDashboardLink(token);
+      .withFailureHandler(function(err) { console.error('현황판 차단 상태 조회 실패:', err); })
+      .getDashboardKillSwitch(token);
+  }
+
+  function renderDashboardKillSwitchUI() {
+    const txt = document.getElementById('dashboardKillStatusText');
+    const btn = document.getElementById('dashboardKillToggleBtn');
+    if (!txt || !btn) return;
+    if (dashboardBlocked) {
+      txt.textContent = '🔴 현재: 현황판 공개 차단됨';
+      txt.style.color = 'var(--danger-text)';
+      btn.textContent = '차단 해제 (정상 운영으로 복구)';
+    } else {
+      txt.textContent = '🟢 현재: 정상 운영 중 (평소 상태)';
+      txt.style.color = 'var(--ok-text)';
+      btn.textContent = '지금 즉시 공개 차단';
+    }
+    btn.style.display = '';
+  }
+
+  function onToggleDashboardKillSwitch() {
+    const next = !dashboardBlocked;
+    if (next) {
+      if (!confirm('현황판(학생용·DID·전체 시간표) 공개를 지금 즉시 차단하시겠습니까?\n차단 중에는 모든 방문자에게 "일시 중단" 안내만 표시됩니다.')) return;
+    } else {
+      if (!confirm('현황판 공개를 다시 정상 운영으로 되돌리시겠습니까?')) return;
+    }
+    const btn = document.getElementById('dashboardKillToggleBtn');
+    btn.disabled = true;
+    btn.textContent = '처리 중...';
+    google.script.run
+      .withSuccessHandler(function(res) {
+        btn.disabled = false;
+        if (res && res.success) {
+          dashboardBlocked = res.blocked;
+          renderDashboardKillSwitchUI();
+          showResultModal('success', '변경 완료', res.message);
+        } else if (res && res.expired) {
+          redirectToLogin();
+        } else {
+          renderDashboardKillSwitchUI();
+          showResultModal('error', '변경 실패', (res && res.message) || '실패했습니다.');
+        }
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled = false;
+        renderDashboardKillSwitchUI();
+        showResultModal('error', '서버 오류', err.message);
+      })
+      .setDashboardKillSwitch(token, next);
   }
 
   function loadDoorLockNotices() {

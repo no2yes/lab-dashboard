@@ -424,13 +424,15 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   <div class="footer">실습실 현황판으로 돌아가기 · <a class="footer-link" id="backLink" href="dashboard.html">실습실 현황판</a><br><span style="opacity:0.6;font-size:11px;">페이지 버전: 2611012353</span></div>
 
 <script>
-  // ▼▼▼ GAS 배포 주소 (dashboard.html / index.html과 동일) ▼▼▼
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
-  // ▲▲▲
+  const REQUESTS_URL = 'https://haeram-requests-service-94518684657.asia-northeast3.run.app';
+  function requestsApi(path, body) {
+    return fetch(REQUESTS_URL + path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {})
+    }).then(r => r.json());
+  }
 
-  const TOKEN = new URLSearchParams(location.search).get('t') || '';
   const backLinkEl = document.getElementById('backLink');
-  if (backLinkEl) backLinkEl.href = 'dashboard.html' + (TOKEN ? ('?t=' + encodeURIComponent(TOKEN)) : '');
+  if (backLinkEl) backLinkEl.href = 'dashboard.html';
 
   const START_HOUR = 9, END_HOUR = 22, SLOT_MIN = 30;
   let dayOffset = 0;
@@ -578,7 +580,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   // 날짜를 넘길 때 "이전 날짜의 수업"이 잠깐 겹쳐 보이는 걸 막기 위해,
   // 실제 수업·예약 데이터는 캐시하지 않고 "실습실 목록(틀)"만 캐시해서
   // 매번 빈 틀을 먼저 그린 뒤, 데이터가 도착하면 그 자리에 페이드인시킨다.
-  const ROOMS_CACHE_KEY = 'allrooms_rooms_' + TOKEN;
+  const ROOMS_CACHE_KEY = 'allrooms_rooms_v2';
   function getCachedRooms() {
     try { return JSON.parse(localStorage.getItem(ROOMS_CACHE_KEY) || 'null'); } catch (e) { return null; }
   }
@@ -671,8 +673,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     } else {
       setArArea('<div class="aw-loading">불러오는 중...</div>');
     }
-    fetch(GAS_URL + '?page=api&action=allrooms&t=' + encodeURIComponent(TOKEN) + '&dayOffset=' + reqOffset)
-      .then(res => res.json())
+    requestsApi('/dashboard/all-rooms', { dayOffset: reqOffset })
       .then(function(res) {
         if (seq !== loadSeq) return;   // 더 최신 조회가 있으면 이 응답은 버림
         render(res, reqOffset);

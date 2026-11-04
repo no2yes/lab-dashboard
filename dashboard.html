@@ -679,8 +679,12 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script>
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec';
-  const TOKEN = new URLSearchParams(location.search).get('t') || '';
+  const REQUESTS_URL = 'https://haeram-requests-service-94518684657.asia-northeast3.run.app';
+  function requestsApi(path, body) {
+    return fetch(REQUESTS_URL + path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {})
+    }).then(r => r.json());
+  }
 
   // 실습실 사용신청 — GAS 쪽 기본 페이지(?page 없음 = 신청서)로 새 탭 이동
 
@@ -702,7 +706,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   window.addEventListener('resize', scheduleFit);
   window.addEventListener('load', scheduleFit);
   const allRoomsLinkEl = document.getElementById('allRoomsLink');
-  if (allRoomsLinkEl) allRoomsLinkEl.href = 'allrooms.html' + (TOKEN ? ('?t=' + encodeURIComponent(TOKEN)) : '');
+  if (allRoomsLinkEl) allRoomsLinkEl.href = 'allrooms.html';
 
   // 폰 접속 QR — PC로 이 현황판을 보고 있을 때, 같은 화면을 내 스마트폰으로도 바로 열 수 있게 안내
   const QR_AUTO_CLOSE_SEC = 300; // 5분 뒤 자동으로 닫힘
@@ -710,7 +714,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   let qrCountdownTimer = null;
 
   function openQrModal() {
-    const url = location.origin + location.pathname + (TOKEN ? ('?t=' + encodeURIComponent(TOKEN)) : '');
+    const url = location.origin + location.pathname;
     const box = document.getElementById('qrModalBox');
     box.innerHTML = '';
     try {
@@ -754,15 +758,14 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   }
 
   // 직전 화면을 즉시 보여주고(0초 대기) 그 사이에 최신 데이터를 가져와 교체 — "불러오는 중" 공백을 없앰
-  const DASH_CACHE_KEY = 'dash_lastData_' + TOKEN;
+  const DASH_CACHE_KEY = 'dash_lastData_v2';
   function renderCachedSnapshotIfAny() {
     let cached = null;
     try { cached = JSON.parse(localStorage.getItem(DASH_CACHE_KEY) || 'null'); } catch (e) {}
     if (cached) render(cached, true);
   }
   function load() {
-    fetch(GAS_URL + '?page=api&action=dashboard&t=' + encodeURIComponent(TOKEN))
-      .then(res => res.json())
+    requestsApi('/dashboard/status', {})
       .then(function(res) {
         render(res);
         if (res && res.success) {
@@ -814,8 +817,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
   };
 
   // 현장조사(outdoor-survey.html)로 모인 측정값이 기준을 넘긴 건물은 위 기본 좌표를 자동으로 덮어씀
-  fetch(GAS_URL + '?page=api&action=buildingcoords&t=' + encodeURIComponent(TOKEN))
-    .then(function (r) { return r.json(); })
+  requestsApi('/dashboard/building-coords', {})
     .then(function (res) {
       if (res && res.success && res.coords) {
         Object.keys(res.coords).forEach(function (code) { BUILDING_COORDS[code] = res.coords[code]; });
