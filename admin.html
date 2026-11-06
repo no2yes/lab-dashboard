@@ -4064,7 +4064,7 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
     var API_URL = 'https://script.google.com/macros/s/AKfycbzdFualGxneSbdscvcDxOnIXqqYq2zoK6uZe_c10zog07Cew6F8HUzjNeN7cCnuZ9C0/exec?action=adminApi';
     var CLOUD_RUN_URL = 'https://haeram-login-service-94518684657.asia-northeast3.run.app';
     var REQUESTS_URL = 'https://haeram-requests-service-94518684657.asia-northeast3.run.app';
-    var WHITELIST = ['applyGeminiModel','calcWorkerSlots','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteWorker','extractPcNumbersFromNotes','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getBackupSettings','getCleanWebAppUrl','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeeklyReportSummary','getWeeklySchedule','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','manualBackupNow','markModelExhausted','rejectInspection','resolveInspection','resolveIssueItem','returnLostFoundItem','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','switchGeminiModel','uploadFaqImage'];
+    var WHITELIST = ['applyGeminiModel','calcWorkerSlots','copyFaqToRooms','deleteDoorLockNotice','deleteFaq','deleteWorker','extractPcNumbersFromNotes','findLatestGeminiModel','generateAllReportQr','generateSingleRoomQr','getBackupSettings','getCleanWebAppUrl','getCurrentDoorLockLink','getDoorLockNotices','getDoorLockSettings','getFreeRoomsAt','getInspections','getLostFoundItems','getMonthlyReport','getPcIssueHistory','getReportPreviewUrl','getRoomFaqsForAdmin','getRoomIssueNotes','getSystemUsage','getUninspectedRoomsThisWeek','getUnresolvedIssuesByRoom','getWebAppUrl','getWeeklyReportSummary','getWorkGridData','getWorkSchedule','getWorkerList','getWorkerPeriod','issueAdminInspectLink','issueDoorLockLink','issueInspectLink','issueUploadPageLink','issueWorkerToken','listBackups','listGeminiModelsWithUsage','manualBackupNow','markModelExhausted','rejectInspection','resolveInspection','resolveIssueItem','returnLostFoundItem','saveBackupSettings','saveDoorLockNotice','saveDoorLockSettings','saveFaq','saveWorkSchedule','saveWorkerInfo','saveWorkerPeriod','switchGeminiModel','uploadFaqImage'];
     // getCurrentDashboardLink/issueDashboardLink(GAS)는 더 이상 사용하지 않음 — 현황판 공개에 토큰이 필요 없어졌고,
     // 긴급 차단은 이제 Cloud Run의 /admin/dashboard/kill-switch/* 로 처리함(위 chain에 추가됨).
     // addAdmin/checkSuperAdmin/getAdminList/removeAdmin/requestAuthCode/verifyAuthCode(GAS)도 더 이상 사용하지 않음 —
@@ -4151,6 +4151,9 @@ select optgroup { color: var(--t3) !important; font-weight: 700; font-style: nor
         },
         getRoomTimetable: function(token, roomId) {
           callCloudRun(REQUESTS_URL, '/admin/regular-classes/get', { token: token, roomId: roomId }, successFn, failureFn);
+        },
+        getWeeklySchedule: function(roomId, week) {
+          callCloudRun(REQUESTS_URL, '/requests/schedule', { roomId: roomId, week: week }, successFn, failureFn);
         },
         parseTimetableFile: function(token, base64Data, fileName) {
           callCloudRun(REQUESTS_URL, '/admin/timetable/parse', { token: token, base64Data: base64Data, fileName: fileName }, successFn, failureFn);
